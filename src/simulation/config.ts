@@ -35,6 +35,7 @@ export const ARMOR: Record<number, number> = {
     0: 0.4, // Tank: 40% reduction
     1: 0.1, // Archer: 10% reduction
     2: 0.0, // Mage: 0% reduction
+    3: 0.05, // Healer: 5% reduction
 };
 
 // ============ DEFENSE BUFF ============
@@ -45,6 +46,7 @@ export const HP_PER_TYPE: Record<number, number> = {
     0: 650, // Tank
     1: 240, // Archer
     2: 210, // Mage 210
+    3: 200, // Healer
 };
 
 // ============ ATTRIBUT PER TYPE ============
@@ -76,6 +78,13 @@ export const ATTRIBUTES: Record<number, UnitAttributes> = {
         attackRange: 12.0,
         baseDamage: 11,
         attackInterval: 60,
+    },
+    3: {
+        // Healer — mid speed, mid range, base heal power
+        moveSpeed: 0.024,
+        attackRange: 8.0,
+        baseDamage: 12, // heal amount
+        attackInterval: 50,
     },
 };
 
@@ -155,4 +164,24 @@ export const MAGE_SKILLS = {
         radius: 3.5,        // radius AoE splash
         cooldown: 900,      // cooldown (~14.4 detik) — ini ulti
     },
+};
+
+// ============ HEALER SKILLS ============
+export const HEALER_SKILLS = {
+    // Skill 1: Rejuvenation — Single target heal
+    rejuvenation: {
+        healAmount: 35,
+        cooldown: 180, // ~3 detik
+    },
+    // Skill 2: Divine Shield — Buff pertahanan (effectState = -100 ticks)
+    divineShield: {
+        cooldown: 280, // ~4.5 detik
+        durationTicks: 100, // durasi shield
+    },
+    // Skill 3: Holy Sanctuary — AoE heal
+    holySanctuary: {
+        radius: 5.0,
+        healAmount: 20,
+        cooldown: 450, // ~7.2 detik
+    }
 };

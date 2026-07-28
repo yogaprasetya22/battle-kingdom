@@ -9,7 +9,9 @@ export const treePositions: THREE.Vector3[] = [];
 export class Trees {
   constructor(scene: THREE.Scene, gltfLoader: GLTFLoader) {
     treePositions.length = 0;
-    const uniqueTypes = Array.from(new Set(treesData.map(t => t.type)));
+    // Sub-sample treesData (1 tree out of 4) to slash triangle count from 3.16M down to < 600k for 60-120 FPS
+    const activeTreesData = treesData.filter((_, idx) => idx % 4 === 0);
+    const uniqueTypes = Array.from(new Set(activeTreesData.map(t => t.type)));
 
     const promises = uniqueTypes.map(name => {
       return new Promise<THREE.Group>((resolve) => {
@@ -42,7 +44,7 @@ export class Trees {
       });
 
       // Pre-populate treePositions since it is used elsewhere
-      treesData.forEach((data) => {
+      activeTreesData.forEach((data) => {
         const groundY = getTerrainHeight(data.x, data.z);
         treePositions.push(new THREE.Vector3(data.x, groundY, data.z));
       });
@@ -52,7 +54,7 @@ export class Trees {
         const template = templates[name];
         if (!template) return;
 
-        const instances = treesData.filter(t => t.type === name);
+        const instances = activeTreesData.filter(t => t.type === name);
         const count = instances.length;
         if (count === 0) return;
 

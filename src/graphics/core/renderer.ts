@@ -28,6 +28,7 @@ import {
 
 import type { UnitVisual } from "./types";
 import { scene, camera, renderer, controls, gltfLoader } from "./scene";
+import { soundFX } from "./SoundFX";
 import { World } from "../scenery/World";
 import {
     hpBarsBg,
@@ -53,6 +54,9 @@ import {
     spawnIronFortitudeAuraFX,
     spawnBasicAttackFX,
     spawnIceShatterFX,
+    spawnHealFX,
+    spawnDivineShieldFX,
+    spawnHolySanctuaryFX,
     updateFX,
     canSpawnFX,
     effectUniforms,
@@ -61,6 +65,8 @@ import {
 // Global shared materials
 let teamMatA: THREE.MeshStandardMaterial | null = null;
 let teamMatB: THREE.MeshStandardMaterial | null = null;
+let healerMatA: THREE.MeshStandardMaterial | null = null;
+let healerMatB: THREE.MeshStandardMaterial | null = null;
 let stunMat: THREE.MeshStandardMaterial | null = null;
 let buffMatA: THREE.MeshStandardMaterial | null = null;
 let buffMatB: THREE.MeshStandardMaterial | null = null;
@@ -153,6 +159,7 @@ function getModelsForMatchup(baseModel: string): {
 
 export function changeModel(
     modelName: string,
+    matchup: string,
     onLoadComplete?: () => void,
     onError?: () => void,
 ) {
@@ -171,6 +178,8 @@ export function changeModel(
     // Dispose old materials to prevent texture/VRAM leaks on model change
     teamMatA?.dispose();
     teamMatB?.dispose();
+    healerMatA?.dispose();
+    healerMatB?.dispose();
     buffMatA?.dispose();
     buffMatB?.dispose();
     stunMat?.dispose();
@@ -220,6 +229,18 @@ export function changeModel(
             teamMatA!.color.setHex(0xff3333);
             teamMatB!.color.setHex(0x3366ff);
 
+            // Healer: white base + soft team emissive glow
+            healerMatA = originalMat
+                ? (originalMat as any).clone()
+                : new THREE.MeshStandardMaterial({ color: 0xffffff });
+            healerMatB = originalMat
+                ? (originalMat as any).clone()
+                : new THREE.MeshStandardMaterial({ color: 0xffffff });
+            healerMatA!.color.setHex(0xffffff);
+            healerMatB!.color.setHex(0xffffff);
+            if ((healerMatA as any).emissive) (healerMatA as any).emissive.setHex(0x551111);
+            if ((healerMatB as any).emissive) (healerMatB as any).emissive.setHex(0x111155);
+
             // Buat material efek dengan mengkloning material asli agar deformasi tulang tidak rusak/hilang
             buffMatA = originalMat ? (originalMat as any).clone() : new THREE.MeshStandardMaterial();
             buffMatB = originalMat ? (originalMat as any).clone() : new THREE.MeshStandardMaterial();
@@ -256,13 +277,25 @@ export function changeModel(
             try {
                 for (let i = 0; i < UNIT_COUNT; i++) {
                     const team = i < TEAM_SIZE ? TEAM_A : 1;
-                    const uType = sharedData
-                        ? sharedData[i * STRIDE + IDX_TYPE]
-                        : (i % 100) % 3;
+                    const localIdx = i < TEAM_SIZE ? i : i - TEAM_SIZE;
+                    let uType = localIdx % 4;
+                    if (matchup === "mage_vs_tank") {
+                        uType = team === TEAM_A ? 2 : 0;
+                    } else if (matchup === "archer_vs_tank") {
+                        uType = team === TEAM_A ? 1 : 0;
+                    } else if (matchup === "mage_vs_archer") {
+                        uType = team === TEAM_A ? 2 : 1;
+                    } else if (matchup === "only_mage") {
+                        uType = 2;
+                    } else if (matchup === "only_archer") {
+                        uType = 1;
+                    } else if (matchup === "only_tank") {
+                        uType = 0;
+                    }
 
                     let targetGLTF = gltfTank;
                     if (uType === 1) targetGLTF = gltfArcher;
-                    else if (uType === 2) targetGLTF = gltfMage;
+                    else if (uType === 2 || uType === 3) targetGLTF = gltfMage; // Healers share Mage visual model base
 
                     const clonedScene = SkeletonUtils.clone(
                         targetGLTF.scene,
@@ -274,7 +307,9 @@ export function changeModel(
                         if (child.isMesh) {
                             const mesh = child as THREE.Mesh;
                             mesh.material =
-                                team === TEAM_A ? teamMatA! : teamMatB!;
+                                uType === 3
+                                    ? (team === TEAM_A ? healerMatA! : healerMatB!)
+                                    : (team === TEAM_A ? teamMatA! : teamMatB!);
                             meshes.push(mesh);
                         }
                     });
@@ -337,6 +372,7 @@ export function changeModel(
                         currentEffectState: 0,
                         meshes,
                         team,
+                        accumulatedDelta: 0,
                     });
                 }
 
@@ -435,6 +471,18 @@ export function spawnSkillFX(event: { skill: string; [key: string]: any }) {
             event.ty,
             event.tz,
         );
+    } else if (event.skill === "basicHeal") {
+        soundFX.playHeal(event.fx, event.fy, event.fz, camera.position);
+        spawnHealFX(scene, new THREE.Vector3(event.fx, event.fy, event.fz), new THREE.Vector3(event.tx, event.ty, event.tz), false);
+    } else if (event.skill === "rejuvenation") {
+        soundFX.playHeal(event.fx, event.fy, event.fz, camera.position);
+        spawnHealFX(scene, new THREE.Vector3(event.fx, event.fy, event.fz), new THREE.Vector3(event.tx, event.ty, event.tz), true);
+    } else if (event.skill === "divineShield") {
+        soundFX.playHeal(event.fx, event.fy, event.fz, camera.position);
+        spawnDivineShieldFX(scene, new THREE.Vector3(event.tx, event.ty, event.tz));
+    } else if (event.skill === "holySanctuary") {
+        soundFX.playHeal(event.x, event.y, event.z, camera.position);
+        spawnHolySanctuaryFX(scene, new THREE.Vector3(event.x, event.y, event.z));
     }
 }
 
@@ -446,6 +494,7 @@ const _forward    = new THREE.Vector3();
 const _lookTarget = new THREE.Vector3();
 const _q1         = new THREE.Quaternion();
 let   _hpThrottle = 0; // HP bar update every 2nd frame
+let   animFrameCount = 0;
 
 // Lerp speed: nilai 1.0 = langsung snap, 0.1 = smooth.  ~12 = responsive tapi tanpa jitter.
 const LERP_SPEED = 12;
@@ -462,6 +511,7 @@ function updateFrame(data: Float32Array, delta: number) {
     _right.set(1, 0, 0).applyQuaternion(camera.quaternion);
     _forward.set(0, 0, 1).applyQuaternion(camera.quaternion);
     _hpThrottle = (_hpThrottle + 1) & 1; // toggle 0/1 each frame
+    animFrameCount++;
 
     // Build frustum ONCE per frame from current camera matrices
     _projScreen.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
@@ -506,6 +556,7 @@ function updateFrame(data: Float32Array, delta: number) {
         if (uType === 0) scale = 0.85;
         else if (uType === 1) scale = 0.42;
         else if (uType === 2) scale = 0.6;
+        else if (uType === 3) scale = 0.5; // Healer scale
 
         if (hp < -10) {
             unit.root.position.set(x, -999, z);
@@ -644,17 +695,38 @@ function updateFrame(data: Float32Array, delta: number) {
             }
         }
 
+        // Accumulate delta time for correct animation speed when throttled
+        unit.accumulatedDelta += delta;
+
         // Update mixer jika unit hidup ATAU sedang memainkan animasi mati (elapsed < 2000ms)
         const isDying = hp <= 0 && hp >= -10 && unit.deathTime && (performance.now() - unit.deathTime < 2000);
         if (isDying) {
-            unit.mixer.update(delta);
+            unit.mixer.update(unit.accumulatedDelta);
+            unit.accumulatedDelta = 0;
         } else if (hp > 0) {
-            // Update mixer berselang-seling ganjil/genap untuk memangkas CPU skinning overhead ~50%
-            // Hanya update jika unit sedang terlihat oleh kamera (unit.root.visible === true)
-            if (unit.root.visible && ((i + _hpThrottle) & 1) === 0) {
-                if (effect <= 0) {
-                    unit.mixer.update(delta * 2);
+            let updateInterval = 1;
+            if (!unit.root.visible) {
+                updateInterval = 12; // off-screen: update every 12 frames
+            } else {
+                const dx = x - camera.position.x;
+                const dy = y - camera.position.y;
+                const dz = z - camera.position.z;
+                const distSq = dx * dx + dy * dy + dz * dz;
+
+                if (distSq < 225) {
+                    updateInterval = 1;  // dekat (<15u): update tiap frame
+                } else if (distSq < 900) {
+                    updateInterval = 2;  // sedang (15-30u): update tiap 2 frame
+                } else {
+                    updateInterval = 4;  // jauh (>=30u): update tiap 4 frame
                 }
+            }
+
+            if ((animFrameCount + i) % updateInterval === 0) {
+                if (effect <= 0) {
+                    unit.mixer.update(unit.accumulatedDelta);
+                }
+                unit.accumulatedDelta = 0;
             }
         }
 
@@ -826,9 +898,10 @@ export function stopRenderLoop() {
 }
 
 export function resetUnitsVisual() {
-    units.forEach((unit) => {
+    units.forEach((unit, i) => {
         unit.currentAnimState = 0;
         unit.currentEffectState = 0;
+        unit.accumulatedDelta = 0;
         unit.deathTime = undefined;
         if ((unit as any).iceMesh) {
             const ice = (unit as any).iceMesh;
@@ -836,6 +909,15 @@ export function resetUnitsVisual() {
             ice.geometry.dispose();
             (ice.material as THREE.Material).dispose();
             (unit as any).iceMesh = null;
+        }
+        // Restore default team materials to prevent units staying white/buffed on reset
+        const uType = sharedData ? sharedData[i * STRIDE + IDX_TYPE] : 0;
+        let defaultMat = unit.team === TEAM_A ? teamMatA! : teamMatB!;
+        if (uType === 3) {
+            defaultMat = unit.team === TEAM_A ? healerMatA! : healerMatB!;
+        }
+        for (let m = 0; m < unit.meshes.length; m++) {
+            unit.meshes[m].material = defaultMat;
         }
         if (unit.mixer) {
             unit.mixer.stopAllAction();

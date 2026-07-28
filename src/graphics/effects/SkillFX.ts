@@ -7,6 +7,7 @@
 
 import * as THREE from "three";
 import { camera } from "../core/scene";
+import { soundFX } from "../core/SoundFX";
 
 // ═══════════════════════════════════════════════════════════════
 // Easing curves — cheap math, big visual upgrade
@@ -338,6 +339,7 @@ export function spawnLightningFX(
     team?: number,
 ): void {
     if (points.length < 2) return;
+    soundFX.playLightning(points[0].x, points[0].y, points[0].z, camera.position);
     const SEGMENTS = 8; // 8 segments per hop
 
     const isBlue = team === 1;
@@ -1808,14 +1810,17 @@ export function spawnBasicAttackFX(
     ty: number,
     tz: number,
 ) {
+    if (!canSpawnFX()) return;
     const start = new THREE.Vector3(fx, fy, fz);
     const end = new THREE.Vector3(tx, ty, tz);
 
     if (uType === 0) {
         // Tank: Melee impact spark/slash at target position immediately
+        soundFX.playSlash(end.x, end.y, end.z, camera.position);
         spawnExplosion(scene, end, 0xffdd66, 6, 0.1);
     } else if (uType === 1) {
         // Archer: Single arrow projectile
+        soundFX.playBow(start.x, start.y, start.z, camera.position);
         let age = 0;
         const flight = 0.24; // slightly faster than double shot
         let mesh: THREE.Mesh | null = null;
@@ -1854,6 +1859,7 @@ export function spawnBasicAttackFX(
         });
     } else if (uType === 2) {
         // Mage: Small glowing magic projectile
+        soundFX.playMagicCast(start.x, start.y, start.z, camera.position);
         let age = 0;
         const flight = 0.35; // slower than arrow
         let mesh: THREE.Mesh | null = null;
@@ -1897,6 +1903,7 @@ export function spawnIceShatterFX(
     y: number,
     z: number,
 ) {
+    soundFX.playIceShatter(x, y, z, camera.position);
     const shardGeo = new THREE.ConeGeometry(0.12, 0.35, 4);
     const shardMat = new THREE.MeshStandardMaterial({
         color: 0xaae5ff,
@@ -1980,5 +1987,174 @@ export function spawnIceShatterFX(
             }
             return true;
         },
+    });
+}
+
+export function spawnHealFX(
+    scene: THREE.Scene,
+    start: THREE.Vector3,
+    end: THREE.Vector3,
+    isRejuvenation: boolean = false
+) {
+    const color = isRejuvenation ? 0x00ff88 : 0x33ff66; // bright neon green / mint green
+
+    // Glowing line or cylinder beam between start and end
+    const distance = start.distanceTo(end);
+    const geo = new THREE.CylinderGeometry(0.04, 0.04, distance, 6);
+    const mat = new THREE.MeshBasicMaterial({
+        color: color,
+        transparent: true,
+        opacity: 0.8,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+    });
+
+    const beam = new THREE.Mesh(geo, mat);
+    beam.position.copy(start).add(end).multiplyScalar(0.5);
+    beam.lookAt(end);
+    beam.rotateX(Math.PI / 2);
+    scene.add(beam);
+
+    // Spawn floating green sparkles at the target (end)
+    const sparkleCount = isRejuvenation ? 15 : 7;
+    const sparkles: THREE.Mesh[] = [];
+    const sparkleVels: THREE.Vector3[] = [];
+
+    const sGeo = new THREE.DodecahedronGeometry(0.08);
+    const sMat = new THREE.MeshBasicMaterial({
+        color: color,
+        transparent: true,
+        opacity: 0.9,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+    });
+
+    for (let i = 0; i < sparkleCount; i++) {
+        const sp = new THREE.Mesh(sGeo, sMat);
+        sp.position.copy(end).add(new THREE.Vector3(
+            (Math.random() - 0.5) * 0.6,
+            Math.random() * 0.5,
+            (Math.random() - 0.5) * 0.6
+        ));
+        scene.add(sp);
+        sparkles.push(sp);
+        sparkleVels.push(new THREE.Vector3(
+            (Math.random() - 0.5) * 0.3,
+            0.5 + Math.random() * 0.8,
+            (Math.random() - 0.5) * 0.3
+        ));
+    }
+
+    let age = 0;
+    const duration = isRejuvenation ? 0.65 : 0.38;
+
+    activeFX.push({
+        update(delta) {
+            age += delta;
+            const t = Math.min(1.0, age / duration);
+
+            // Fade and scale down the beam
+            mat.opacity = 0.8 * (1.0 - t);
+            beam.scale.set(1.0 - t, 1.0, 1.0 - t);
+
+            // Move sparkles upwards
+            for (let i = 0; i < sparkles.length; i++) {
+                sparkles[i].position.addScaledVector(sparkleVels[i], delta);
+                sparkles[i].scale.setScalar(1.0 - t);
+            }
+
+            if (t >= 1.0) {
+                scene.remove(beam);
+                geo.dispose();
+                mat.dispose();
+
+                for (const sp of sparkles) {
+                    scene.remove(sp);
+                }
+                sGeo.dispose();
+                sMat.dispose();
+                return false;
+            }
+            return true;
+        }
+    });
+}
+
+export function spawnDivineShieldFX(scene: THREE.Scene, targetPos: THREE.Vector3) {
+    const geo = new THREE.SphereGeometry(0.75, 12, 12);
+    const mat = new THREE.MeshBasicMaterial({
+        color: 0x55ffaa,
+        transparent: true,
+        opacity: 0.45,
+        wireframe: true,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+    });
+
+    const shield = new THREE.Mesh(geo, mat);
+    shield.position.copy(targetPos);
+    scene.add(shield);
+
+    let age = 0;
+    const duration = 1.6; // Shield lasts for ~1.6 seconds visually
+
+    activeFX.push({
+        update(delta) {
+            age += delta;
+            const t = Math.min(1.0, age / duration);
+
+            // Slowly rotate and pulsate shield scale slightly
+            shield.rotation.y += delta * 1.5;
+            shield.rotation.x += delta * 0.8;
+            mat.opacity = 0.45 * (1.0 - t);
+
+            if (t >= 1.0) {
+                scene.remove(shield);
+                geo.dispose();
+                mat.dispose();
+                return false;
+            }
+            return true;
+        }
+    });
+}
+
+export function spawnHolySanctuaryFX(scene: THREE.Scene, center: THREE.Vector3) {
+    const geo = new THREE.RingGeometry(0.1, 5.0, 32);
+    const mat = new THREE.MeshBasicMaterial({
+        color: 0x00ffaa,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0.6,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+    });
+
+    const sanctuary = new THREE.Mesh(geo, mat);
+    sanctuary.rotation.x = -Math.PI / 2;
+    sanctuary.position.copy(center).y += 0.05;
+    scene.add(sanctuary);
+
+    let age = 0;
+    const duration = 0.8;
+
+    activeFX.push({
+        update(delta) {
+            age += delta;
+            const t = Math.min(1.0, age / duration);
+
+            // Expand ring
+            const scale = easeOutCubic(t);
+            sanctuary.scale.setScalar(scale);
+            mat.opacity = 0.6 * (1.0 - t);
+
+            if (t >= 1.0) {
+                scene.remove(sanctuary);
+                geo.dispose();
+                mat.dispose();
+                return false;
+            }
+            return true;
+        }
     });
 }

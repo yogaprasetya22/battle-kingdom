@@ -1,5 +1,5 @@
 // Total units per team
-export const TEAM_SIZE = 100;
+export const TEAM_SIZE = 10;
 export const UNIT_COUNT = TEAM_SIZE * 2; // 1000 total
 
 // Flat ECS layout per unit (15 floats = 60 bytes each)
@@ -25,6 +25,7 @@ export const IDX_IMMUNE_CD = 14; // Countdown imun Tank (> 0 = imun, tidak bisa 
 export const TYPE_TANK = 0;
 export const TYPE_ARCHER = 1;
 export const TYPE_MAGE = 2;
+export const TYPE_HEALER = 3;
 
 // Teams
 export const TEAM_A = 0;

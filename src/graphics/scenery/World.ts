@@ -12,10 +12,10 @@ import { Leaves } from './Leaves';
 
 export class World {
   floor: Floor;
-  waterSurface: WaterSurface;
-  trees: Trees;
-  grass: Grass;
-  flowers: Flowers;
+  waterSurface?: WaterSurface;
+  trees?: Trees;
+  grass?: Grass;
+  flowers?: Flowers;
   windLines: SceneryWindLines;
   castles: Castles;
   leaves: Leaves;
@@ -30,7 +30,7 @@ export class World {
     this.waterSurface = new WaterSurface(scene, this.uniforms);
     this.trees        = new Trees(scene, gltfLoader);
     this.grass        = new Grass(scene, this.uniforms);
-    this.flowers      = new Flowers(scene, this.uniforms);
+    // this.flowers      = new Flowers(scene, this.uniforms);
     this.windLines    = new SceneryWindLines(scene);
     this.castles      = new Castles(scene, gltfLoader);
     this.leaves       = new Leaves(scene);
@@ -40,6 +40,6 @@ export class World {
     this.elapsed += delta;
     this.uniforms.uTime.value = this.elapsed;
     this.windLines.update(delta, this.elapsed);
-    this.leaves.update(delta, this.elapsed);
+    // this.leaves.update(delta, this.elapsed);
   }
 }

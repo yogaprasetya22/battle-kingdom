@@ -7,6 +7,7 @@
 
 import { BUFFER_BYTES } from './simulation/constants';
 import { setSharedData, startRenderLoop, changeModel, spawnSkillFX, resetUnitsVisual } from './graphics/core/renderer';
+import { soundFX } from './graphics/core/SoundFX';
 
 // ---- Shared Buffer (bridge antara main thread & worker) ----
 const sharedBuffer = new SharedArrayBuffer(BUFFER_BYTES);
@@ -23,6 +24,7 @@ const scoreB     = document.getElementById('score-b') as HTMLSpanElement;
 const overlay    = document.getElementById('overlay') as HTMLDivElement;
 const overlayMsg = document.getElementById('overlay-msg') as HTMLParagraphElement;
 const overlayBtn = document.getElementById('overlay-btn') as HTMLButtonElement;
+const statsContainer = document.getElementById('stats-container') as HTMLDivElement;
 const workerTicks = document.getElementById('worker-ticks') as HTMLSpanElement;
 const selectModel = document.getElementById('select-model') as HTMLSelectElement;
 const selectMatchup = document.getElementById('select-matchup') as HTMLSelectElement;
@@ -64,6 +66,90 @@ worker.onmessage = (e: MessageEvent) => {
     overlayMsg.textContent = winner === 'A'
       ? '🔴 Tim A Menang!'
       : '🔵 Tim B Menang!';
+
+    const stats = e.data.stats;
+    if (stats && statsContainer) {
+      statsContainer.innerHTML = `
+        <div class="stats-team-section">
+          <div class="stats-team-title team-a-border">🔴 Tim A (Merah)</div>
+          <div class="stats-grid stats-header">
+            <div>Kelas</div>
+            <div>Dmg Dealt</div>
+            <div>Dmg Taken</div>
+            <div>Kills</div>
+            <div>Heals</div>
+          </div>
+          <div class="stats-grid">
+            <div class="stats-class">🛡️ Tank</div>
+            <div class="stats-cell">${stats.teamA.tankDealt}</div>
+            <div class="stats-cell">${stats.teamA.tankTaken}</div>
+            <div class="stats-cell">${stats.teamA.tankKills}</div>
+            <div class="stats-cell">${stats.teamA.tankHealed}</div>
+          </div>
+          <div class="stats-grid">
+            <div class="stats-class">🏹 Archer</div>
+            <div class="stats-cell">${stats.teamA.archerDealt}</div>
+            <div class="stats-cell">${stats.teamA.archerTaken}</div>
+            <div class="stats-cell">${stats.teamA.archerKills}</div>
+            <div class="stats-cell">${stats.teamA.archerHealed}</div>
+          </div>
+          <div class="stats-grid">
+            <div class="stats-class">✨ Mage</div>
+            <div class="stats-cell">${stats.teamA.mageDealt}</div>
+            <div class="stats-cell">${stats.teamA.mageTaken}</div>
+            <div class="stats-cell">${stats.teamA.mageKills}</div>
+            <div class="stats-cell">${stats.teamA.mageHealed}</div>
+          </div>
+          <div class="stats-grid">
+            <div class="stats-class">💚 Healer</div>
+            <div class="stats-cell">${stats.teamA.healerDealt}</div>
+            <div class="stats-cell">${stats.teamA.healerTaken}</div>
+            <div class="stats-cell">${stats.teamA.healerKills}</div>
+            <div class="stats-cell">${stats.teamA.healerHealed}</div>
+          </div>
+        </div>
+
+        <div class="stats-team-section" style="margin-top: 15px;">
+          <div class="stats-team-title team-b-border">🔵 Tim B (Biru)</div>
+          <div class="stats-grid stats-header">
+            <div>Kelas</div>
+            <div>Dmg Dealt</div>
+            <div>Dmg Taken</div>
+            <div>Kills</div>
+            <div>Heals</div>
+          </div>
+          <div class="stats-grid">
+            <div class="stats-class">🛡️ Tank</div>
+            <div class="stats-cell">${stats.teamB.tankDealt}</div>
+            <div class="stats-cell">${stats.teamB.tankTaken}</div>
+            <div class="stats-cell">${stats.teamB.tankKills}</div>
+            <div class="stats-cell">${stats.teamB.tankHealed}</div>
+          </div>
+          <div class="stats-grid">
+            <div class="stats-class">🏹 Archer</div>
+            <div class="stats-cell">${stats.teamB.archerDealt}</div>
+            <div class="stats-cell">${stats.teamB.archerTaken}</div>
+            <div class="stats-cell">${stats.teamB.archerKills}</div>
+            <div class="stats-cell">${stats.teamB.archerHealed}</div>
+          </div>
+          <div class="stats-grid">
+            <div class="stats-class">✨ Mage</div>
+            <div class="stats-cell">${stats.teamB.mageDealt}</div>
+            <div class="stats-cell">${stats.teamB.mageTaken}</div>
+            <div class="stats-cell">${stats.teamB.mageKills}</div>
+            <div class="stats-cell">${stats.teamB.mageHealed}</div>
+          </div>
+          <div class="stats-grid">
+            <div class="stats-class">💚 Healer</div>
+            <div class="stats-cell">${stats.teamB.healerDealt}</div>
+            <div class="stats-cell">${stats.teamB.healerTaken}</div>
+            <div class="stats-cell">${stats.teamB.healerKills}</div>
+            <div class="stats-cell">${stats.teamB.healerHealed}</div>
+          </div>
+        </div>
+      `;
+    }
+
     overlay.style.display = 'flex';
     btnStart.disabled = true;
   }
@@ -75,6 +161,7 @@ worker.onmessage = (e: MessageEvent) => {
 
 // ---- UI handlers ----
 btnStart.addEventListener('click', () => {
+  soundFX.init();
   disableControls();
   // Biarkan Reset tetap aktif saat pertempuran berjalan
   btnReset.disabled = false;
@@ -104,12 +191,12 @@ selectModel.addEventListener('change', () => {
   overlay.style.display = 'none';
   tickCount = 0;
   if (workerTicks) workerTicks.textContent = '0';
-  
+
   // Reset worker state & positions
   worker.postMessage({ type: 'reset', matchup: selectMatchup.value });
-  
+
   // Muat model baru
-  changeModel(selectModel.value, () => {
+  changeModel(selectModel.value, selectMatchup.value, () => {
     // Callback sukses
     enableControls();
   }, () => {
@@ -126,6 +213,11 @@ selectMatchup.addEventListener('change', () => {
   if (workerTicks) workerTicks.textContent = '0';
   resetUnitsVisual();
   worker.postMessage({ type: 'reset', matchup: selectMatchup.value });
+
+  // Re-clone models to match the new matchup types
+  changeModel(selectModel.value, selectMatchup.value, () => {
+    enableControls();
+  });
 });
 
 // ---- Init sequence ----
@@ -136,4 +228,4 @@ startRenderLoop();
 worker.postMessage({ type: 'init', buffer: sharedBuffer, matchup: selectMatchup.value });
 
 // Load model awal secara dinamis
-changeModel('Chef_Hat');
+changeModel('Chef_Hat', selectMatchup.value);

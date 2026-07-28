@@ -14,4 +14,5 @@ export interface UnitVisual {
     meshes: THREE.Mesh[]; // cache mesh references, hindari traverse tiap frame
     team: number;
     deathTime?: number;
+    accumulatedDelta: number;
 }
