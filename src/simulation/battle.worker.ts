@@ -488,6 +488,9 @@ function tick(d: Float32Array) {
             else if (d[base + IDX_SKILL3_CD] === 0 && dist <= myRange) {
                 d[base + IDX_ANIM] = 2; // play attack animation
                 animLockTicks[i] = 20; // lock animation
+                const myX = d[base + IDX_X];
+                const myY = d[base + IDX_Y];
+                const myZ = d[base + IDX_Z];
                 const targetX = d[tBase + IDX_X];
                 const targetZ = d[tBase + IDX_Z];
                 const myTeam = d[base + IDX_TEAM];
@@ -518,6 +521,9 @@ function tick(d: Float32Array) {
                     type: "skillFX",
                     skill: "arrowVolley",
                     team: d[base + IDX_TEAM],
+                    fx: myX,
+                    fy: myY,
+                    fz: myZ,
                     x: targetX,
                     z: targetZ,
                 });

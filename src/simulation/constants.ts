@@ -1,5 +1,5 @@
 // Total units per team
-export const TEAM_SIZE = 10;
+export const TEAM_SIZE = 100;
 export const UNIT_COUNT = TEAM_SIZE * 2; // 1000 total
 
 // Flat ECS layout per unit (15 floats = 60 bytes each)

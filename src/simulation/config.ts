@@ -45,8 +45,8 @@ export const DEFENSE_BUFF_MULTIPLIER = 0.5; // damage dikali 0.5 saat buff aktif
 export const HP_PER_TYPE: Record<number, number> = {
     0: 650, // Tank
     1: 240, // Archer
-    2: 210, // Mage 210
-    3: 200, // Healer
+    2: 210, // Mage
+    3: 180, // Healer — rentan, harus dilindungi
 };
 
 // ============ ATTRIBUT PER TYPE ============
@@ -60,7 +60,7 @@ export interface UnitAttributes {
 export const ATTRIBUTES: Record<number, UnitAttributes> = {
     0: {
         // Tank — slow, short range, low damage, slow attack
-        moveSpeed: 0.035, 
+        moveSpeed: 0.035,
         attackRange: 1.8,
         baseDamage: 8,
         attackInterval: 65,
@@ -74,17 +74,17 @@ export const ATTRIBUTES: Record<number, UnitAttributes> = {
     },
     2: {
         // Mage — slow, long range, high damage, slow attack
-        moveSpeed: 0.020, // 0.020
+        moveSpeed: 0.02, // 0.020
         attackRange: 12.0,
         baseDamage: 11,
         attackInterval: 60,
     },
     3: {
-        // Healer — mid speed, mid range, base heal power
+        // Healer — support; heal amount sengaja lebih rendah dari damage DPS
         moveSpeed: 0.024,
         attackRange: 8.0,
-        baseDamage: 12, // heal amount
-        attackInterval: 50,
+        baseDamage: 6, // basic heal amount (sebelumnya 12 — terlalu tinggi, out-heal semua damage)
+        attackInterval: 55,
     },
 };
 
@@ -145,24 +145,24 @@ export const MAGE_SKILLS = {
     // Skill 1: Frost Nova — AoE kecil freeze + stun (sering dipakai)
     frostNova: {
         damage: 10,
-        radius: 1.5,        // AoE radius — semua musuh dalam jangkauan kena
-        stunTicks: 50,      // durasi stun (~0.8 detik)
-        cooldown: 380,      // cooldown (~6 detik)
+        radius: 1.5, // AoE radius — semua musuh dalam jangkauan kena
+        stunTicks: 50, // durasi stun (~0.8 detik)
+        cooldown: 380, // cooldown (~6 detik)
     },
     // Skill 2: Chain Lightning — bounce 4 target, damage naik
     chainLightning: {
-        damagePrimary: 20,   // damage ke target pertama
+        damagePrimary: 20, // damage ke target pertama
         damageSecondary: 16, // damage ke target bounce
-        maxChains: 4,        // total target bounce (naik dari 3)
-        chainRadius: 5.0,    // radius cari target bounce
-        cooldown: 520,       // cooldown (~8.3 detik)
+        maxChains: 4, // total target bounce (naik dari 3)
+        chainRadius: 5.0, // radius cari target bounce
+        cooldown: 520, // cooldown (~8.3 detik)
     },
     // Skill 3 (ULTI): Meteor Fireball — AoE besar, damage masif, cooldown sangat lama
     fireball: {
-        damageDirect: 55,   // damage inti di center AoE
-        damageSplash: 22,   // damage splash ke musuh sekitar
-        radius: 3.5,        // radius AoE splash
-        cooldown: 900,      // cooldown (~14.4 detik) — ini ulti
+        damageDirect: 55, // damage inti di center AoE
+        damageSplash: 22, // damage splash ke musuh sekitar
+        radius: 3.5, // radius AoE splash
+        cooldown: 900, // cooldown (~14.4 detik) — ini ulti
     },
 };
 
@@ -170,18 +170,18 @@ export const MAGE_SKILLS = {
 export const HEALER_SKILLS = {
     // Skill 1: Rejuvenation — Single target heal
     rejuvenation: {
-        healAmount: 35,
-        cooldown: 180, // ~3 detik
+        healAmount: 22, // sebelumnya 35 — terlalu tinggi
+        cooldown: 220, // ~3.5 detik
     },
     // Skill 2: Divine Shield — Buff pertahanan (effectState = -100 ticks)
     divineShield: {
-        cooldown: 280, // ~4.5 detik
-        durationTicks: 100, // durasi shield
+        cooldown: 320, // ~5.1 detik
+        durationTicks: 80, // sebelumnya 100 — shield sedikit lebih pendek
     },
-    // Skill 3: Holy Sanctuary — AoE heal
+    // Skill 3: Holy Sanctuary — AoE heal area
     holySanctuary: {
         radius: 5.0,
-        healAmount: 20,
-        cooldown: 450, // ~7.2 detik
-    }
+        healAmount: 12, // sebelumnya 20 per ally
+        cooldown: 500, // ~8 detik
+    },
 };

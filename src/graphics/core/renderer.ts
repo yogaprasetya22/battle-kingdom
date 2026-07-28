@@ -238,13 +238,21 @@ export function changeModel(
                 : new THREE.MeshStandardMaterial({ color: 0xffffff });
             healerMatA!.color.setHex(0xffffff);
             healerMatB!.color.setHex(0xffffff);
-            if ((healerMatA as any).emissive) (healerMatA as any).emissive.setHex(0x551111);
-            if ((healerMatB as any).emissive) (healerMatB as any).emissive.setHex(0x111155);
+            if ((healerMatA as any).emissive)
+                (healerMatA as any).emissive.setHex(0x551111);
+            if ((healerMatB as any).emissive)
+                (healerMatB as any).emissive.setHex(0x111155);
 
             // Buat material efek dengan mengkloning material asli agar deformasi tulang tidak rusak/hilang
-            buffMatA = originalMat ? (originalMat as any).clone() : new THREE.MeshStandardMaterial();
-            buffMatB = originalMat ? (originalMat as any).clone() : new THREE.MeshStandardMaterial();
-            stunMat = originalMat ? (originalMat as any).clone() : new THREE.MeshStandardMaterial();
+            buffMatA = originalMat
+                ? (originalMat as any).clone()
+                : new THREE.MeshStandardMaterial();
+            buffMatB = originalMat
+                ? (originalMat as any).clone()
+                : new THREE.MeshStandardMaterial();
+            stunMat = originalMat
+                ? (originalMat as any).clone()
+                : new THREE.MeshStandardMaterial();
 
             if (buffMatA) {
                 buffMatA.color.setHex(0xff7733);
@@ -308,8 +316,12 @@ export function changeModel(
                             const mesh = child as THREE.Mesh;
                             mesh.material =
                                 uType === 3
-                                    ? (team === TEAM_A ? healerMatA! : healerMatB!)
-                                    : (team === TEAM_A ? teamMatA! : teamMatB!);
+                                    ? team === TEAM_A
+                                        ? healerMatA!
+                                        : healerMatB!
+                                    : team === TEAM_A
+                                      ? teamMatA!
+                                      : teamMatB!;
                             meshes.push(mesh);
                         }
                     });
@@ -402,6 +414,10 @@ export function spawnSkillFX(event: { skill: string; [key: string]: any }) {
     if (!canSpawnFX()) return; // ponytail: early return if effects budget is exhausted
     if (event.skill === "arrowVolley") {
         const groundY = getTerrainHeight(event.x, event.z);
+        const sx = event.fx ?? event.x;
+        const sy = event.fy ?? groundY;
+        const sz = event.fz ?? event.z;
+        soundFX.playArrowVolley(sx, sy, sz, camera.position);
         spawnArrowVolleyFX(scene, event.x, event.z, groundY, 3.5, event.team);
     } else if (event.skill === "chainLightning") {
         const pos: THREE.Vector3[] = [];
@@ -424,6 +440,7 @@ export function spawnSkillFX(event: { skill: string; [key: string]: any }) {
             event.team,
         );
     } else if (event.skill === "shieldBash") {
+        soundFX.playShieldBash(event.x, event.y, event.z, camera.position);
         spawnShieldBashFX(
             scene,
             event.x,
@@ -435,6 +452,7 @@ export function spawnSkillFX(event: { skill: string; [key: string]: any }) {
             event.team,
         );
     } else if (event.skill === "doubleShot") {
+        soundFX.playBow(event.fx, event.fy, event.fz, camera.position);
         spawnDoubleShotFX(
             scene,
             event.fx,
@@ -445,10 +463,26 @@ export function spawnSkillFX(event: { skill: string; [key: string]: any }) {
             event.tz,
         );
     } else if (event.skill === "evasiveLeap") {
-        const fy = event.fy !== undefined ? event.fy : getTerrainHeight(event.fx, event.fz);
-        const ty = event.ty !== undefined ? event.ty : getTerrainHeight(event.tx, event.tz);
-        spawnEvasiveLeapFX(scene, event.fx, fy, event.fz, event.tx, ty, event.tz);
+        soundFX.playDash(event.fx, event.fy, event.fz, camera.position);
+        const fy =
+            event.fy !== undefined
+                ? event.fy
+                : getTerrainHeight(event.fx, event.fz);
+        const ty =
+            event.ty !== undefined
+                ? event.ty
+                : getTerrainHeight(event.tx, event.tz);
+        spawnEvasiveLeapFX(
+            scene,
+            event.fx,
+            fy,
+            event.fz,
+            event.tx,
+            ty,
+            event.tz,
+        );
     } else if (event.skill === "fireball") {
+        soundFX.playFireball(event.fx, event.fy, event.fz, camera.position);
         spawnFireballFX(
             scene,
             event.fx,
@@ -473,34 +507,50 @@ export function spawnSkillFX(event: { skill: string; [key: string]: any }) {
         );
     } else if (event.skill === "basicHeal") {
         soundFX.playHeal(event.fx, event.fy, event.fz, camera.position);
-        spawnHealFX(scene, new THREE.Vector3(event.fx, event.fy, event.fz), new THREE.Vector3(event.tx, event.ty, event.tz), false);
+        spawnHealFX(
+            scene,
+            new THREE.Vector3(event.fx, event.fy, event.fz),
+            new THREE.Vector3(event.tx, event.ty, event.tz),
+            false,
+        );
     } else if (event.skill === "rejuvenation") {
         soundFX.playHeal(event.fx, event.fy, event.fz, camera.position);
-        spawnHealFX(scene, new THREE.Vector3(event.fx, event.fy, event.fz), new THREE.Vector3(event.tx, event.ty, event.tz), true);
+        spawnHealFX(
+            scene,
+            new THREE.Vector3(event.fx, event.fy, event.fz),
+            new THREE.Vector3(event.tx, event.ty, event.tz),
+            true,
+        );
     } else if (event.skill === "divineShield") {
         soundFX.playHeal(event.fx, event.fy, event.fz, camera.position);
-        spawnDivineShieldFX(scene, new THREE.Vector3(event.tx, event.ty, event.tz));
+        spawnDivineShieldFX(
+            scene,
+            new THREE.Vector3(event.tx, event.ty, event.tz),
+        );
     } else if (event.skill === "holySanctuary") {
         soundFX.playHeal(event.x, event.y, event.z, camera.position);
-        spawnHolySanctuaryFX(scene, new THREE.Vector3(event.x, event.y, event.z));
+        spawnHolySanctuaryFX(
+            scene,
+            new THREE.Vector3(event.x, event.y, event.z),
+        );
     }
 }
 
 let animId = 0;
 
 // ponytail: Pre-allocate per-frame vectors — avoid 1000 new THREE.Vector3 per frame
-const _right      = new THREE.Vector3();
-const _forward    = new THREE.Vector3();
+const _right = new THREE.Vector3();
+const _forward = new THREE.Vector3();
 const _lookTarget = new THREE.Vector3();
-const _q1         = new THREE.Quaternion();
-let   _hpThrottle = 0; // HP bar update every 2nd frame
-let   animFrameCount = 0;
+const _q1 = new THREE.Quaternion();
+let _hpThrottle = 0; // HP bar update every 2nd frame
+let animFrameCount = 0;
 
 // Lerp speed: nilai 1.0 = langsung snap, 0.1 = smooth.  ~12 = responsive tapi tanpa jitter.
 const LERP_SPEED = 12;
 
 // Frustum culling — 1 frustum dihitung per frame, dipakai 200x
-const _frustum   = new THREE.Frustum();
+const _frustum = new THREE.Frustum();
 const _projScreen = new THREE.Matrix4();
 const _unitSphere = new THREE.Sphere(new THREE.Vector3(), 1.5); // radius 1.5 = cukup untuk semua unit types
 
@@ -514,7 +564,10 @@ function updateFrame(data: Float32Array, delta: number) {
     animFrameCount++;
 
     // Build frustum ONCE per frame from current camera matrices
-    _projScreen.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
+    _projScreen.multiplyMatrices(
+        camera.projectionMatrix,
+        camera.matrixWorldInverse,
+    );
     _frustum.setFromProjectionMatrix(_projScreen);
 
     for (let i = 0; i < UNIT_COUNT; i++) {
@@ -536,7 +589,8 @@ function updateFrame(data: Float32Array, delta: number) {
         if (hp === -999) {
             unit.root.position.set(x, -999, z);
             unit.root.scale.setScalar(0.0001);
-            
+            (unit as any)._wasAlive = false;
+
             // ponytail: Reset all instanced matrices to hide them, otherwise they float at old positions when reset!
             hpBarsBg.setMatrixAt(i, _deadMatrix);
             hpBarsFg.setMatrixAt(i, _deadMatrix);
@@ -562,11 +616,18 @@ function updateFrame(data: Float32Array, delta: number) {
             unit.root.position.set(x, -999, z);
             unit.root.scale.setScalar(0.0001);
             unit.root.visible = false;
+            (unit as any)._wasAlive = false;
         } else {
             // Cek frustum berdasarkan koordinat target simulasi (x, y, z) yang selalu up-to-date
             _unitSphere.center.set(x, y, z);
             const inView = _frustum.intersectsSphere(_unitSphere);
             unit.root.visible = inView;
+
+            // Spawn sound: unit transisi dari mati/unspawned ke hidup
+            if (hp > 0 && !(unit as any)._wasAlive) {
+                (unit as any)._wasAlive = true;
+                soundFX.playSpawn(x, y, z, camera.position);
+            }
 
             if (hp <= 0 && unit.deathTime) {
                 const elapsed = performance.now() - unit.deathTime;
@@ -577,8 +638,12 @@ function updateFrame(data: Float32Array, delta: number) {
                 } else if (elapsed > 1000) {
                     const t = (elapsed - 1000) / 1000;
                     if (inView) {
-                        unit.root.position.x += (x - unit.root.position.x) * Math.min(1, LERP_SPEED * delta);
-                        unit.root.position.z += (z - unit.root.position.z) * Math.min(1, LERP_SPEED * delta);
+                        unit.root.position.x +=
+                            (x - unit.root.position.x) *
+                            Math.min(1, LERP_SPEED * delta);
+                        unit.root.position.z +=
+                            (z - unit.root.position.z) *
+                            Math.min(1, LERP_SPEED * delta);
                     } else {
                         unit.root.position.x = x;
                         unit.root.position.z = z;
@@ -587,9 +652,15 @@ function updateFrame(data: Float32Array, delta: number) {
                     unit.root.scale.setScalar(scale * (1.0 - t));
                 } else {
                     if (inView) {
-                        unit.root.position.x += (x - unit.root.position.x) * Math.min(1, LERP_SPEED * delta);
-                        unit.root.position.y += (y - unit.root.position.y) * Math.min(1, LERP_SPEED * delta);
-                        unit.root.position.z += (z - unit.root.position.z) * Math.min(1, LERP_SPEED * delta);
+                        unit.root.position.x +=
+                            (x - unit.root.position.x) *
+                            Math.min(1, LERP_SPEED * delta);
+                        unit.root.position.y +=
+                            (y - unit.root.position.y) *
+                            Math.min(1, LERP_SPEED * delta);
+                        unit.root.position.z +=
+                            (z - unit.root.position.z) *
+                            Math.min(1, LERP_SPEED * delta);
                     } else {
                         unit.root.position.set(x, y, z);
                     }
@@ -598,9 +669,15 @@ function updateFrame(data: Float32Array, delta: number) {
             } else {
                 if (inView) {
                     // Hanya lakukan perhitungan smooth lerp posisi jika unit terlihat di layar
-                    unit.root.position.x += (x - unit.root.position.x) * Math.min(1, LERP_SPEED * delta);
-                    unit.root.position.y += (y - unit.root.position.y) * Math.min(1, LERP_SPEED * delta);
-                    unit.root.position.z += (z - unit.root.position.z) * Math.min(1, LERP_SPEED * delta);
+                    unit.root.position.x +=
+                        (x - unit.root.position.x) *
+                        Math.min(1, LERP_SPEED * delta);
+                    unit.root.position.y +=
+                        (y - unit.root.position.y) *
+                        Math.min(1, LERP_SPEED * delta);
+                    unit.root.position.z +=
+                        (z - unit.root.position.z) *
+                        Math.min(1, LERP_SPEED * delta);
                 } else {
                     // Jika di luar layar, langsung snap posisi di background agar saat kamera menoleh unit langsung di tempatnya
                     unit.root.position.set(x, y, z);
@@ -615,6 +692,7 @@ function updateFrame(data: Float32Array, delta: number) {
                     fadeToAnimation(unit, "death");
                     unit.currentAnimState = 3;
                     unit.deathTime = performance.now();
+                    soundFX.playDeath(x, y, z, camera.position);
                 }
             }
             if ((unit as any).iceMesh) {
@@ -627,7 +705,7 @@ function updateFrame(data: Float32Array, delta: number) {
                     scene,
                     unit.root.position.x,
                     unit.root.position.y + 0.5,
-                    unit.root.position.z
+                    unit.root.position.z,
                 );
             }
         } else {
@@ -661,7 +739,7 @@ function updateFrame(data: Float32Array, delta: number) {
                             scene,
                             unit.root.position.x,
                             unit.root.position.y + 0.5,
-                            unit.root.position.z
+                            unit.root.position.z,
                         );
                     }
                 }
@@ -699,7 +777,11 @@ function updateFrame(data: Float32Array, delta: number) {
         unit.accumulatedDelta += delta;
 
         // Update mixer jika unit hidup ATAU sedang memainkan animasi mati (elapsed < 2000ms)
-        const isDying = hp <= 0 && hp >= -10 && unit.deathTime && (performance.now() - unit.deathTime < 2000);
+        const isDying =
+            hp <= 0 &&
+            hp >= -10 &&
+            unit.deathTime &&
+            performance.now() - unit.deathTime < 2000;
         if (isDying) {
             unit.mixer.update(unit.accumulatedDelta);
             unit.accumulatedDelta = 0;
@@ -714,11 +796,11 @@ function updateFrame(data: Float32Array, delta: number) {
                 const distSq = dx * dx + dy * dy + dz * dz;
 
                 if (distSq < 225) {
-                    updateInterval = 1;  // dekat (<15u): update tiap frame
+                    updateInterval = 1; // dekat (<15u): update tiap frame
                 } else if (distSq < 900) {
-                    updateInterval = 2;  // sedang (15-30u): update tiap 2 frame
+                    updateInterval = 2; // sedang (15-30u): update tiap 2 frame
                 } else {
-                    updateInterval = 4;  // jauh (>=30u): update tiap 4 frame
+                    updateInterval = 4; // jauh (>=30u): update tiap 4 frame
                 }
             }
 
@@ -759,8 +841,10 @@ function updateFrame(data: Float32Array, delta: number) {
         }
 
         let headY = 1.85; // Raised from 1.35
-        if (uType === 0) headY = 2.45; // Raised from 1.95 (Tank)
-        else if (uType === 1) headY = 1.6; // Raised from 1.1 (Archer)
+        if (uType === 0)
+            headY = 2.45; // Raised from 1.95 (Tank)
+        else if (uType === 1)
+            headY = 1.6; // Raised from 1.1 (Archer)
         else if (uType === 2) headY = 1.95; // Raised from 1.45 (Mage)
 
         // ponytail: use pre-computed _right / _forward (no new Vector3 per unit)
