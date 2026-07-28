@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Battle Sim — 100 vs 100 | Three.js + Web Workers</title>
+  <meta name="description" content="Simulasi pertempuran massal 100 vs 100 unit menggunakan Pure Three.js dan Web Workers" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #0f0f1a;
+      font-family: 'Inter', sans-serif;
+      overflow: hidden;
+      color: #fff;
+    }
+
+    #canvas {
+      display: block;
+      width: 100vw;
+      height: 100vh;
+    }
+
+    /* HUD */
+    #hud {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 24px;
+      background: linear-gradient(to bottom, rgba(0,0,0,0.7) 0%, transparent 100%);
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    .score-panel {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .team-badge {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      border-radius: 50px;
+      font-weight: 700;
+      font-size: 1.1rem;
+      backdrop-filter: blur(8px);
+    }
+
+    .team-badge.a {
+      background: rgba(255, 68, 68, 0.25);
+      border: 1px solid rgba(255, 68, 68, 0.5);
+      color: #ff8888;
+    }
+
+    .team-badge.b {
+      background: rgba(68, 136, 255, 0.25);
+      border: 1px solid rgba(68, 136, 255, 0.5);
+      color: #88aaff;
+    }
+
+    .team-dot {
+      width: 12px; height: 12px;
+      border-radius: 50%;
+    }
+    .team-badge.a .team-dot { background: #ff4444; box-shadow: 0 0 8px #ff4444; }
+    .team-badge.b .team-dot { background: #4488ff; box-shadow: 0 0 8px #4488ff; }
+
+    .vs-badge {
+      font-size: 1.2rem;
+      font-weight: 900;
+      color: rgba(255,255,255,0.4);
+      letter-spacing: 0.1em;
+    }
+
+    .title-center {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.4);
+    }
+
+    /* Controls */
+    #controls {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 12px;
+      z-index: 10;
+    }
+
+    button {
+      padding: 12px 32px;
+      border: none;
+      border-radius: 50px;
+      font-family: 'Inter', sans-serif;
+      font-size: 0.95rem;
+      font-weight: 700;
+      cursor: pointer;
+      letter-spacing: 0.05em;
+      transition: all 0.2s ease;
+    }
+
+    button:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      transform: none !important;
+    }
+
+    #btn-start {
+      background: linear-gradient(135deg, #ff4444, #cc2200);
+      color: #fff;
+      box-shadow: 0 4px 20px rgba(255,68,68,0.4);
+    }
+
+    #btn-start:not(:disabled):hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 28px rgba(255,68,68,0.6);
+    }
+
+    #btn-reset {
+      background: rgba(255,255,255,0.1);
+      color: rgba(255,255,255,0.8);
+      border: 1px solid rgba(255,255,255,0.2);
+      backdrop-filter: blur(8px);
+    }
+
+    #btn-reset:not(:disabled):hover {
+      transform: translateY(-2px);
+      background: rgba(255,255,255,0.2);
+    }
+
+    #select-model, #select-matchup {
+      padding: 12px 24px;
+      background: rgba(0, 0, 0, 0.6);
+      color: #fff;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 50px;
+      font-family: 'Inter', sans-serif;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      backdrop-filter: blur(8px);
+      transition: all 0.2s ease;
+      outline: none;
+      appearance: none;
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      padding-right: 40px;
+      background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 16px center;
+      background-size: 16px;
+    }
+
+    #select-model option, #select-matchup option {
+      background-color: #11111e;
+      color: #fff;
+    }
+
+    #select-model:hover:not(:disabled), #select-matchup:hover:not(:disabled) {
+      background-color: rgba(255, 255, 255, 0.1);
+      border-color: rgba(255, 255, 255, 0.4);
+    }
+
+    #select-model:disabled, #select-matchup:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    /* Winner Overlay */
+    #overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(12px);
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 24px;
+      z-index: 100;
+      animation: fadeIn 0.4s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: scale(0.95); }
+      to   { opacity: 1; transform: scale(1); }
+    }
+
+    #overlay h2 {
+      font-size: 1rem;
+      font-weight: 600;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.5);
+    }
+
+    #overlay-msg {
+      font-size: clamp(2rem, 6vw, 4rem);
+      font-weight: 900;
+      letter-spacing: -0.02em;
+      text-shadow: 0 0 40px rgba(255,255,255,0.3);
+    }
+
+    #overlay-btn {
+      background: linear-gradient(135deg, #4488ff, #0033cc);
+      color: #fff;
+      padding: 14px 40px;
+      font-size: 1rem;
+      box-shadow: 0 4px 24px rgba(68,136,255,0.5);
+    }
+
+    #overlay-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 32px rgba(68,136,255,0.7);
+    }
+
+    /* Thread indicator */
+    #thread-info {
+      position: fixed;
+      bottom: 80px;
+      right: 20px;
+      font-size: 0.65rem;
+      color: rgba(255,255,255,0.25);
+      text-align: right;
+      line-height: 1.6;
+      pointer-events: none;
+    }
+
+    /* Stats Panel */
+    #stats-panel {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: rgba(0, 0, 0, 0.5);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      backdrop-filter: blur(8px);
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      font-family: monospace;
+      color: #00ffaa;
+      pointer-events: none;
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    }
+
+    /* Log Panel for diagnostics */
+    #log-panel {
+      position: fixed;
+      bottom: 20px;
+      left: 20px;
+      background: rgba(0, 0, 0, 0.8);
+      border: 1px solid #ff4444;
+      padding: 10px 15px;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      font-family: monospace;
+      color: #ff8888;
+      max-width: 400px;
+      max-height: 150px;
+      overflow-y: auto;
+      z-index: 100;
+      white-space: pre-wrap;
+    }
+
+    /* Loader Overlay */
+    #loader-overlay {
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(circle at center, #16162a 0%, #080811 100%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      opacity: 1;
+      visibility: visible;
+      transition: opacity 0.8s cubic-bezier(0.25, 1, 0.5, 1), visibility 0.8s cubic-bezier(0.25, 1, 0.5, 1);
+    }
+
+    #loader-overlay.fade-out {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    .loader-card {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      padding: 40px 60px;
+      border-radius: 24px;
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+      text-align: center;
+      max-width: 500px;
+      width: 90%;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Glowing ambient background inside loader */
+    .loader-card::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      left: -50%;
+      width: 200%;
+      height: 200%;
+      background: radial-gradient(circle, rgba(255, 68, 68, 0.1) 0%, rgba(68, 136, 255, 0.1) 50%, transparent 100%);
+      animation: rotate-bg 15s linear infinite;
+      z-index: -1;
+      pointer-events: none;
+    }
+
+    @keyframes rotate-bg {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .loader-logo {
+      font-size: 2.2rem;
+      font-weight: 900;
+      letter-spacing: 0.15em;
+      background: linear-gradient(135deg, #ff4444 0%, #4488ff 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      filter: drop-shadow(0 2px 10px rgba(255, 68, 68, 0.3));
+    }
+
+    .loader-tagline {
+      font-size: 0.85rem;
+      color: rgba(255, 255, 255, 0.5);
+      letter-spacing: 0.1em;
+      margin-bottom: 32px;
+      text-transform: uppercase;
+    }
+
+    .loader-progress-container {
+      width: 100%;
+      height: 6px;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 10px;
+      overflow: hidden;
+      margin-bottom: 16px;
+      position: relative;
+    }
+
+    #loader-progress-bar {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #ff4444 0%, #ff8844 50%, #4488ff 100%);
+      box-shadow: 0 0 12px rgba(255, 68, 68, 0.8);
+      border-radius: 10px;
+      transition: width 0.3s cubic-bezier(0.1, 0.8, 0.25, 1);
+    }
+
+    .loader-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.8rem;
+      color: rgba(255, 255, 255, 0.6);
+      font-weight: 500;
+    }
+
+    #loader-status-text {
+      max-width: 70%;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      text-align: left;
+    }
+
+    #loader-percent-text {
+      font-family: monospace;
+      color: #00ffaa;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <!-- Modern Loading Suspense -->
+  <div id="loader-overlay">
+    <div class="loader-card">
+      <div class="loader-logo">Battle Sim</div>
+      <div class="loader-tagline">Three.js + Web Workers</div>
+      <div class="loader-progress-container">
+        <div id="loader-progress-bar"></div>
+      </div>
+      <div class="loader-meta">
+        <span id="loader-status-text">Mempersiapkan simulasi...</span>
+        <span id="loader-percent-text">0%</span>
+      </div>
+    </div>
+  </div>
+
+  <canvas id="canvas"></canvas>
+
+  <!-- Diagnostic Log Panel -->
+  <div id="log-panel">🔧 Status: Menunggu loading model...</div>
+
+  <!-- Stats Panel (FPS, MS, Draw Calls, Triangles, etc) -->
+  <div id="stats-panel">
+    <div>FPS: <span id="fps-val">60</span></div>
+    <div style="color: #888; margin-bottom: 4px;">Latency: <span id="ms-val">16</span>ms</div>
+    <div style="border-top: 1px solid rgba(255,255,255,0.1); padding-top: 4px; color: #aaa;">Worker Status:</div>
+    <div style="color: #00ffaa;">Worker Ticks: <span id="worker-ticks">0</span></div>
+    <div style="border-top: 1px solid rgba(255,255,255,0.1); padding-top: 4px; color: #aaa; margin-top: 4px;">WebGL Diagnostics:</div>
+    <div style="color: #ffaa00;">Draw Calls: <span id="dc-val">0</span></div>
+    <div style="color: #ff88ff;">Triangles: <span id="tri-val">0</span></div>
+    <div style="color: #55aaff;">Geometries: <span id="geo-val">0</span></div>
+    <div style="color: #55ff55;">Textures: <span id="tex-val">0</span></div>
+    <div style="color: #ffff55;">Shaders: <span id="prog-val">0</span></div>
+  </div>
+
+  <!-- HUD: Score -->
+  <div id="hud">
+    <div class="score-panel">
+      <div class="team-badge a">
+        <div class="team-dot"></div>
+        Tim A&nbsp;&nbsp;<span id="score-a">100</span>
+      </div>
+      <span class="vs-badge">VS</span>
+      <div class="team-badge b">
+        <div class="team-dot"></div>
+        Tim B&nbsp;&nbsp;<span id="score-b">100</span>
+      </div>
+    </div>
+    <div class="title-center">Battle Simulation · Three.js + Web Workers</div>
+  </div>
+
+  <!-- Controls -->
+  <div id="controls">
+    <select id="select-model" disabled>
+      <option value="Chef_Hat" selected>Chef Hat</option>
+      <option value="BlueSoldier_Female">Blue Soldier Female</option>
+      <option value="BlueSoldier_Male">Blue Soldier Male</option>
+      <option value="Casual2_Female">Casual 2 Female</option>
+      <option value="Casual2_Male">Casual 2 Male</option>
+      <option value="Casual3_Female">Casual 3 Female</option>
+      <option value="Casual3_Male">Casual 3 Male</option>
+      <option value="Casual_Bald">Casual Bald</option>
+      <option value="Casual_Female">Casual Female</option>
+      <option value="Casual_Male">Casual Male</option>
+      <option value="Chef_Female">Chef Female</option>
+      <option value="Chef_Male">Chef Male</option>
+      <option value="Cow">Cow</option>
+      <option value="Cowboy_Female">Cowboy Female</option>
+      <option value="Cowboy_Hair">Cowboy Hair</option>
+      <option value="Cowboy_Male">Cowboy Male</option>
+      <option value="Doctor_Female_Old">Doctor Female Old</option>
+      <option value="Doctor_Female_Young">Doctor Female Young</option>
+      <option value="Doctor_Male_Old">Doctor Male Old</option>
+      <option value="Doctor_Male_Young">Doctor Male Young</option>
+      <option value="Elf">Elf</option>
+      <option value="Goblin_Female">Goblin Female</option>
+      <option value="Goblin_Male">Goblin Male</option>
+      <option value="Kimono_Female">Kimono Female</option>
+      <option value="Kimono_Male">Kimono Male</option>
+      <option value="Knight_Golden_Female">Knight Golden Female</option>
+      <option value="Knight_Golden_Male">Knight Golden Male</option>
+      <option value="Knight_Male">Knight Male</option>
+      <option value="Ninja_Female">Ninja Female</option>
+      <option value="Ninja_Male">Ninja Male</option>
+      <option value="Ninja_Male_Hair">Ninja Male Hair</option>
+      <option value="Ninja_Sand">Ninja Sand</option>
+      <option value="Ninja_Sand_Female">Ninja Sand Female</option>
+      <option value="OldClassy_Female">Old Classy Female</option>
+      <option value="OldClassy_Male">Old Classy Male</option>
+      <option value="Pirate_Female">Pirate Female</option>
+      <option value="Pirate_Male">Pirate Male</option>
+      <option value="Pug">Pug</option>
+      <option value="Soldier_Female">Soldier Female</option>
+      <option value="Soldier_Male">Soldier Male</option>
+      <option value="Suit_Female">Suit Female</option>
+      <option value="Suit_Male">Suit Male</option>
+      <option value="Viking_Female">Viking Female</option>
+      <option value="Viking_Male">Viking Male</option>
+      <option value="Witch">Witch</option>
+      <option value="Wizard">Wizard</option>
+      <option value="Worker_Female">Worker Female</option>
+      <option value="Worker_Male">Worker Male</option>
+      <option value="Zombie_Female">Zombie Female</option>
+      <option value="Zombie_Male">Zombie Male</option>
+    </select>
+    <select id="select-matchup" disabled>
+      <option value="mix" selected>Campuran (Semua Kelas)</option>
+      <option value="mage_vs_tank">Mage vs Tank</option>
+      <option value="archer_vs_tank">Archer vs Tank</option>
+      <option value="mage_vs_archer">Mage vs Archer</option>
+      <option value="only_mage">Hanya Mage</option>
+      <option value="only_archer">Hanya Archer</option>
+      <option value="only_tank">Hanya Tank</option>
+    </select>
+    <button id="btn-start" disabled>⚔️ Mulai Pertempuran</button>
+    <button id="btn-reset" disabled>↺ Reset</button>
+  </div>
+
+  <!-- Winner Overlay -->
+  <div id="overlay">
+    <h2>Pertempuran Selesai</h2>
+    <p id="overlay-msg"></p>
+    <button id="overlay-btn">↺ Main Lagi</button>
+  </div>
+
+  <!-- Thread info -->
+  <div id="thread-info">
+    🧵 Main Thread: Render<br>
+    ⚙️ Web Worker: AI / Physics
+  </div>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

@@ -1,0 +1,15 @@
+skills:
+  vite-skilld:
+    packageName: vite
+    version: 8.1.5
+    repo: vitejs/vite
+    source: "https://github.com/vitejs/vite/tree/v8.1.5/docs"
+    syncedAt: 2026-07-27
+    generator: skilld
+  three-skilld:
+    packageName: three
+    version: 0.185.1
+    repo: mrdoob/three.js
+    source: "https://github.com/mrdoob/three.js/tree/master/docs"
+    syncedAt: 2026-07-27
+    generator: skilld
