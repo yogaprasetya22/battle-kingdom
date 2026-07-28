@@ -38,31 +38,22 @@ function pooledPlane(w: number, h: number): THREE.PlaneGeometry {
 // Texture loading — once at module init
 // ═══════════════════════════════════════════════════════════════
 const texLoader = new THREE.TextureLoader();
-const starTex = texLoader.load("/particle-pack/PNG (Transparent)/star_05.png");
-const circleTex = texLoader.load(
-    "/particle-pack/PNG (Transparent)/circle_03.png",
-);
-const sparkTex = texLoader.load(
-    "/particle-pack/PNG (Transparent)/spark_04.png",
-);
-const smokeTex = texLoader.load(
-    "/particle-pack/PNG (Transparent)/smoke_04.png",
-);
+const baseUrl = import.meta.env.BASE_URL;
+function loadTex(path: string) {
+    return texLoader.load(baseUrl + path);
+}
 
-const fireTex = texLoader.load("/particle-pack/PNG (Transparent)/fire_01.png");
-const flameTex = texLoader.load(
-    "/particle-pack/PNG (Transparent)/flame_01.png",
-);
-const scorchTex = texLoader.load(
-    "/particle-pack/PNG (Transparent)/scorch_01.png",
-);
-const lightTex = texLoader.load(
-    "/particle-pack/PNG (Transparent)/light_02.png",
-);
-const magicTex = texLoader.load(
-    "/particle-pack/PNG (Transparent)/magic_01.png",
-);
-const star2Tex = texLoader.load("/particle-pack/PNG (Transparent)/star_08.png");
+const starTex = loadTex("particle-pack/PNG (Transparent)/star_05.png");
+const circleTex = loadTex("particle-pack/PNG (Transparent)/circle_03.png");
+const sparkTex = loadTex("particle-pack/PNG (Transparent)/spark_04.png");
+const smokeTex = loadTex("particle-pack/PNG (Transparent)/smoke_04.png");
+
+const fireTex = loadTex("particle-pack/PNG (Transparent)/fire_01.png");
+const flameTex = loadTex("particle-pack/PNG (Transparent)/flame_01.png");
+const scorchTex = loadTex("particle-pack/PNG (Transparent)/scorch_01.png");
+const lightTex = loadTex("particle-pack/PNG (Transparent)/light_02.png");
+const magicTex = loadTex("particle-pack/PNG (Transparent)/magic_01.png");
+const star2Tex = loadTex("particle-pack/PNG (Transparent)/star_08.png");
 
 // ═══════════════════════════════════════════════════════════════
 // Shared uniform for shader-based effects

@@ -13,7 +13,8 @@ export class Trees {
 
     const promises = uniqueTypes.map(name => {
       return new Promise<THREE.Group>((resolve) => {
-        gltfLoader.load(`/models/trees/${name}.glb`, (gltf) => {
+        const baseUrl = import.meta.env.BASE_URL;
+        gltfLoader.load(`${baseUrl}models/trees/${name}.glb`, (gltf) => {
           gltf.scene.traverse((child) => {
             if ((child as THREE.Mesh).isMesh) {
               const mesh = child as THREE.Mesh;

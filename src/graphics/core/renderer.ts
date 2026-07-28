@@ -185,8 +185,9 @@ export function changeModel(
 
     const loadGLB = (name: string): Promise<any> => {
         return new Promise((resolve, reject) => {
+            const baseUrl = import.meta.env.BASE_URL;
             gltfLoader.load(
-                `/models/npc/${name}.glb`,
+                `${baseUrl}models/npc/${name}.glb`,
                 (gltf) => resolve(gltf),
                 undefined,
                 (err) => reject(err),
