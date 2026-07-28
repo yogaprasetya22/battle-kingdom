@@ -30,23 +30,23 @@ export const BOUND_X_MAX = 119;
 export const BOUND_Z_MIN = -89;
 export const BOUND_Z_MAX = 89;
 
-// ============ ARMOR (damage reduction per type) ============
+// ============ ARMOR (Penyesuaian: Armor Tank diturunkan agar damage tetap terasa) ============
 export const ARMOR: Record<number, number> = {
-    0: 0.4, // Tank: 40% reduction
-    1: 0.1, // Archer: 10% reduction
-    2: 0.0, // Mage: 0% reduction
+    0: 0.3,  // Tank: Turun dari 40% ke 30% reduction
+    1: 0.1,  // Archer: 10% reduction
+    2: 0.0,  // Mage: 0% reduction
     3: 0.05, // Healer: 5% reduction
 };
 
 // ============ DEFENSE BUFF ============
-export const DEFENSE_BUFF_MULTIPLIER = 0.5; // damage dikali 0.5 saat buff aktif
+export const DEFENSE_BUFF_MULTIPLIER = 0.5;
 
-// ============ HP PER TYPE ============
+// ============ HP PER TYPE (Penyesuaian: HP Tank diturunkan agar tidak jadi spons darah) ============
 export const HP_PER_TYPE: Record<number, number> = {
-    0: 650, // Tank
-    1: 240, // Archer
-    2: 210, // Mage
-    3: 180, // Healer — rentan, harus dilindungi
+    0: 450, // Tank: Turun dari 650 ke 450
+    1: 240, // Archer: Tetap
+    2: 210, // Mage: Tetap
+    3: 180, // Healer: Tetap
 };
 
 // ============ ATTRIBUT PER TYPE ============
@@ -59,32 +59,28 @@ export interface UnitAttributes {
 
 export const ATTRIBUTES: Record<number, UnitAttributes> = {
     0: {
-        // Tank — slow, short range, low damage, slow attack
         moveSpeed: 0.035,
         attackRange: 1.8,
-        baseDamage: 8,
+        baseDamage: 10,  // Naik dari 8 (agar tank tetap punya threat)
         attackInterval: 65,
     },
     1: {
-        // Archer — fast, mid range, mid damage, mid attack speed
-        moveSpeed: 0.025, //0.025
+        moveSpeed: 0.025,
         attackRange: 6.0,
-        baseDamage: 9,
-        attackInterval: 45,
+        baseDamage: 12,  // Naik dari 9 (agar bisa menembus armor tank)
+        attackInterval: 40,  // Lebih cepat dari 45
     },
     2: {
-        // Mage — slow, long range, high damage, slow attack
-        moveSpeed: 0.02, // 0.020
+        moveSpeed: 0.02,
         attackRange: 12.0,
-        baseDamage: 11,
+        baseDamage: 15,  // Naik dari 11 (Mage harus jadi penembus armor utama)
         attackInterval: 60,
     },
     3: {
-        // Healer — support; heal amount sengaja lebih rendah dari damage DPS
         moveSpeed: 0.024,
         attackRange: 8.0,
-        baseDamage: 6, // basic heal amount (sebelumnya 12 — terlalu tinggi, out-heal semua damage)
-        attackInterval: 55,
+        baseDamage: 3,   // TURUN DRASTIS dari 6 (Basic heal tidak boleh menandingi basic attack DPS)
+        attackInterval: 75,  // Lebih lambat dari 55 (Heal interval diperlama)
     },
 };
 
@@ -96,92 +92,80 @@ export const DEFAULT_ATTRIBUTES: UnitAttributes = {
     attackInterval: 40,
 };
 
-// ============ TANK SKILLS ============
+// ============ TANK SKILLS (Penyesuaian: Uptime kebal dikurangi) ============
 export const TANK_SKILLS = {
-    // Skill 1: Bulwark Stance — imun total
     bulwarkStance: {
-        immuneTicks: 90, // durasi imun (~1.5 detik)
-        cooldown: 312, // cooldown (~5 detik)
+        immuneTicks: 40,  // Turun dari 90 (Hanya ~0.6 detik immune, bukan 1.5 detik)
+        cooldown: 500,    // Naik dari 312 (Mencegah spam kebal)
     },
-    // Skill 2: Taunt — paksa musuh target diri
     taunt: {
-        range: 4.0, // jarak trigger
-        cooldown: 400, // cooldown (~6.4 detik)
+        range: 4.0,
+        cooldown: 450,    // Naik tipis
     },
-    // Skill 3: Shield Bash — damage + knockback
     shieldBash: {
-        range: 1.8, // jarak trigger
+        range: 1.8,
         damage: 15,
-        knockback: 1.2, // jarak dorong
-        cooldown: 550, // cooldown (~8.8 detik)
+        knockback: 1.2,
+        cooldown: 550,
     },
 };
 
 // ============ ARCHER SKILLS ============
 export const ARCHER_SKILLS = {
-    // Skill 1: Double Shot — 2x damage burst
     doubleShot: {
-        damage: 18, // damage ke target
-        cooldown: 450, // cooldown (~7.2 detik)
-        delayBetweenShots: 120, // ms antar panah (untuk FX)
+        damage: 15,       // Turun tipis dari 18 karena base attack sudah naik
+        cooldown: 400,    // Lebih cepat dari 450
+        delayBetweenShots: 120,
     },
-    // Skill 2: Evasive Leap — lompat mundur
     evasiveLeap: {
-        range: 2.5, // jarak trigger (musuh terlalu dekat)
-        distance: 4.0, // jarak lompat
-        cooldown: 380, // cooldown (~6.1 detik)
+        range: 2.5,
+        distance: 4.0,
+        cooldown: 380,
     },
-    // Skill 3: Arrow Volley — AoE di area target
     arrowVolley: {
-        radius: 2.5, // radius AoE
-        damage: 10, // damage per unit di area
-        cooldown: 550, // cooldown (~8.8 detik) 5550
-        arrowCount: 60, // jumlah panah visual (FX)
+        radius: 2.5,
+        damage: 12,       // Naik dari 10
+        cooldown: 550,
+        arrowCount: 60,
     },
 };
 
 // ============ MAGE SKILLS ============
 export const MAGE_SKILLS = {
-    // Skill 1: Frost Nova — AoE kecil freeze + stun (sering dipakai)
     frostNova: {
-        damage: 10,
-        radius: 1.5, // AoE radius — semua musuh dalam jangkauan kena
-        stunTicks: 50, // durasi stun (~0.8 detik)
-        cooldown: 380, // cooldown (~6 detik)
+        damage: 12,
+        radius: 1.5,
+        stunTicks: 40,    // Stun diturunkan sedikit dari 50
+        cooldown: 400,
     },
-    // Skill 2: Chain Lightning — bounce 4 target, damage naik
     chainLightning: {
-        damagePrimary: 20, // damage ke target pertama
-        damageSecondary: 16, // damage ke target bounce
-        maxChains: 4, // total target bounce (naik dari 3)
-        chainRadius: 5.0, // radius cari target bounce
-        cooldown: 520, // cooldown (~8.3 detik)
+        damagePrimary: 22,
+        damageSecondary: 15,
+        maxChains: 4,
+        chainRadius: 5.0,
+        cooldown: 500,
     },
-    // Skill 3 (ULTI): Meteor Fireball — AoE besar, damage masif, cooldown sangat lama
     fireball: {
-        damageDirect: 55, // damage inti di center AoE
-        damageSplash: 22, // damage splash ke musuh sekitar
-        radius: 3.5, // radius AoE splash
-        cooldown: 900, // cooldown (~14.4 detik) — ini ulti
+        damageDirect: 60,
+        damageSplash: 25,
+        radius: 3.5,
+        cooldown: 800,    // Dipercepat dari 900 agar Mage bisa memecah kebuntuan lebih sering
     },
 };
 
-// ============ HEALER SKILLS ============
+// ============ HEALER SKILLS (Penyesuaian: Nerf berat pada angka dan cooldown) ============
 export const HEALER_SKILLS = {
-    // Skill 1: Rejuvenation — Single target heal
     rejuvenation: {
-        healAmount: 22, // sebelumnya 35 — terlalu tinggi
-        cooldown: 220, // ~3.5 detik
+        healAmount: 12,   // Turun dari 22 (Skill heal tidak boleh over-power)
+        cooldown: 350,    // Naik dari 220
     },
-    // Skill 2: Divine Shield — Buff pertahanan (effectState = -100 ticks)
     divineShield: {
-        cooldown: 320, // ~5.1 detik
-        durationTicks: 80, // sebelumnya 100 — shield sedikit lebih pendek
+        cooldown: 450,    // Naik dari 320 (Mencegah spam shield ke tank)
+        durationTicks: 60, // Turun dari 80 (Durasi perisai dipersingkat)
     },
-    // Skill 3: Holy Sanctuary — AoE heal area
     holySanctuary: {
         radius: 5.0,
-        healAmount: 12, // sebelumnya 20 per ally
-        cooldown: 500, // ~8 detik
+        healAmount: 8,    // Turun dari 12 (AoE heal yang terlalu besar bikin 1 tim kebal)
+        cooldown: 650,    // Naik dari 500
     },
 };

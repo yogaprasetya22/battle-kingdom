@@ -1998,13 +1998,13 @@ export function spawnHealFX(
 ) {
     const color = isRejuvenation ? 0x00ff88 : 0x33ff66; // bright neon green / mint green
 
-    // Glowing line or cylinder beam between start and end
+    // 1. Soft glowing main connecting beam
     const distance = start.distanceTo(end);
-    const geo = new THREE.CylinderGeometry(0.04, 0.04, distance, 6);
+    const geo = new THREE.CylinderGeometry(0.06, 0.06, distance, 6);
     const mat = new THREE.MeshBasicMaterial({
         color: color,
         transparent: true,
-        opacity: 0.8,
+        opacity: 0.75,
         blending: THREE.AdditiveBlending,
         depthWrite: false
     });
@@ -2015,52 +2015,51 @@ export function spawnHealFX(
     beam.rotateX(Math.PI / 2);
     scene.add(beam);
 
-    // Spawn floating green sparkles at the target (end)
-    const sparkleCount = isRejuvenation ? 15 : 7;
+    // 2. Spiral vortex sparkles at the target
+    const sparkleCount = isRejuvenation ? 18 : 10;
     const sparkles: THREE.Mesh[] = [];
-    const sparkleVels: THREE.Vector3[] = [];
-
+    
     const sGeo = new THREE.DodecahedronGeometry(0.08);
     const sMat = new THREE.MeshBasicMaterial({
         color: color,
         transparent: true,
-        opacity: 0.9,
+        opacity: 0.95,
         blending: THREE.AdditiveBlending,
         depthWrite: false
     });
 
     for (let i = 0; i < sparkleCount; i++) {
         const sp = new THREE.Mesh(sGeo, sMat);
-        sp.position.copy(end).add(new THREE.Vector3(
-            (Math.random() - 0.5) * 0.6,
-            Math.random() * 0.5,
-            (Math.random() - 0.5) * 0.6
-        ));
+        sp.position.copy(end);
         scene.add(sp);
         sparkles.push(sp);
-        sparkleVels.push(new THREE.Vector3(
-            (Math.random() - 0.5) * 0.3,
-            0.5 + Math.random() * 0.8,
-            (Math.random() - 0.5) * 0.3
-        ));
     }
 
     let age = 0;
-    const duration = isRejuvenation ? 0.65 : 0.38;
+    const duration = isRejuvenation ? 0.75 : 0.45;
 
     activeFX.push({
         update(delta) {
             age += delta;
             const t = Math.min(1.0, age / duration);
 
-            // Fade and scale down the beam
-            mat.opacity = 0.8 * (1.0 - t);
+            // Fade and shrink connecting beam
+            mat.opacity = 0.75 * (1.0 - t);
             beam.scale.set(1.0 - t, 1.0, 1.0 - t);
 
-            // Move sparkles upwards
+            // Animate sparkles in an upward spiral vortex around the healed unit
             for (let i = 0; i < sparkles.length; i++) {
-                sparkles[i].position.addScaledVector(sparkleVels[i], delta);
-                sparkles[i].scale.setScalar(1.0 - t);
+                const offsetTime = age + i * (duration / sparkleCount);
+                const theta = offsetTime * 14.0; // rotation speed
+                const radius = 0.5 * (1.0 - t * 0.7); // spiral narrows slightly
+                const height = (offsetTime * 2.5) % 2.0; // rise up to 2 units
+                
+                sparkles[i].position.set(
+                    end.x + radius * Math.cos(theta),
+                    end.y - 0.2 + height,
+                    end.z + radius * Math.sin(theta)
+                );
+                sparkles[i].scale.setScalar((1.0 - t) * 0.9);
             }
 
             if (t >= 1.0) {
@@ -2081,37 +2080,96 @@ export function spawnHealFX(
 }
 
 export function spawnDivineShieldFX(scene: THREE.Scene, targetPos: THREE.Vector3) {
-    const geo = new THREE.SphereGeometry(0.75, 12, 12);
-    const mat = new THREE.MeshBasicMaterial({
-        color: 0x55ffaa,
+    // 1. Double-shell golden shield (Outer wireframe + Inner solid glowing sphere)
+    const geoOuter = new THREE.SphereGeometry(0.8, 14, 14);
+    const matOuter = new THREE.MeshBasicMaterial({
+        color: 0xffd700, // Shiny gold
         transparent: true,
-        opacity: 0.45,
+        opacity: 0.55,
         wireframe: true,
         blending: THREE.AdditiveBlending,
         depthWrite: false
     });
+    const shieldOuter = new THREE.Mesh(geoOuter, matOuter);
+    shieldOuter.position.copy(targetPos);
+    scene.add(shieldOuter);
 
-    const shield = new THREE.Mesh(geo, mat);
-    shield.position.copy(targetPos);
-    scene.add(shield);
+    const geoInner = new THREE.SphereGeometry(0.72, 12, 12);
+    const matInner = new THREE.MeshBasicMaterial({
+        color: 0xffaa00, // Orange-gold
+        transparent: true,
+        opacity: 0.25,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+    });
+    const shieldInner = new THREE.Mesh(geoInner, matInner);
+    shieldInner.position.copy(targetPos);
+    scene.add(shieldInner);
+
+    // 2. Small orbiting golden stars
+    const starCount = 6;
+    const stars: THREE.Mesh[] = [];
+    const starGeo = new THREE.DodecahedronGeometry(0.06);
+    const starMat = new THREE.MeshBasicMaterial({
+        color: 0xffe875,
+        transparent: true,
+        opacity: 0.9,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+    });
+
+    for (let i = 0; i < starCount; i++) {
+        const star = new THREE.Mesh(starGeo, starMat);
+        scene.add(star);
+        stars.push(star);
+    }
 
     let age = 0;
-    const duration = 1.6; // Shield lasts for ~1.6 seconds visually
+    const duration = 1.3; // Visually matches shield active state
 
     activeFX.push({
         update(delta) {
             age += delta;
             const t = Math.min(1.0, age / duration);
 
-            // Slowly rotate and pulsate shield scale slightly
-            shield.rotation.y += delta * 1.5;
-            shield.rotation.x += delta * 0.8;
-            mat.opacity = 0.45 * (1.0 - t);
+            // Counter-rotation of inner/outer shield shells
+            shieldOuter.rotation.y += delta * 1.8;
+            shieldOuter.rotation.x += delta * 0.7;
+            shieldInner.rotation.y -= delta * 1.2;
+
+            // Pulsate shield scale slightly
+            const pulse = 1.0 + 0.05 * Math.sin(age * 12.0);
+            shieldOuter.scale.setScalar(pulse);
+            shieldInner.scale.setScalar(pulse);
+
+            // Fade out
+            matOuter.opacity = 0.55 * (1.0 - t);
+            matInner.opacity = 0.25 * (1.0 - t);
+
+            // Orbit stars around the shield
+            for (let i = 0; i < stars.length; i++) {
+                const angle = age * 6.0 + i * ((Math.PI * 2) / starCount);
+                stars[i].position.set(
+                    targetPos.x + 0.95 * Math.cos(angle),
+                    targetPos.y + 0.15 * Math.sin(age * 3.0 + i),
+                    targetPos.z + 0.95 * Math.sin(angle)
+                );
+                stars[i].scale.setScalar(1.0 - t);
+            }
 
             if (t >= 1.0) {
-                scene.remove(shield);
-                geo.dispose();
-                mat.dispose();
+                scene.remove(shieldOuter);
+                scene.remove(shieldInner);
+                geoOuter.dispose();
+                geoInner.dispose();
+                matOuter.dispose();
+                matInner.dispose();
+
+                for (const star of stars) {
+                    scene.remove(star);
+                }
+                starGeo.dispose();
+                starMat.dispose();
                 return false;
             }
             return true;
@@ -2120,38 +2178,77 @@ export function spawnDivineShieldFX(scene: THREE.Scene, targetPos: THREE.Vector3
 }
 
 export function spawnHolySanctuaryFX(scene: THREE.Scene, center: THREE.Vector3) {
-    const geo = new THREE.RingGeometry(0.1, 5.0, 32);
-    const mat = new THREE.MeshBasicMaterial({
-        color: 0x00ffaa,
+    // 1. Glowing ground ring
+    const geoRing = new THREE.RingGeometry(0.1, 5.0, 32);
+    const matRing = new THREE.MeshBasicMaterial({
+        color: 0x00ffaa, // Emerald-green holy aura
         side: THREE.DoubleSide,
         transparent: true,
-        opacity: 0.6,
+        opacity: 0.65,
         blending: THREE.AdditiveBlending,
         depthWrite: false
     });
-
-    const sanctuary = new THREE.Mesh(geo, mat);
+    const sanctuary = new THREE.Mesh(geoRing, matRing);
     sanctuary.rotation.x = -Math.PI / 2;
-    sanctuary.position.copy(center).y += 0.05;
+    sanctuary.position.copy(center).y += 0.06;
     scene.add(sanctuary);
 
+    // 2. Pillars of Light at the perimeter edges
+    const pillarCount = 4;
+    const pillars: THREE.Mesh[] = [];
+    const geoPillar = new THREE.CylinderGeometry(0.18, 0.18, 5.0, 8, 1, true);
+    const matPillar = new THREE.MeshBasicMaterial({
+        color: 0x33ffaa,
+        transparent: true,
+        opacity: 0.35,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        side: THREE.DoubleSide
+    });
+
+    const angleStep = (Math.PI * 2) / pillarCount;
+    for (let i = 0; i < pillarCount; i++) {
+        const p = new THREE.Mesh(geoPillar, matPillar);
+        const radius = 4.3; // slightly inside sanctuary boundary
+        p.position.set(
+            center.x + radius * Math.cos(i * angleStep),
+            center.y + 2.5, // Center offset for cylinder
+            center.z + radius * Math.sin(i * angleStep)
+        );
+        scene.add(p);
+        pillars.push(p);
+    }
+
     let age = 0;
-    const duration = 0.8;
+    const duration = 0.9;
 
     activeFX.push({
         update(delta) {
             age += delta;
             const t = Math.min(1.0, age / duration);
 
-            // Expand ring
+            // Expand floor ring
             const scale = easeOutCubic(t);
             sanctuary.scale.setScalar(scale);
-            mat.opacity = 0.6 * (1.0 - t);
+            matRing.opacity = 0.65 * (1.0 - t);
+
+            // Move pillars upwards and fade
+            matPillar.opacity = 0.35 * (1.0 - t);
+            for (let i = 0; i < pillars.length; i++) {
+                pillars[i].position.y += delta * 1.5; // rising speed
+                pillars[i].scale.set(1.0 - t, 1.0, 1.0 - t);
+            }
 
             if (t >= 1.0) {
                 scene.remove(sanctuary);
-                geo.dispose();
-                mat.dispose();
+                geoRing.dispose();
+                matRing.dispose();
+
+                for (const p of pillars) {
+                    scene.remove(p);
+                }
+                geoPillar.dispose();
+                matPillar.dispose();
                 return false;
             }
             return true;

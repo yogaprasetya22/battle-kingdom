@@ -1,0 +1,459 @@
+{
+  "communities": {
+    "0": [
+      "src_graphics_core_renderer_spawnskillfx",
+      "src_graphics_effects_skillfx",
+      "src_graphics_effects_skillfx_activefx",
+      "src_graphics_effects_skillfx_camquad",
+      "src_graphics_effects_skillfx_canspawnfx",
+      "src_graphics_effects_skillfx_circletex",
+      "src_graphics_effects_skillfx_createfrostnovamat",
+      "src_graphics_effects_skillfx_createironfortitudemat",
+      "src_graphics_effects_skillfx_easeoutback",
+      "src_graphics_effects_skillfx_easeoutcubic",
+      "src_graphics_effects_skillfx_easeoutquad",
+      "src_graphics_effects_skillfx_effectuniforms",
+      "src_graphics_effects_skillfx_firetex",
+      "src_graphics_effects_skillfx_flametex",
+      "src_graphics_effects_skillfx_fxqualityscale",
+      "src_graphics_effects_skillfx_geopool",
+      "src_graphics_effects_skillfx_getcamquad",
+      "src_graphics_effects_skillfx_getpooledmaterial",
+      "src_graphics_effects_skillfx_gettaunttex",
+      "src_graphics_effects_skillfx_lighttex",
+      "src_graphics_effects_skillfx_loadtex",
+      "src_graphics_effects_skillfx_magictex",
+      "src_graphics_effects_skillfx_matpool",
+      "src_graphics_effects_skillfx_matspecs",
+      "src_graphics_effects_skillfx_pooledplane",
+      "src_graphics_effects_skillfx_pooledring",
+      "src_graphics_effects_skillfx_releasepooledmaterial",
+      "src_graphics_effects_skillfx_ringgeopool",
+      "src_graphics_effects_skillfx_scorchtex",
+      "src_graphics_effects_skillfx_smoketex",
+      "src_graphics_effects_skillfx_sparktex",
+      "src_graphics_effects_skillfx_spawnarrowvolleyfx",
+      "src_graphics_effects_skillfx_spawnbasicattackfx",
+      "src_graphics_effects_skillfx_spawndivineshieldfx",
+      "src_graphics_effects_skillfx_spawndoubleshotfx",
+      "src_graphics_effects_skillfx_spawnevasiveleapfx",
+      "src_graphics_effects_skillfx_spawnexplosion",
+      "src_graphics_effects_skillfx_spawnfireballfx",
+      "src_graphics_effects_skillfx_spawnfrostnovaburstfx",
+      "src_graphics_effects_skillfx_spawnhealfx",
+      "src_graphics_effects_skillfx_spawnholysanctuaryfx",
+      "src_graphics_effects_skillfx_spawnironfortitudeaurafx",
+      "src_graphics_effects_skillfx_spawnlightningfx",
+      "src_graphics_effects_skillfx_spawnmeteorexplosion",
+      "src_graphics_effects_skillfx_spawnscreenflash",
+      "src_graphics_effects_skillfx_spawnshieldbashfx",
+      "src_graphics_effects_skillfx_spawntauntfx",
+      "src_graphics_effects_skillfx_star2tex",
+      "src_graphics_effects_skillfx_startex",
+      "src_graphics_effects_skillfx_tempobj",
+      "src_graphics_effects_skillfx_texloader"
+    ],
+    "1": [
+      "src_graphics_core_scene_gltfloader",
+      "src_graphics_scenery_castles",
+      "src_graphics_scenery_castles_castles",
+      "src_graphics_scenery_castles_castles_constructor",
+      "src_graphics_scenery_floor",
+      "src_graphics_scenery_floor_floor",
+      "src_graphics_scenery_floor_floor_constructor",
+      "src_graphics_scenery_flowers",
+      "src_graphics_scenery_flowers_flowers",
+      "src_graphics_scenery_flowers_flowers_constructor",
+      "src_graphics_scenery_grass",
+      "src_graphics_scenery_grass_grass",
+      "src_graphics_scenery_grass_grass_constructor",
+      "src_graphics_scenery_leaves",
+      "src_graphics_scenery_leaves_leaf_colors",
+      "src_graphics_scenery_leaves_leafparticle",
+      "src_graphics_scenery_leaves_leaves",
+      "src_graphics_scenery_leaves_leaves_constructor",
+      "src_graphics_scenery_leaves_leaves_spawnparticle",
+      "src_graphics_scenery_leaves_leaves_update",
+      "src_graphics_scenery_scenerywindlines",
+      "src_graphics_scenery_scenerywindlines_scenerywindlines",
+      "src_graphics_scenery_scenerywindlines_scenerywindlines_constructor",
+      "src_graphics_scenery_scenerywindlines_scenerywindlines_update",
+      "src_graphics_scenery_trees",
+      "src_graphics_scenery_trees_treepositions",
+      "src_graphics_scenery_trees_trees",
+      "src_graphics_scenery_trees_trees_constructor",
+      "src_graphics_scenery_watersurface",
+      "src_graphics_scenery_watersurface_watersurface",
+      "src_graphics_scenery_watersurface_watersurface_constructor",
+      "src_graphics_scenery_world",
+      "src_graphics_scenery_world_world",
+      "src_graphics_scenery_world_world_constructor",
+      "src_graphics_scenery_world_world_update",
+      "src_simulation_battle_worker_initunits",
+      "src_simulation_constants",
+      "src_simulation_constants_getterrainheight"
+    ],
+    "2": [
+      "src_graphics_core_renderer",
+      "src_graphics_core_renderer_clock",
+      "src_graphics_core_renderer_dcval",
+      "src_graphics_core_renderer_forward",
+      "src_graphics_core_renderer_fpsval",
+      "src_graphics_core_renderer_frustum",
+      "src_graphics_core_renderer_geoval",
+      "src_graphics_core_renderer_logpanel",
+      "src_graphics_core_renderer_looktarget",
+      "src_graphics_core_renderer_msval",
+      "src_graphics_core_renderer_progval",
+      "src_graphics_core_renderer_projscreen",
+      "src_graphics_core_renderer_q1",
+      "src_graphics_core_renderer_right",
+      "src_graphics_core_renderer_stoprenderloop",
+      "src_graphics_core_renderer_texval",
+      "src_graphics_core_renderer_trival",
+      "src_graphics_core_renderer_units",
+      "src_graphics_core_renderer_unitsphere",
+      "src_graphics_core_renderer_windeffect",
+      "src_graphics_core_renderer_world",
+      "src_graphics_core_types",
+      "src_graphics_core_types_unitvisual"
+    ],
+    "3": [
+      "src_simulation_battle_worker",
+      "src_simulation_battle_worker_animlockticks",
+      "src_simulation_battle_worker_applydamage",
+      "src_simulation_battle_worker_delayeddamage",
+      "src_simulation_battle_worker_delayeddamages",
+      "src_simulation_battle_worker_findlowesthpally",
+      "src_simulation_battle_worker_findnearestenemy",
+      "src_simulation_battle_worker_queuedamage",
+      "src_simulation_battle_worker_statsdamagedealt",
+      "src_simulation_battle_worker_statsdamagetaken",
+      "src_simulation_battle_worker_statshealdone",
+      "src_simulation_battle_worker_statskills",
+      "src_simulation_battle_worker_tick",
+      "src_simulation_config",
+      "src_simulation_config_archer_skills",
+      "src_simulation_config_armor",
+      "src_simulation_config_attributes",
+      "src_simulation_config_default_attributes",
+      "src_simulation_config_healer_skills",
+      "src_simulation_config_hp_per_type",
+      "src_simulation_config_mage_skills",
+      "src_simulation_config_tank_skills",
+      "src_simulation_config_unitattributes"
+    ],
+    "4": [
+      "gsap",
+      "package",
+      "package_dependencies",
+      "package_dependencies_gsap",
+      "package_dependencies_three",
+      "package_dependencies_types_three",
+      "package_devdependencies",
+      "package_devdependencies_typescript",
+      "package_devdependencies_vite",
+      "package_name",
+      "package_private",
+      "package_scripts",
+      "package_scripts_build",
+      "package_scripts_dev",
+      "package_scripts_prepare",
+      "package_scripts_preview",
+      "package_type",
+      "package_version",
+      "three",
+      "types_three",
+      "typescript",
+      "vite"
+    ],
+    "5": [
+      "ref_dom",
+      "ref_es2023",
+      "ref_src",
+      "ref_vite_client",
+      "tsconfig",
+      "tsconfig_compileroptions",
+      "tsconfig_compileroptions_allowarbitraryextensions",
+      "tsconfig_compileroptions_allowimportingtsextensions",
+      "tsconfig_compileroptions_erasablesyntaxonly",
+      "tsconfig_compileroptions_lib",
+      "tsconfig_compileroptions_module",
+      "tsconfig_compileroptions_moduledetection",
+      "tsconfig_compileroptions_moduleresolution",
+      "tsconfig_compileroptions_noemit",
+      "tsconfig_compileroptions_nofallthroughcasesinswitch",
+      "tsconfig_compileroptions_nounusedlocals",
+      "tsconfig_compileroptions_nounusedparameters",
+      "tsconfig_compileroptions_skiplibcheck",
+      "tsconfig_compileroptions_target",
+      "tsconfig_compileroptions_types",
+      "tsconfig_compileroptions_verbatimmodulesyntax",
+      "tsconfig_include"
+    ],
+    "6": [
+      "src_graphics_core_renderer_resetunitsvisual",
+      "src_graphics_core_renderer_setshareddata",
+      "src_graphics_core_soundfx",
+      "src_graphics_core_soundfx_soundfx",
+      "src_main",
+      "src_main_btnreset",
+      "src_main_btnstart",
+      "src_main_disablecontrols",
+      "src_main_enablecontrols",
+      "src_main_overlay",
+      "src_main_overlaybtn",
+      "src_main_overlaymsg",
+      "src_main_scorea",
+      "src_main_scoreb",
+      "src_main_selectmatchup",
+      "src_main_selectmodel",
+      "src_main_sharedbuffer",
+      "src_main_shareddata",
+      "src_main_statscontainer",
+      "src_main_worker",
+      "src_main_workerticks"
+    ],
+    "7": [
+      "src_graphics_ui_ui_billboards",
+      "src_graphics_ui_ui_billboards_cdringgeo",
+      "src_graphics_ui_ui_billboards_cdringmat",
+      "src_graphics_ui_ui_billboards_cdrings",
+      "src_graphics_ui_ui_billboards_deadmatrix",
+      "src_graphics_ui_ui_billboards_dummy",
+      "src_graphics_ui_ui_billboards_hpbarsbg",
+      "src_graphics_ui_ui_billboards_hpbarsfg",
+      "src_graphics_ui_ui_billboards_hpbgmat",
+      "src_graphics_ui_ui_billboards_hpfgmat",
+      "src_graphics_ui_ui_billboards_hpgeo",
+      "src_graphics_ui_ui_billboards_immuneringgeo",
+      "src_graphics_ui_ui_billboards_immuneringmat",
+      "src_graphics_ui_ui_billboards_immunerings",
+      "src_graphics_ui_ui_billboards_namegeo"
+    ],
+    "8": [
+      "src_graphics_core_scene",
+      "src_graphics_core_scene_ambient",
+      "src_graphics_core_scene_camera",
+      "src_graphics_core_scene_canvas",
+      "src_graphics_core_scene_controls",
+      "src_graphics_core_scene_hemilight",
+      "src_graphics_core_scene_loadingmanager",
+      "src_graphics_core_scene_renderer",
+      "src_graphics_core_scene_scene",
+      "src_graphics_core_scene_sun"
+    ],
+    "9": [
+      "src_graphics_effects_windlines",
+      "src_graphics_effects_windlines_createwindlinegeometry",
+      "src_graphics_effects_windlines_sharedwindgeo",
+      "src_graphics_effects_windlines_sharedwindmat",
+      "src_graphics_effects_windlines_windeffectmanager",
+      "src_graphics_effects_windlines_windeffectmanager_constructor",
+      "src_graphics_effects_windlines_windeffectmanager_display",
+      "src_graphics_effects_windlines_windeffectmanager_start",
+      "src_graphics_effects_windlines_windeffectmanager_stop",
+      "src_graphics_effects_windlines_windlinestate"
+    ],
+    "10": [
+      "src_graphics_core_soundfx_soundmanager",
+      "src_graphics_core_soundfx_soundmanager_getvolumescale",
+      "src_graphics_core_soundfx_soundmanager_init",
+      "src_graphics_core_soundfx_soundmanager_playbow",
+      "src_graphics_core_soundfx_soundmanager_playheal",
+      "src_graphics_core_soundfx_soundmanager_playiceshatter",
+      "src_graphics_core_soundfx_soundmanager_playlightning",
+      "src_graphics_core_soundfx_soundmanager_playmagiccast",
+      "src_graphics_core_soundfx_soundmanager_playslash"
+    ],
+    "11": [
+      "src_graphics_core_renderer_fadetoanimation",
+      "src_graphics_core_renderer_startrenderloop",
+      "src_graphics_core_renderer_updateframe",
+      "src_graphics_effects_skillfx_spawniceshatterfx",
+      "src_graphics_effects_skillfx_updatefx",
+      "src_graphics_effects_windlines_windeffectmanager_update"
+    ],
+    "12": [
+      "src_graphics_core_renderer_changemodel",
+      "src_graphics_core_renderer_getmodelsformatchup",
+      "src_graphics_core_renderer_logdiag",
+      "src_graphics_ui_ui_billboards_createnametexture",
+      "src_graphics_ui_ui_billboards_initnamebars"
+    ],
+    "13": [
+      "mengompresi_chef_hat",
+      "mengompresi_chef_hat_model"
+    ],
+    "14": [
+      "public_coi_serviceworker"
+    ],
+    "15": [
+      "vite_config"
+    ]
+  },
+  "cohesion": {
+    "0": 0.07450980392156863,
+    "1": 0.112375533428165,
+    "2": 0.09090909090909091,
+    "3": 0.13438735177865613,
+    "4": 0.09090909090909091,
+    "5": 0.09090909090909091,
+    "6": 0.1,
+    "7": 0.13333333333333333,
+    "8": 0.2,
+    "9": 0.2222222222222222,
+    "10": 0.3888888888888889,
+    "11": 0.3333333333333333,
+    "12": 0.4,
+    "13": 1.0,
+    "14": 1.0,
+    "15": 1.0
+  },
+  "gods": [
+    {
+      "id": "src_simulation_constants_getterrainheight",
+      "label": "getTerrainHeight()",
+      "degree": 21
+    },
+    {
+      "id": "src_graphics_core_renderer_spawnskillfx",
+      "label": "spawnSkillFX()",
+      "degree": 17
+    },
+    {
+      "id": "tsconfig_compileroptions",
+      "label": "compilerOptions",
+      "degree": 16
+    },
+    {
+      "id": "src_graphics_scenery_world_world",
+      "label": "World",
+      "degree": 12
+    },
+    {
+      "id": "src_graphics_effects_skillfx_pooledplane",
+      "label": "pooledPlane()",
+      "degree": 10
+    },
+    {
+      "id": "src_graphics_core_soundfx_soundmanager",
+      "label": "SoundManager",
+      "degree": 9
+    },
+    {
+      "id": "src_graphics_effects_skillfx_fxqualityscale",
+      "label": "fxQualityScale()",
+      "degree": 8
+    },
+    {
+      "id": "src_graphics_effects_skillfx_spawntauntfx",
+      "label": "spawnTauntFX()",
+      "degree": 8
+    },
+    {
+      "id": "src_graphics_effects_skillfx_spawnshieldbashfx",
+      "label": "spawnShieldBashFX()",
+      "degree": 8
+    },
+    {
+      "id": "src_graphics_effects_skillfx_spawnironfortitudeaurafx",
+      "label": "spawnIronFortitudeAuraFX()",
+      "degree": 7
+    }
+  ],
+  "surprises": [
+    {
+      "source": "spawnSkillFX()",
+      "target": "getTerrainHeight()",
+      "source_files": [
+        "src/graphics/core/renderer.ts",
+        "src/simulation/constants.ts"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "why": "bridges separate communities"
+    },
+    {
+      "source": "initUnits()",
+      "target": "getTerrainHeight()",
+      "source_files": [
+        "src/simulation/battle.worker.ts",
+        "src/simulation/constants.ts"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "why": "peripheral node `initUnits()` unexpectedly reaches hub `getTerrainHeight()`"
+    },
+    {
+      "source": "tick()",
+      "target": "getTerrainHeight()",
+      "source_files": [
+        "src/simulation/battle.worker.ts",
+        "src/simulation/constants.ts"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "why": "bridges separate communities"
+    },
+    {
+      "source": "changeModel()",
+      "target": "initNameBars()",
+      "source_files": [
+        "src/graphics/core/renderer.ts",
+        "src/graphics/ui/ui_billboards.ts"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "why": "cross-file semantic connection"
+    },
+    {
+      "source": "spawnSkillFX()",
+      "target": "canSpawnFX()",
+      "source_files": [
+        "src/graphics/core/renderer.ts",
+        "src/graphics/effects/SkillFX.ts"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "why": "cross-file semantic connection"
+    }
+  ],
+  "questions": [
+    {
+      "type": "bridge_node",
+      "question": "Why does `getTerrainHeight()` connect `getTerrainHeight` to `SkillFX.ts`, `renderer.ts`, `battle.worker.ts`?",
+      "why": "High betweenness centrality (0.121) - this node is a cross-community bridge."
+    },
+    {
+      "type": "bridge_node",
+      "question": "Why does `SoundManager` connect `SoundManager` to `main.ts`?",
+      "why": "High betweenness centrality (0.049) - this node is a cross-community bridge."
+    },
+    {
+      "type": "bridge_node",
+      "question": "Why does `World` connect `getTerrainHeight` to `renderer.ts`?",
+      "why": "High betweenness centrality (0.037) - this node is a cross-community bridge."
+    },
+    {
+      "type": "isolated_nodes",
+      "question": "What connects `target`, `module`, `ES2023` to the rest of the system?",
+      "why": "107 weakly-connected nodes found - possible documentation gaps or missing edges."
+    },
+    {
+      "type": "low_cohesion",
+      "question": "Should `SkillFX.ts` be split into smaller, more focused modules?",
+      "why": "Cohesion score 0.07450980392156863 - nodes in this community are weakly interconnected."
+    },
+    {
+      "type": "low_cohesion",
+      "question": "Should `getTerrainHeight` be split into smaller, more focused modules?",
+      "why": "Cohesion score 0.112375533428165 - nodes in this community are weakly interconnected."
+    },
+    {
+      "type": "low_cohesion",
+      "question": "Should `renderer.ts` be split into smaller, more focused modules?",
+      "why": "Cohesion score 0.09090909090909091 - nodes in this community are weakly interconnected."
+    }
+  ]
+}

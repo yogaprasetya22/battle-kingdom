@@ -295,7 +295,7 @@ class SoundManager {
         flutter.stop(now + 0.2);
     }
 
-    // Ultimate: Meteor Fireball — deep rumble + explosion + debris
+    // Ultimate: Meteor Fireball — arcane meteor descend + cataclysmic impact
     playFireball(x: number, y: number, z: number, cameraPos: THREE.Vector3) {
         if (!this.ctx || !this.throttle("fireball")) return;
         const vol = this.getVolumeScale(x, y, z, cameraPos);
@@ -303,61 +303,98 @@ class SoundManager {
         const now = this.ctx.currentTime;
         const pan = Math.min(1, Math.max(-1, (x - cameraPos.x) / 30));
 
-        // Layer 1: deep earthquake rumble
-        const [rumble, rumbleGain] = this.tone("sawtooth", 25, 0.35 * vol, now);
-        rumble.frequency.exponentialRampToValueAtTime(10, now + 0.7);
-        rumbleGain.gain.setValueAtTime(0.35 * vol, now);
-        rumbleGain.gain.linearRampToValueAtTime(0.4 * vol, now + 0.2);
-        rumbleGain.gain.exponentialRampToValueAtTime(0.001, now + 0.7);
-        this.out(rumbleGain, 0);
-        rumble.start(now);
-        rumble.stop(now + 0.71);
+        // Layer 1: arcane charging — rising sawtooth sweep (mage channeling)
+        const [charge, chargeGain] = this.tone("sawtooth", 60, 0.15 * vol, now);
+        charge.frequency.linearRampToValueAtTime(120, now + 0.25);
+        charge.frequency.exponentialRampToValueAtTime(40, now + 0.5);
+        chargeGain.gain.setValueAtTime(0.05 * vol, now);
+        chargeGain.gain.linearRampToValueAtTime(0.2 * vol, now + 0.25);
+        chargeGain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+        this.out(chargeGain, 0);
+        charge.start(now);
+        charge.stop(now + 0.51);
 
-        // Layer 2: explosion blast — noise burst
+        // Layer 2: meteor whistle — high sine descending (meteor jatuh)
+        const [whistle, whGain] = this.tone(
+            "sine",
+            1400,
+            0.22 * vol,
+            now + 0.15,
+        );
+        whistle.frequency.exponentialRampToValueAtTime(300, now + 0.55);
+        whGain.gain.setValueAtTime(0.22 * vol, now + 0.15);
+        whGain.gain.linearRampToValueAtTime(0.28 * vol, now + 0.3);
+        whGain.gain.exponentialRampToValueAtTime(0.001, now + 0.55);
+        this.out(whGain, pan);
+        whistle.start(now + 0.15);
+        whistle.stop(now + 0.56);
+
+        // Layer 3: arcane wind — bandpass noise sweeping down
         if (this.noiseBuffer) {
-            const blast = this.ctx.createBufferSource();
-            blast.buffer = this.noiseBuffer;
-            const lp = this.ctx.createBiquadFilter();
-            lp.type = "lowpass";
-            lp.frequency.setValueAtTime(600, now);
-            lp.frequency.exponentialRampToValueAtTime(50, now + 0.4);
-            const bgain = this.ctx.createGain();
-            bgain.gain.setValueAtTime(0.4 * vol, now);
-            bgain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
-            blast.connect(lp);
-            lp.connect(bgain);
-            this.out(bgain, pan);
-            blast.start(now);
-            blast.stop(now + 0.41);
+            const wind = this.ctx.createBufferSource();
+            wind.buffer = this.noiseBuffer;
+            const bp = this.ctx.createBiquadFilter();
+            bp.type = "bandpass";
+            bp.frequency.setValueAtTime(2000, now);
+            bp.frequency.exponentialRampToValueAtTime(80, now + 0.45);
+            const wgain = this.ctx.createGain();
+            wgain.gain.setValueAtTime(0.15 * vol, now);
+            wgain.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
+            wind.connect(bp);
+            bp.connect(wgain);
+            this.out(wgain, pan);
+            wind.start(now);
+            wind.stop(now + 0.46);
         }
 
-        // Layer 3: high crack — sine spike
-        const [crack, crackGain] = this.tone("sine", 3000, 0.2 * vol, now);
-        crack.frequency.exponentialRampToValueAtTime(200, now + 0.3);
-        crackGain.gain.setValueAtTime(0.2 * vol, now);
-        crackGain.gain.exponentialRampToValueAtTime(0.001, now + 0.31);
-        this.out(crackGain, pan);
-        crack.start(now);
-        crack.stop(now + 0.32);
+        // Layer 4: cataclysmic impact — deep sawtooth boom + noise burst
+        const [boom, boomGain] = this.tone(
+            "sawtooth",
+            18,
+            0.4 * vol,
+            now + 0.4,
+        );
+        boom.frequency.exponentialRampToValueAtTime(6, now + 0.85);
+        boomGain.gain.setValueAtTime(0.001, now + 0.4);
+        boomGain.gain.linearRampToValueAtTime(0.45 * vol, now + 0.45);
+        boomGain.gain.exponentialRampToValueAtTime(0.001, now + 0.9);
+        this.out(boomGain, 0);
+        boom.start(now + 0.4);
+        boom.stop(now + 0.91);
 
-        // Layer 4: debris sizzle — highpass noise scatter
+        // Impact noise crunch
         if (this.noiseBuffer) {
-            for (let i = 0; i < 3; i++) {
-                const t = now + i * 0.06;
-                const sp = this.ctx.createBufferSource();
-                sp.buffer = this.noiseBuffer;
-                const hp = this.ctx.createBiquadFilter();
-                hp.type = "highpass";
-                hp.frequency.setValueAtTime(4000, t);
-                const sgain = this.ctx.createGain();
-                sgain.gain.setValueAtTime(0.08 * vol, t);
-                sgain.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
-                sp.connect(hp);
-                hp.connect(sgain);
-                this.out(sgain, pan * (0.5 + Math.random()));
-                sp.start(t);
-                sp.stop(t + 0.13);
-            }
+            const impact = this.ctx.createBufferSource();
+            impact.buffer = this.noiseBuffer;
+            const lp = this.ctx.createBiquadFilter();
+            lp.type = "lowpass";
+            lp.frequency.setValueAtTime(400, now + 0.4);
+            lp.frequency.exponentialRampToValueAtTime(30, now + 0.65);
+            const igain = this.ctx.createGain();
+            igain.gain.setValueAtTime(0.35 * vol, now + 0.4);
+            igain.gain.exponentialRampToValueAtTime(0.001, now + 0.65);
+            impact.connect(lp);
+            lp.connect(igain);
+            this.out(igain, pan);
+            impact.start(now + 0.4);
+            impact.stop(now + 0.66);
+        }
+
+        // Layer 5: magic sparkle aftermath — high sine arpeggio shimmer
+        const sparkNotes = [1200, 1500, 1800, 2200];
+        for (let i = 0; i < sparkNotes.length; i++) {
+            const t = now + 0.55 + i * 0.06;
+            const [sp, spGain] = this.tone(
+                "sine",
+                sparkNotes[i],
+                0.08 * vol,
+                t,
+            );
+            spGain.gain.setValueAtTime(0.08 * vol, t);
+            spGain.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+            this.out(spGain, pan * (0.5 + Math.random() * 0.5));
+            sp.start(t);
+            sp.stop(t + 0.31);
         }
     }
 

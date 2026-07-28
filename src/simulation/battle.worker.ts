@@ -76,7 +76,11 @@ function initUnits(d: Float32Array, matchup: string = "mix") {
         const col = localIdx % 10;
 
         // Tentukan kategori unit berdasarkan matchup
-        let unitType = localIdx % 4; // 0=Tank, 1=Archer, 2=Mage, 3=Healer
+        let unitType = localIdx % 3; // 0=Tank, 1=Archer, 2=Mage by default
+        const healerCount = Math.max(1, Math.round(TEAM_SIZE * 0.02)); // 2% Healers
+        if (localIdx < healerCount) {
+            unitType = TYPE_HEALER;
+        }
         if (matchup === "mage_vs_tank") {
             unitType = team === TEAM_A ? TYPE_MAGE : TYPE_TANK;
         } else if (matchup === "archer_vs_tank") {

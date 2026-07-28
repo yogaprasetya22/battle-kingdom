@@ -286,8 +286,8 @@
       "_origin": "ast",
       "community": 4,
       "norm_label": "package.json",
-      "id": "package",
-      "community_name": "package.json"
+      "community_name": "package.json",
+      "id": "package"
     },
     {
       "label": "name",
@@ -297,8 +297,8 @@
       "_origin": "ast",
       "community": 4,
       "norm_label": "name",
-      "id": "package_name",
-      "community_name": "package.json"
+      "community_name": "package.json",
+      "id": "package_name"
     },
     {
       "label": "private",
@@ -308,8 +308,8 @@
       "_origin": "ast",
       "community": 4,
       "norm_label": "private",
-      "id": "package_private",
-      "community_name": "package.json"
+      "community_name": "package.json",
+      "id": "package_private"
     },
     {
       "label": "version",
@@ -319,8 +319,8 @@
       "_origin": "ast",
       "community": 4,
       "norm_label": "version",
-      "id": "package_version",
-      "community_name": "package.json"
+      "community_name": "package.json",
+      "id": "package_version"
     },
     {
       "label": "type",
@@ -330,8 +330,8 @@
       "_origin": "ast",
       "community": 4,
       "norm_label": "type",
-      "id": "package_type",
-      "community_name": "package.json"
+      "community_name": "package.json",
+      "id": "package_type"
     },
     {
       "label": "scripts",
@@ -341,8 +341,8 @@
       "_origin": "ast",
       "community": 4,
       "norm_label": "scripts",
-      "id": "package_scripts",
-      "community_name": "package.json"
+      "community_name": "package.json",
+      "id": "package_scripts"
     },
     {
       "label": "dev",
@@ -352,8 +352,8 @@
       "_origin": "ast",
       "community": 4,
       "norm_label": "dev",
-      "id": "package_scripts_dev",
-      "community_name": "package.json"
+      "community_name": "package.json",
+      "id": "package_scripts_dev"
     },
     {
       "label": "build",
@@ -363,8 +363,8 @@
       "_origin": "ast",
       "community": 4,
       "norm_label": "build",
-      "id": "package_scripts_build",
-      "community_name": "package.json"
+      "community_name": "package.json",
+      "id": "package_scripts_build"
     },
     {
       "label": "preview",
@@ -374,8 +374,8 @@
       "_origin": "ast",
       "community": 4,
       "norm_label": "preview",
-      "id": "package_scripts_preview",
-      "community_name": "package.json"
+      "community_name": "package.json",
+      "id": "package_scripts_preview"
     },
     {
       "label": "prepare",
@@ -385,8 +385,8 @@
       "_origin": "ast",
       "community": 4,
       "norm_label": "prepare",
-      "id": "package_scripts_prepare",
-      "community_name": "package.json"
+      "community_name": "package.json",
+      "id": "package_scripts_prepare"
     },
     {
       "label": "devDependencies",
@@ -396,8 +396,8 @@
       "_origin": "ast",
       "community": 4,
       "norm_label": "devdependencies",
-      "id": "package_devdependencies",
-      "community_name": "package.json"
+      "community_name": "package.json",
+      "id": "package_devdependencies"
     },
     {
       "label": "typescript",
@@ -407,8 +407,8 @@
       "_origin": "ast",
       "community": 4,
       "norm_label": "typescript",
-      "id": "package_devdependencies_typescript",
-      "community_name": "package.json"
+      "community_name": "package.json",
+      "id": "package_devdependencies_typescript"
     },
     {
       "label": "typescript",
@@ -418,8 +418,8 @@
       "_origin": "ast",
       "community": 4,
       "norm_label": "typescript",
-      "id": "typescript",
-      "community_name": "package.json"
+      "community_name": "package.json",
+      "id": "typescript"
     },
     {
       "label": "vite",
@@ -429,8 +429,8 @@
       "_origin": "ast",
       "community": 4,
       "norm_label": "vite",
-      "id": "package_devdependencies_vite",
-      "community_name": "package.json"
+      "community_name": "package.json",
+      "id": "package_devdependencies_vite"
     },
     {
       "label": "vite",
@@ -440,8 +440,8 @@
       "_origin": "ast",
       "community": 4,
       "norm_label": "vite",
-      "id": "vite",
-      "community_name": "package.json"
+      "community_name": "package.json",
+      "id": "vite"
     },
     {
       "label": "dependencies",
@@ -451,8 +451,8 @@
       "_origin": "ast",
       "community": 4,
       "norm_label": "dependencies",
-      "id": "package_dependencies",
-      "community_name": "package.json"
+      "community_name": "package.json",
+      "id": "package_dependencies"
     },
     {
       "label": "@types/three",
@@ -462,8 +462,8 @@
       "_origin": "ast",
       "community": 4,
       "norm_label": "@types/three",
-      "id": "package_dependencies_types_three",
-      "community_name": "package.json"
+      "community_name": "package.json",
+      "id": "package_dependencies_types_three"
     },
     {
       "label": "@types/three",
@@ -473,8 +473,8 @@
       "_origin": "ast",
       "community": 4,
       "norm_label": "@types/three",
-      "id": "types_three",
-      "community_name": "package.json"
+      "community_name": "package.json",
+      "id": "types_three"
     },
     {
       "label": "gsap",
@@ -484,8 +484,8 @@
       "_origin": "ast",
       "community": 4,
       "norm_label": "gsap",
-      "id": "package_dependencies_gsap",
-      "community_name": "package.json"
+      "community_name": "package.json",
+      "id": "package_dependencies_gsap"
     },
     {
       "label": "gsap",
@@ -495,8 +495,8 @@
       "_origin": "ast",
       "community": 4,
       "norm_label": "gsap",
-      "id": "gsap",
-      "community_name": "package.json"
+      "community_name": "package.json",
+      "id": "gsap"
     },
     {
       "label": "three",
@@ -506,8 +506,8 @@
       "_origin": "ast",
       "community": 4,
       "norm_label": "three",
-      "id": "package_dependencies_three",
-      "community_name": "package.json"
+      "community_name": "package.json",
+      "id": "package_dependencies_three"
     },
     {
       "label": "three",
@@ -517,8 +517,8 @@
       "_origin": "ast",
       "community": 4,
       "norm_label": "three",
-      "id": "three",
-      "community_name": "package.json"
+      "community_name": "package.json",
+      "id": "three"
     },
     {
       "label": "coi-serviceworker.js",
@@ -528,8 +528,8 @@
       "_origin": "ast",
       "community": 14,
       "norm_label": "coi-serviceworker.js",
-      "id": "public_coi_serviceworker",
-      "community_name": "coi-serviceworker.js"
+      "community_name": "coi-serviceworker.js",
+      "id": "public_coi_serviceworker"
     },
     {
       "label": "SoundFX.ts",
@@ -539,8 +539,8 @@
       "_origin": "ast",
       "community": 6,
       "norm_label": "soundfx.ts",
-      "id": "src_graphics_core_soundfx",
-      "community_name": "main.ts"
+      "community_name": "main.ts",
+      "id": "src_graphics_core_soundfx"
     },
     {
       "label": "SoundManager",
@@ -550,8 +550,8 @@
       "_origin": "ast",
       "community": 10,
       "norm_label": "soundmanager",
-      "id": "src_graphics_core_soundfx_soundmanager",
-      "community_name": "SoundManager"
+      "community_name": "SoundManager",
+      "id": "src_graphics_core_soundfx_soundmanager"
     },
     {
       "label": ".init()",
@@ -561,8 +561,8 @@
       "_origin": "ast",
       "community": 10,
       "norm_label": ".init()",
-      "id": "src_graphics_core_soundfx_soundmanager_init",
-      "community_name": "SoundManager"
+      "community_name": "SoundManager",
+      "id": "src_graphics_core_soundfx_soundmanager_init"
     },
     {
       "label": ".getVolumeScale()",
@@ -572,8 +572,8 @@
       "_origin": "ast",
       "community": 10,
       "norm_label": ".getvolumescale()",
-      "id": "src_graphics_core_soundfx_soundmanager_getvolumescale",
-      "community_name": "SoundManager"
+      "community_name": "SoundManager",
+      "id": "src_graphics_core_soundfx_soundmanager_getvolumescale"
     },
     {
       "label": ".playSlash()",
@@ -583,8 +583,8 @@
       "_origin": "ast",
       "community": 10,
       "norm_label": ".playslash()",
-      "id": "src_graphics_core_soundfx_soundmanager_playslash",
-      "community_name": "SoundManager"
+      "community_name": "SoundManager",
+      "id": "src_graphics_core_soundfx_soundmanager_playslash"
     },
     {
       "label": ".playBow()",
@@ -594,8 +594,8 @@
       "_origin": "ast",
       "community": 10,
       "norm_label": ".playbow()",
-      "id": "src_graphics_core_soundfx_soundmanager_playbow",
-      "community_name": "SoundManager"
+      "community_name": "SoundManager",
+      "id": "src_graphics_core_soundfx_soundmanager_playbow"
     },
     {
       "label": ".playMagicCast()",
@@ -605,8 +605,8 @@
       "_origin": "ast",
       "community": 10,
       "norm_label": ".playmagiccast()",
-      "id": "src_graphics_core_soundfx_soundmanager_playmagiccast",
-      "community_name": "SoundManager"
+      "community_name": "SoundManager",
+      "id": "src_graphics_core_soundfx_soundmanager_playmagiccast"
     },
     {
       "label": ".playLightning()",
@@ -616,8 +616,8 @@
       "_origin": "ast",
       "community": 10,
       "norm_label": ".playlightning()",
-      "id": "src_graphics_core_soundfx_soundmanager_playlightning",
-      "community_name": "SoundManager"
+      "community_name": "SoundManager",
+      "id": "src_graphics_core_soundfx_soundmanager_playlightning"
     },
     {
       "label": ".playIceShatter()",
@@ -627,8 +627,8 @@
       "_origin": "ast",
       "community": 10,
       "norm_label": ".playiceshatter()",
-      "id": "src_graphics_core_soundfx_soundmanager_playiceshatter",
-      "community_name": "SoundManager"
+      "community_name": "SoundManager",
+      "id": "src_graphics_core_soundfx_soundmanager_playiceshatter"
     },
     {
       "label": ".playHeal()",
@@ -638,8 +638,8 @@
       "_origin": "ast",
       "community": 10,
       "norm_label": ".playheal()",
-      "id": "src_graphics_core_soundfx_soundmanager_playheal",
-      "community_name": "SoundManager"
+      "community_name": "SoundManager",
+      "id": "src_graphics_core_soundfx_soundmanager_playheal"
     },
     {
       "label": "soundFX",
@@ -649,8 +649,8 @@
       "_origin": "ast",
       "community": 6,
       "norm_label": "soundfx",
-      "id": "src_graphics_core_soundfx_soundfx",
-      "community_name": "main.ts"
+      "community_name": "main.ts",
+      "id": "src_graphics_core_soundfx_soundfx"
     },
     {
       "label": "renderer.ts",
@@ -660,8 +660,8 @@
       "_origin": "ast",
       "community": 2,
       "norm_label": "renderer.ts",
-      "id": "src_graphics_core_renderer",
-      "community_name": "renderer.ts"
+      "community_name": "renderer.ts",
+      "id": "src_graphics_core_renderer"
     },
     {
       "label": "units",
@@ -671,8 +671,8 @@
       "_origin": "ast",
       "community": 2,
       "norm_label": "units",
-      "id": "src_graphics_core_renderer_units",
-      "community_name": "renderer.ts"
+      "community_name": "renderer.ts",
+      "id": "src_graphics_core_renderer_units"
     },
     {
       "label": "clock",
@@ -682,8 +682,8 @@
       "_origin": "ast",
       "community": 2,
       "norm_label": "clock",
-      "id": "src_graphics_core_renderer_clock",
-      "community_name": "renderer.ts"
+      "community_name": "renderer.ts",
+      "id": "src_graphics_core_renderer_clock"
     },
     {
       "label": "logPanel",
@@ -693,8 +693,8 @@
       "_origin": "ast",
       "community": 2,
       "norm_label": "logpanel",
-      "id": "src_graphics_core_renderer_logpanel",
-      "community_name": "renderer.ts"
+      "community_name": "renderer.ts",
+      "id": "src_graphics_core_renderer_logpanel"
     },
     {
       "label": "logDiag()",
@@ -704,8 +704,8 @@
       "_origin": "ast",
       "community": 12,
       "norm_label": "logdiag()",
-      "id": "src_graphics_core_renderer_logdiag",
-      "community_name": "changeModel"
+      "community_name": "changeModel",
+      "id": "src_graphics_core_renderer_logdiag"
     },
     {
       "label": "world",
@@ -715,8 +715,8 @@
       "_origin": "ast",
       "community": 2,
       "norm_label": "world",
-      "id": "src_graphics_core_renderer_world",
-      "community_name": "renderer.ts"
+      "community_name": "renderer.ts",
+      "id": "src_graphics_core_renderer_world"
     },
     {
       "label": "windEffect",
@@ -726,8 +726,8 @@
       "_origin": "ast",
       "community": 2,
       "norm_label": "windeffect",
-      "id": "src_graphics_core_renderer_windeffect",
-      "community_name": "renderer.ts"
+      "community_name": "renderer.ts",
+      "id": "src_graphics_core_renderer_windeffect"
     },
     {
       "label": "getModelsForMatchup()",
@@ -737,8 +737,8 @@
       "_origin": "ast",
       "community": 12,
       "norm_label": "getmodelsformatchup()",
-      "id": "src_graphics_core_renderer_getmodelsformatchup",
-      "community_name": "changeModel"
+      "community_name": "changeModel",
+      "id": "src_graphics_core_renderer_getmodelsformatchup"
     },
     {
       "label": "changeModel()",
@@ -748,8 +748,8 @@
       "_origin": "ast",
       "community": 12,
       "norm_label": "changemodel()",
-      "id": "src_graphics_core_renderer_changemodel",
-      "community_name": "changeModel"
+      "community_name": "changeModel",
+      "id": "src_graphics_core_renderer_changemodel"
     },
     {
       "label": "setSharedData()",
@@ -759,8 +759,8 @@
       "_origin": "ast",
       "community": 6,
       "norm_label": "setshareddata()",
-      "id": "src_graphics_core_renderer_setshareddata",
-      "community_name": "main.ts"
+      "community_name": "main.ts",
+      "id": "src_graphics_core_renderer_setshareddata"
     },
     {
       "label": "spawnSkillFX()",
@@ -770,8 +770,8 @@
       "_origin": "ast",
       "community": 0,
       "norm_label": "spawnskillfx()",
-      "id": "src_graphics_core_renderer_spawnskillfx",
-      "community_name": "SkillFX.ts"
+      "community_name": "SkillFX.ts",
+      "id": "src_graphics_core_renderer_spawnskillfx"
     },
     {
       "label": "_right",
@@ -781,8 +781,8 @@
       "_origin": "ast",
       "community": 2,
       "norm_label": "_right",
-      "id": "src_graphics_core_renderer_right",
-      "community_name": "renderer.ts"
+      "community_name": "renderer.ts",
+      "id": "src_graphics_core_renderer_right"
     },
     {
       "label": "_forward",
@@ -792,8 +792,8 @@
       "_origin": "ast",
       "community": 2,
       "norm_label": "_forward",
-      "id": "src_graphics_core_renderer_forward",
-      "community_name": "renderer.ts"
+      "community_name": "renderer.ts",
+      "id": "src_graphics_core_renderer_forward"
     },
     {
       "label": "_lookTarget",
@@ -803,8 +803,8 @@
       "_origin": "ast",
       "community": 2,
       "norm_label": "_looktarget",
-      "id": "src_graphics_core_renderer_looktarget",
-      "community_name": "renderer.ts"
+      "community_name": "renderer.ts",
+      "id": "src_graphics_core_renderer_looktarget"
     },
     {
       "label": "_q1",
@@ -814,8 +814,8 @@
       "_origin": "ast",
       "community": 2,
       "norm_label": "_q1",
-      "id": "src_graphics_core_renderer_q1",
-      "community_name": "renderer.ts"
+      "community_name": "renderer.ts",
+      "id": "src_graphics_core_renderer_q1"
     },
     {
       "label": "_frustum",
@@ -825,8 +825,8 @@
       "_origin": "ast",
       "community": 2,
       "norm_label": "_frustum",
-      "id": "src_graphics_core_renderer_frustum",
-      "community_name": "renderer.ts"
+      "community_name": "renderer.ts",
+      "id": "src_graphics_core_renderer_frustum"
     },
     {
       "label": "_projScreen",
@@ -836,8 +836,8 @@
       "_origin": "ast",
       "community": 2,
       "norm_label": "_projscreen",
-      "id": "src_graphics_core_renderer_projscreen",
-      "community_name": "renderer.ts"
+      "community_name": "renderer.ts",
+      "id": "src_graphics_core_renderer_projscreen"
     },
     {
       "label": "_unitSphere",
@@ -847,8 +847,8 @@
       "_origin": "ast",
       "community": 2,
       "norm_label": "_unitsphere",
-      "id": "src_graphics_core_renderer_unitsphere",
-      "community_name": "renderer.ts"
+      "community_name": "renderer.ts",
+      "id": "src_graphics_core_renderer_unitsphere"
     },
     {
       "label": "updateFrame()",
@@ -858,8 +858,8 @@
       "_origin": "ast",
       "community": 11,
       "norm_label": "updateframe()",
-      "id": "src_graphics_core_renderer_updateframe",
-      "community_name": "startRenderLoop"
+      "community_name": "startRenderLoop",
+      "id": "src_graphics_core_renderer_updateframe"
     },
     {
       "label": "fadeToAnimation()",
@@ -869,8 +869,8 @@
       "_origin": "ast",
       "community": 11,
       "norm_label": "fadetoanimation()",
-      "id": "src_graphics_core_renderer_fadetoanimation",
-      "community_name": "startRenderLoop"
+      "community_name": "startRenderLoop",
+      "id": "src_graphics_core_renderer_fadetoanimation"
     },
     {
       "label": "fpsVal",
@@ -880,8 +880,8 @@
       "_origin": "ast",
       "community": 2,
       "norm_label": "fpsval",
-      "id": "src_graphics_core_renderer_fpsval",
-      "community_name": "renderer.ts"
+      "community_name": "renderer.ts",
+      "id": "src_graphics_core_renderer_fpsval"
     },
     {
       "label": "msVal",
@@ -891,8 +891,8 @@
       "_origin": "ast",
       "community": 2,
       "norm_label": "msval",
-      "id": "src_graphics_core_renderer_msval",
-      "community_name": "renderer.ts"
+      "community_name": "renderer.ts",
+      "id": "src_graphics_core_renderer_msval"
     },
     {
       "label": "dcVal",
@@ -902,8 +902,8 @@
       "_origin": "ast",
       "community": 2,
       "norm_label": "dcval",
-      "id": "src_graphics_core_renderer_dcval",
-      "community_name": "renderer.ts"
+      "community_name": "renderer.ts",
+      "id": "src_graphics_core_renderer_dcval"
     },
     {
       "label": "triVal",
@@ -913,8 +913,8 @@
       "_origin": "ast",
       "community": 2,
       "norm_label": "trival",
-      "id": "src_graphics_core_renderer_trival",
-      "community_name": "renderer.ts"
+      "community_name": "renderer.ts",
+      "id": "src_graphics_core_renderer_trival"
     },
     {
       "label": "geoVal",
@@ -924,8 +924,8 @@
       "_origin": "ast",
       "community": 2,
       "norm_label": "geoval",
-      "id": "src_graphics_core_renderer_geoval",
-      "community_name": "renderer.ts"
+      "community_name": "renderer.ts",
+      "id": "src_graphics_core_renderer_geoval"
     },
     {
       "label": "texVal",
@@ -935,8 +935,8 @@
       "_origin": "ast",
       "community": 2,
       "norm_label": "texval",
-      "id": "src_graphics_core_renderer_texval",
-      "community_name": "renderer.ts"
+      "community_name": "renderer.ts",
+      "id": "src_graphics_core_renderer_texval"
     },
     {
       "label": "progVal",
@@ -946,8 +946,8 @@
       "_origin": "ast",
       "community": 2,
       "norm_label": "progval",
-      "id": "src_graphics_core_renderer_progval",
-      "community_name": "renderer.ts"
+      "community_name": "renderer.ts",
+      "id": "src_graphics_core_renderer_progval"
     },
     {
       "label": "startRenderLoop()",
@@ -957,8 +957,8 @@
       "_origin": "ast",
       "community": 11,
       "norm_label": "startrenderloop()",
-      "id": "src_graphics_core_renderer_startrenderloop",
-      "community_name": "startRenderLoop"
+      "community_name": "startRenderLoop",
+      "id": "src_graphics_core_renderer_startrenderloop"
     },
     {
       "label": "stopRenderLoop()",
@@ -968,8 +968,8 @@
       "_origin": "ast",
       "community": 2,
       "norm_label": "stoprenderloop()",
-      "id": "src_graphics_core_renderer_stoprenderloop",
-      "community_name": "renderer.ts"
+      "community_name": "renderer.ts",
+      "id": "src_graphics_core_renderer_stoprenderloop"
     },
     {
       "label": "resetUnitsVisual()",
@@ -979,8 +979,8 @@
       "_origin": "ast",
       "community": 6,
       "norm_label": "resetunitsvisual()",
-      "id": "src_graphics_core_renderer_resetunitsvisual",
-      "community_name": "main.ts"
+      "community_name": "main.ts",
+      "id": "src_graphics_core_renderer_resetunitsvisual"
     },
     {
       "label": "scene.ts",
@@ -990,8 +990,8 @@
       "_origin": "ast",
       "community": 8,
       "norm_label": "scene.ts",
-      "id": "src_graphics_core_scene",
-      "community_name": "scene.ts"
+      "community_name": "scene.ts",
+      "id": "src_graphics_core_scene"
     },
     {
       "label": "loadingManager",
@@ -1001,8 +1001,8 @@
       "_origin": "ast",
       "community": 8,
       "norm_label": "loadingmanager",
-      "id": "src_graphics_core_scene_loadingmanager",
-      "community_name": "scene.ts"
+      "community_name": "scene.ts",
+      "id": "src_graphics_core_scene_loadingmanager"
     },
     {
       "label": "gltfLoader",
@@ -1012,8 +1012,8 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": "gltfloader",
-      "id": "src_graphics_core_scene_gltfloader",
-      "community_name": "getTerrainHeight"
+      "community_name": "getTerrainHeight",
+      "id": "src_graphics_core_scene_gltfloader"
     },
     {
       "label": "canvas",
@@ -1023,8 +1023,8 @@
       "_origin": "ast",
       "community": 8,
       "norm_label": "canvas",
-      "id": "src_graphics_core_scene_canvas",
-      "community_name": "scene.ts"
+      "community_name": "scene.ts",
+      "id": "src_graphics_core_scene_canvas"
     },
     {
       "label": "renderer",
@@ -1034,8 +1034,8 @@
       "_origin": "ast",
       "community": 8,
       "norm_label": "renderer",
-      "id": "src_graphics_core_scene_renderer",
-      "community_name": "scene.ts"
+      "community_name": "scene.ts",
+      "id": "src_graphics_core_scene_renderer"
     },
     {
       "label": "scene",
@@ -1045,8 +1045,8 @@
       "_origin": "ast",
       "community": 8,
       "norm_label": "scene",
-      "id": "src_graphics_core_scene_scene",
-      "community_name": "scene.ts"
+      "community_name": "scene.ts",
+      "id": "src_graphics_core_scene_scene"
     },
     {
       "label": "camera",
@@ -1056,8 +1056,8 @@
       "_origin": "ast",
       "community": 8,
       "norm_label": "camera",
-      "id": "src_graphics_core_scene_camera",
-      "community_name": "scene.ts"
+      "community_name": "scene.ts",
+      "id": "src_graphics_core_scene_camera"
     },
     {
       "label": "controls",
@@ -1067,8 +1067,8 @@
       "_origin": "ast",
       "community": 8,
       "norm_label": "controls",
-      "id": "src_graphics_core_scene_controls",
-      "community_name": "scene.ts"
+      "community_name": "scene.ts",
+      "id": "src_graphics_core_scene_controls"
     },
     {
       "label": "hemiLight",
@@ -1078,8 +1078,8 @@
       "_origin": "ast",
       "community": 8,
       "norm_label": "hemilight",
-      "id": "src_graphics_core_scene_hemilight",
-      "community_name": "scene.ts"
+      "community_name": "scene.ts",
+      "id": "src_graphics_core_scene_hemilight"
     },
     {
       "label": "sun",
@@ -1089,8 +1089,8 @@
       "_origin": "ast",
       "community": 8,
       "norm_label": "sun",
-      "id": "src_graphics_core_scene_sun",
-      "community_name": "scene.ts"
+      "community_name": "scene.ts",
+      "id": "src_graphics_core_scene_sun"
     },
     {
       "label": "ambient",
@@ -1100,8 +1100,8 @@
       "_origin": "ast",
       "community": 8,
       "norm_label": "ambient",
-      "id": "src_graphics_core_scene_ambient",
-      "community_name": "scene.ts"
+      "community_name": "scene.ts",
+      "id": "src_graphics_core_scene_ambient"
     },
     {
       "label": "types.ts",
@@ -1111,8 +1111,8 @@
       "_origin": "ast",
       "community": 2,
       "norm_label": "types.ts",
-      "id": "src_graphics_core_types",
-      "community_name": "renderer.ts"
+      "community_name": "renderer.ts",
+      "id": "src_graphics_core_types"
     },
     {
       "label": "UnitVisual",
@@ -1122,8 +1122,8 @@
       "_origin": "ast",
       "community": 2,
       "norm_label": "unitvisual",
-      "id": "src_graphics_core_types_unitvisual",
-      "community_name": "renderer.ts"
+      "community_name": "renderer.ts",
+      "id": "src_graphics_core_types_unitvisual"
     },
     {
       "label": "SkillFX.ts",
@@ -1133,8 +1133,8 @@
       "_origin": "ast",
       "community": 0,
       "norm_label": "skillfx.ts",
-      "id": "src_graphics_effects_skillfx",
-      "community_name": "SkillFX.ts"
+      "community_name": "SkillFX.ts",
+      "id": "src_graphics_effects_skillfx"
     },
     {
       "label": "easeOutCubic()",
@@ -1144,8 +1144,8 @@
       "_origin": "ast",
       "community": 0,
       "norm_label": "easeoutcubic()",
-      "id": "src_graphics_effects_skillfx_easeoutcubic",
-      "community_name": "SkillFX.ts"
+      "community_name": "SkillFX.ts",
+      "id": "src_graphics_effects_skillfx_easeoutcubic"
     },
     {
       "label": "easeOutQuad()",
@@ -1155,8 +1155,8 @@
       "_origin": "ast",
       "community": 0,
       "norm_label": "easeoutquad()",
-      "id": "src_graphics_effects_skillfx_easeoutquad",
-      "community_name": "SkillFX.ts"
+      "community_name": "SkillFX.ts",
+      "id": "src_graphics_effects_skillfx_easeoutquad"
     },
     {
       "label": "easeOutBack()",
@@ -1166,8 +1166,8 @@
       "_origin": "ast",
       "community": 0,
       "norm_label": "easeoutback()",
-      "id": "src_graphics_effects_skillfx_easeoutback",
-      "community_name": "SkillFX.ts"
+      "community_name": "SkillFX.ts",
+      "id": "src_graphics_effects_skillfx_easeoutback"
     },
     {
       "label": "_geoPool",
@@ -1177,8 +1177,8 @@
       "_origin": "ast",
       "community": 0,
       "norm_label": "_geopool",
-      "id": "src_graphics_effects_skillfx_geopool",
-      "community_name": "SkillFX.ts"
+      "community_name": "SkillFX.ts",
+      "id": "src_graphics_effects_skillfx_geopool"
     },
     {
       "label": "pooledPlane()",
@@ -1188,8 +1188,8 @@
       "_origin": "ast",
       "community": 0,
       "norm_label": "pooledplane()",
-      "id": "src_graphics_effects_skillfx_pooledplane",
-      "community_name": "SkillFX.ts"
+      "community_name": "SkillFX.ts",
+      "id": "src_graphics_effects_skillfx_pooledplane"
     },
     {
       "label": "texLoader",
@@ -1199,8 +1199,8 @@
       "_origin": "ast",
       "community": 0,
       "norm_label": "texloader",
-      "id": "src_graphics_effects_skillfx_texloader",
-      "community_name": "SkillFX.ts"
+      "community_name": "SkillFX.ts",
+      "id": "src_graphics_effects_skillfx_texloader"
     },
     {
       "label": "loadTex()",
@@ -1210,8 +1210,8 @@
       "_origin": "ast",
       "community": 0,
       "norm_label": "loadtex()",
-      "id": "src_graphics_effects_skillfx_loadtex",
-      "community_name": "SkillFX.ts"
+      "community_name": "SkillFX.ts",
+      "id": "src_graphics_effects_skillfx_loadtex"
     },
     {
       "label": "starTex",
@@ -1221,8 +1221,8 @@
       "_origin": "ast",
       "community": 0,
       "norm_label": "startex",
-      "id": "src_graphics_effects_skillfx_startex",
-      "community_name": "SkillFX.ts"
+      "community_name": "SkillFX.ts",
+      "id": "src_graphics_effects_skillfx_startex"
     },
     {
       "label": "circleTex",
@@ -1232,8 +1232,8 @@
       "_origin": "ast",
       "community": 0,
       "norm_label": "circletex",
-      "id": "src_graphics_effects_skillfx_circletex",
-      "community_name": "SkillFX.ts"
+      "community_name": "SkillFX.ts",
+      "id": "src_graphics_effects_skillfx_circletex"
     },
     {
       "label": "sparkTex",
@@ -1243,8 +1243,8 @@
       "_origin": "ast",
       "community": 0,
       "norm_label": "sparktex",
-      "id": "src_graphics_effects_skillfx_sparktex",
-      "community_name": "SkillFX.ts"
+      "community_name": "SkillFX.ts",
+      "id": "src_graphics_effects_skillfx_sparktex"
     },
     {
       "label": "smokeTex",
@@ -1254,8 +1254,8 @@
       "_origin": "ast",
       "community": 0,
       "norm_label": "smoketex",
-      "id": "src_graphics_effects_skillfx_smoketex",
-      "community_name": "SkillFX.ts"
+      "community_name": "SkillFX.ts",
+      "id": "src_graphics_effects_skillfx_smoketex"
     },
     {
       "label": "fireTex",
@@ -1265,8 +1265,8 @@
       "_origin": "ast",
       "community": 0,
       "norm_label": "firetex",
-      "id": "src_graphics_effects_skillfx_firetex",
-      "community_name": "SkillFX.ts"
+      "community_name": "SkillFX.ts",
+      "id": "src_graphics_effects_skillfx_firetex"
     },
     {
       "label": "flameTex",
@@ -1276,8 +1276,8 @@
       "_origin": "ast",
       "community": 0,
       "norm_label": "flametex",
-      "id": "src_graphics_effects_skillfx_flametex",
-      "community_name": "SkillFX.ts"
+      "community_name": "SkillFX.ts",
+      "id": "src_graphics_effects_skillfx_flametex"
     },
     {
       "label": "scorchTex",
@@ -1287,8 +1287,8 @@
       "_origin": "ast",
       "community": 0,
       "norm_label": "scorchtex",
-      "id": "src_graphics_effects_skillfx_scorchtex",
-      "community_name": "SkillFX.ts"
+      "community_name": "SkillFX.ts",
+      "id": "src_graphics_effects_skillfx_scorchtex"
     },
     {
       "label": "lightTex",
@@ -1298,8 +1298,8 @@
       "_origin": "ast",
       "community": 0,
       "norm_label": "lighttex",
-      "id": "src_graphics_effects_skillfx_lighttex",
-      "community_name": "SkillFX.ts"
+      "community_name": "SkillFX.ts",
+      "id": "src_graphics_effects_skillfx_lighttex"
     },
     {
       "label": "magicTex",
@@ -1309,8 +1309,8 @@
       "_origin": "ast",
       "community": 0,
       "norm_label": "magictex",
-      "id": "src_graphics_effects_skillfx_magictex",
-      "community_name": "SkillFX.ts"
+      "community_name": "SkillFX.ts",
+      "id": "src_graphics_effects_skillfx_magictex"
     },
     {
       "label": "star2Tex",
@@ -1320,8 +1320,8 @@
       "_origin": "ast",
       "community": 0,
       "norm_label": "star2tex",
-      "id": "src_graphics_effects_skillfx_star2tex",
-      "community_name": "SkillFX.ts"
+      "community_name": "SkillFX.ts",
+      "id": "src_graphics_effects_skillfx_star2tex"
     },
     {
       "label": "effectUniforms",
@@ -1331,8 +1331,8 @@
       "_origin": "ast",
       "community": 0,
       "norm_label": "effectuniforms",
-      "id": "src_graphics_effects_skillfx_effectuniforms",
-      "community_name": "SkillFX.ts"
+      "community_name": "SkillFX.ts",
+      "id": "src_graphics_effects_skillfx_effectuniforms"
     },
     {
       "label": "MatSpecs",
@@ -1342,8 +1342,8 @@
       "_origin": "ast",
       "community": 0,
       "norm_label": "matspecs",
-      "id": "src_graphics_effects_skillfx_matspecs",
-      "community_name": "SkillFX.ts"
+      "community_name": "SkillFX.ts",
+      "id": "src_graphics_effects_skillfx_matspecs"
     },
     {
       "label": "_matPool",
@@ -1353,8 +1353,8 @@
       "_origin": "ast",
       "community": 0,
       "norm_label": "_matpool",
-      "id": "src_graphics_effects_skillfx_matpool",
-      "community_name": "SkillFX.ts"
+      "community_name": "SkillFX.ts",
+      "id": "src_graphics_effects_skillfx_matpool"
     },
     {
       "label": "getPooledMaterial()",
@@ -1364,8 +1364,8 @@
       "_origin": "ast",
       "community": 0,
       "norm_label": "getpooledmaterial()",
-      "id": "src_graphics_effects_skillfx_getpooledmaterial",
-      "community_name": "SkillFX.ts"
+      "community_name": "SkillFX.ts",
+      "id": "src_graphics_effects_skillfx_getpooledmaterial"
     },
     {
       "label": "releasePooledMaterial()",
@@ -1375,8 +1375,8 @@
       "_origin": "ast",
       "community": 0,
       "norm_label": "releasepooledmaterial()",
-      "id": "src_graphics_effects_skillfx_releasepooledmaterial",
-      "community_name": "SkillFX.ts"
+      "community_name": "SkillFX.ts",
+      "id": "src_graphics_effects_skillfx_releasepooledmaterial"
     },
     {
       "label": "createIronFortitudeMat()",
@@ -1386,8 +1386,8 @@
       "_origin": "ast",
       "community": 0,
       "norm_label": "createironfortitudemat()",
-      "id": "src_graphics_effects_skillfx_createironfortitudemat",
-      "community_name": "SkillFX.ts"
+      "community_name": "SkillFX.ts",
+      "id": "src_graphics_effects_skillfx_createironfortitudemat"
     },
     {
       "label": "createFrostNovaMat()",
@@ -1397,8 +1397,8 @@
       "_origin": "ast",
       "community": 0,
       "norm_label": "createfrostnovamat()",
-      "id": "src_graphics_effects_skillfx_createfrostnovamat",
-      "community_name": "SkillFX.ts"
+      "community_name": "SkillFX.ts",
+      "id": "src_graphics_effects_skillfx_createfrostnovamat"
     },
     {
       "label": "activeFX",
@@ -1408,8 +1408,8 @@
       "_origin": "ast",
       "community": 0,
       "norm_label": "activefx",
-      "id": "src_graphics_effects_skillfx_activefx",
-      "community_name": "SkillFX.ts"
+      "community_name": "SkillFX.ts",
+      "id": "src_graphics_effects_skillfx_activefx"
     },
     {
       "label": "updateFX()",
@@ -1419,8 +1419,8 @@
       "_origin": "ast",
       "community": 11,
       "norm_label": "updatefx()",
-      "id": "src_graphics_effects_skillfx_updatefx",
-      "community_name": "startRenderLoop"
+      "community_name": "startRenderLoop",
+      "id": "src_graphics_effects_skillfx_updatefx"
     },
     {
       "label": "canSpawnFX()",
@@ -1430,8 +1430,8 @@
       "_origin": "ast",
       "community": 0,
       "norm_label": "canspawnfx()",
-      "id": "src_graphics_effects_skillfx_canspawnfx",
-      "community_name": "SkillFX.ts"
+      "community_name": "SkillFX.ts",
+      "id": "src_graphics_effects_skillfx_canspawnfx"
     },
     {
       "label": "fxQualityScale()",
@@ -1441,8 +1441,8 @@
       "_origin": "ast",
       "community": 0,
       "norm_label": "fxqualityscale()",
-      "id": "src_graphics_effects_skillfx_fxqualityscale",
-      "community_name": "SkillFX.ts"
+      "community_name": "SkillFX.ts",
+      "id": "src_graphics_effects_skillfx_fxqualityscale"
     },
     {
       "label": "_ringGeoPool",
@@ -1452,8 +1452,8 @@
       "_origin": "ast",
       "community": 0,
       "norm_label": "_ringgeopool",
-      "id": "src_graphics_effects_skillfx_ringgeopool",
-      "community_name": "SkillFX.ts"
+      "community_name": "SkillFX.ts",
+      "id": "src_graphics_effects_skillfx_ringgeopool"
     },
     {
       "label": "pooledRing()",
@@ -1463,8 +1463,8 @@
       "_origin": "ast",
       "community": 0,
       "norm_label": "pooledring()",
-      "id": "src_graphics_effects_skillfx_pooledring",
-      "community_name": "SkillFX.ts"
+      "community_name": "SkillFX.ts",
+      "id": "src_graphics_effects_skillfx_pooledring"
     },
     {
       "label": "getTauntTex()",
@@ -1474,8 +1474,8 @@
       "_origin": "ast",
       "community": 0,
       "norm_label": "gettaunttex()",
-      "id": "src_graphics_effects_skillfx_gettaunttex",
-      "community_name": "SkillFX.ts"
+      "community_name": "SkillFX.ts",
+      "id": "src_graphics_effects_skillfx_gettaunttex"
     },
     {
       "label": "_camQuad",
@@ -1485,8 +1485,8 @@
       "_origin": "ast",
       "community": 0,
       "norm_label": "_camquad",
-      "id": "src_graphics_effects_skillfx_camquad",
-      "community_name": "SkillFX.ts"
+      "community_name": "SkillFX.ts",
+      "id": "src_graphics_effects_skillfx_camquad"
     },
     {
       "label": "_tempObj",
@@ -1496,8 +1496,8 @@
       "_origin": "ast",
       "community": 0,
       "norm_label": "_tempobj",
-      "id": "src_graphics_effects_skillfx_tempobj",
-      "community_name": "SkillFX.ts"
+      "community_name": "SkillFX.ts",
+      "id": "src_graphics_effects_skillfx_tempobj"
     },
     {
       "label": "getCamQuad()",
@@ -1507,8 +1507,8 @@
       "_origin": "ast",
       "community": 0,
       "norm_label": "getcamquad()",
-      "id": "src_graphics_effects_skillfx_getcamquad",
-      "community_name": "SkillFX.ts"
+      "community_name": "SkillFX.ts",
+      "id": "src_graphics_effects_skillfx_getcamquad"
     },
     {
       "label": "spawnScreenFlash()",
@@ -1518,8 +1518,8 @@
       "_origin": "ast",
       "community": 0,
       "norm_label": "spawnscreenflash()",
-      "id": "src_graphics_effects_skillfx_spawnscreenflash",
-      "community_name": "SkillFX.ts"
+      "community_name": "SkillFX.ts",
+      "id": "src_graphics_effects_skillfx_spawnscreenflash"
     },
     {
       "label": "spawnExplosion()",
@@ -1529,8 +1529,8 @@
       "_origin": "ast",
       "community": 0,
       "norm_label": "spawnexplosion()",
-      "id": "src_graphics_effects_skillfx_spawnexplosion",
-      "community_name": "SkillFX.ts"
+      "community_name": "SkillFX.ts",
+      "id": "src_graphics_effects_skillfx_spawnexplosion"
     },
     {
       "label": "spawnLightningFX()",
@@ -1540,8 +1540,8 @@
       "_origin": "ast",
       "community": 0,
       "norm_label": "spawnlightningfx()",
-      "id": "src_graphics_effects_skillfx_spawnlightningfx",
-      "community_name": "SkillFX.ts"
+      "community_name": "SkillFX.ts",
+      "id": "src_graphics_effects_skillfx_spawnlightningfx"
     },
     {
       "label": "spawnArrowVolleyFX()",
@@ -1551,8 +1551,8 @@
       "_origin": "ast",
       "community": 0,
       "norm_label": "spawnarrowvolleyfx()",
-      "id": "src_graphics_effects_skillfx_spawnarrowvolleyfx",
-      "community_name": "SkillFX.ts"
+      "community_name": "SkillFX.ts",
+      "id": "src_graphics_effects_skillfx_spawnarrowvolleyfx"
     },
     {
       "label": "spawnMeteorExplosion()",
@@ -1562,8 +1562,8 @@
       "_origin": "ast",
       "community": 0,
       "norm_label": "spawnmeteorexplosion()",
-      "id": "src_graphics_effects_skillfx_spawnmeteorexplosion",
-      "community_name": "SkillFX.ts"
+      "community_name": "SkillFX.ts",
+      "id": "src_graphics_effects_skillfx_spawnmeteorexplosion"
     },
     {
       "label": "spawnFireballFX()",
@@ -1573,8 +1573,8 @@
       "_origin": "ast",
       "community": 0,
       "norm_label": "spawnfireballfx()",
-      "id": "src_graphics_effects_skillfx_spawnfireballfx",
-      "community_name": "SkillFX.ts"
+      "community_name": "SkillFX.ts",
+      "id": "src_graphics_effects_skillfx_spawnfireballfx"
     },
     {
       "label": "spawnDoubleShotFX()",
@@ -1584,8 +1584,8 @@
       "_origin": "ast",
       "community": 0,
       "norm_label": "spawndoubleshotfx()",
-      "id": "src_graphics_effects_skillfx_spawndoubleshotfx",
-      "community_name": "SkillFX.ts"
+      "community_name": "SkillFX.ts",
+      "id": "src_graphics_effects_skillfx_spawndoubleshotfx"
     },
     {
       "label": "spawnTauntFX()",
@@ -1595,8 +1595,8 @@
       "_origin": "ast",
       "community": 0,
       "norm_label": "spawntauntfx()",
-      "id": "src_graphics_effects_skillfx_spawntauntfx",
-      "community_name": "SkillFX.ts"
+      "community_name": "SkillFX.ts",
+      "id": "src_graphics_effects_skillfx_spawntauntfx"
     },
     {
       "label": "spawnShieldBashFX()",
@@ -1606,8 +1606,8 @@
       "_origin": "ast",
       "community": 0,
       "norm_label": "spawnshieldbashfx()",
-      "id": "src_graphics_effects_skillfx_spawnshieldbashfx",
-      "community_name": "SkillFX.ts"
+      "community_name": "SkillFX.ts",
+      "id": "src_graphics_effects_skillfx_spawnshieldbashfx"
     },
     {
       "label": "spawnEvasiveLeapFX()",
@@ -1617,8 +1617,8 @@
       "_origin": "ast",
       "community": 0,
       "norm_label": "spawnevasiveleapfx()",
-      "id": "src_graphics_effects_skillfx_spawnevasiveleapfx",
-      "community_name": "SkillFX.ts"
+      "community_name": "SkillFX.ts",
+      "id": "src_graphics_effects_skillfx_spawnevasiveleapfx"
     },
     {
       "label": "spawnFrostNovaBurstFX()",
@@ -1628,8 +1628,8 @@
       "_origin": "ast",
       "community": 0,
       "norm_label": "spawnfrostnovaburstfx()",
-      "id": "src_graphics_effects_skillfx_spawnfrostnovaburstfx",
-      "community_name": "SkillFX.ts"
+      "community_name": "SkillFX.ts",
+      "id": "src_graphics_effects_skillfx_spawnfrostnovaburstfx"
     },
     {
       "label": "spawnIronFortitudeAuraFX()",
@@ -1639,8 +1639,8 @@
       "_origin": "ast",
       "community": 0,
       "norm_label": "spawnironfortitudeaurafx()",
-      "id": "src_graphics_effects_skillfx_spawnironfortitudeaurafx",
-      "community_name": "SkillFX.ts"
+      "community_name": "SkillFX.ts",
+      "id": "src_graphics_effects_skillfx_spawnironfortitudeaurafx"
     },
     {
       "label": "spawnBasicAttackFX()",
@@ -1650,8 +1650,8 @@
       "_origin": "ast",
       "community": 0,
       "norm_label": "spawnbasicattackfx()",
-      "id": "src_graphics_effects_skillfx_spawnbasicattackfx",
-      "community_name": "SkillFX.ts"
+      "community_name": "SkillFX.ts",
+      "id": "src_graphics_effects_skillfx_spawnbasicattackfx"
     },
     {
       "label": "spawnIceShatterFX()",
@@ -1661,8 +1661,8 @@
       "_origin": "ast",
       "community": 11,
       "norm_label": "spawniceshatterfx()",
-      "id": "src_graphics_effects_skillfx_spawniceshatterfx",
-      "community_name": "startRenderLoop"
+      "community_name": "startRenderLoop",
+      "id": "src_graphics_effects_skillfx_spawniceshatterfx"
     },
     {
       "label": "spawnHealFX()",
@@ -1672,8 +1672,8 @@
       "_origin": "ast",
       "community": 0,
       "norm_label": "spawnhealfx()",
-      "id": "src_graphics_effects_skillfx_spawnhealfx",
-      "community_name": "SkillFX.ts"
+      "community_name": "SkillFX.ts",
+      "id": "src_graphics_effects_skillfx_spawnhealfx"
     },
     {
       "label": "spawnDivineShieldFX()",
@@ -1683,8 +1683,8 @@
       "_origin": "ast",
       "community": 0,
       "norm_label": "spawndivineshieldfx()",
-      "id": "src_graphics_effects_skillfx_spawndivineshieldfx",
-      "community_name": "SkillFX.ts"
+      "community_name": "SkillFX.ts",
+      "id": "src_graphics_effects_skillfx_spawndivineshieldfx"
     },
     {
       "label": "spawnHolySanctuaryFX()",
@@ -1694,8 +1694,8 @@
       "_origin": "ast",
       "community": 0,
       "norm_label": "spawnholysanctuaryfx()",
-      "id": "src_graphics_effects_skillfx_spawnholysanctuaryfx",
-      "community_name": "SkillFX.ts"
+      "community_name": "SkillFX.ts",
+      "id": "src_graphics_effects_skillfx_spawnholysanctuaryfx"
     },
     {
       "label": "WindLines.ts",
@@ -1705,8 +1705,8 @@
       "_origin": "ast",
       "community": 9,
       "norm_label": "windlines.ts",
-      "id": "src_graphics_effects_windlines",
-      "community_name": "WindEffectManager"
+      "community_name": "WindEffectManager",
+      "id": "src_graphics_effects_windlines"
     },
     {
       "label": "createWindLineGeometry()",
@@ -1716,8 +1716,8 @@
       "_origin": "ast",
       "community": 9,
       "norm_label": "createwindlinegeometry()",
-      "id": "src_graphics_effects_windlines_createwindlinegeometry",
-      "community_name": "WindEffectManager"
+      "community_name": "WindEffectManager",
+      "id": "src_graphics_effects_windlines_createwindlinegeometry"
     },
     {
       "label": "_sharedWindGeo",
@@ -1727,8 +1727,8 @@
       "_origin": "ast",
       "community": 9,
       "norm_label": "_sharedwindgeo",
-      "id": "src_graphics_effects_windlines_sharedwindgeo",
-      "community_name": "WindEffectManager"
+      "community_name": "WindEffectManager",
+      "id": "src_graphics_effects_windlines_sharedwindgeo"
     },
     {
       "label": "_sharedWindMat",
@@ -1738,8 +1738,8 @@
       "_origin": "ast",
       "community": 9,
       "norm_label": "_sharedwindmat",
-      "id": "src_graphics_effects_windlines_sharedwindmat",
-      "community_name": "WindEffectManager"
+      "community_name": "WindEffectManager",
+      "id": "src_graphics_effects_windlines_sharedwindmat"
     },
     {
       "label": "WindLineState",
@@ -1749,8 +1749,8 @@
       "_origin": "ast",
       "community": 9,
       "norm_label": "windlinestate",
-      "id": "src_graphics_effects_windlines_windlinestate",
-      "community_name": "WindEffectManager"
+      "community_name": "WindEffectManager",
+      "id": "src_graphics_effects_windlines_windlinestate"
     },
     {
       "label": "WindEffectManager",
@@ -1760,8 +1760,8 @@
       "_origin": "ast",
       "community": 9,
       "norm_label": "windeffectmanager",
-      "id": "src_graphics_effects_windlines_windeffectmanager",
-      "community_name": "WindEffectManager"
+      "community_name": "WindEffectManager",
+      "id": "src_graphics_effects_windlines_windeffectmanager"
     },
     {
       "label": ".constructor()",
@@ -1771,8 +1771,8 @@
       "_origin": "ast",
       "community": 9,
       "norm_label": ".constructor()",
-      "id": "src_graphics_effects_windlines_windeffectmanager_constructor",
-      "community_name": "WindEffectManager"
+      "community_name": "WindEffectManager",
+      "id": "src_graphics_effects_windlines_windeffectmanager_constructor"
     },
     {
       "label": ".start()",
@@ -1782,8 +1782,8 @@
       "_origin": "ast",
       "community": 9,
       "norm_label": ".start()",
-      "id": "src_graphics_effects_windlines_windeffectmanager_start",
-      "community_name": "WindEffectManager"
+      "community_name": "WindEffectManager",
+      "id": "src_graphics_effects_windlines_windeffectmanager_start"
     },
     {
       "label": ".stop()",
@@ -1793,8 +1793,8 @@
       "_origin": "ast",
       "community": 9,
       "norm_label": ".stop()",
-      "id": "src_graphics_effects_windlines_windeffectmanager_stop",
-      "community_name": "WindEffectManager"
+      "community_name": "WindEffectManager",
+      "id": "src_graphics_effects_windlines_windeffectmanager_stop"
     },
     {
       "label": ".update()",
@@ -1804,8 +1804,8 @@
       "_origin": "ast",
       "community": 11,
       "norm_label": ".update()",
-      "id": "src_graphics_effects_windlines_windeffectmanager_update",
-      "community_name": "startRenderLoop"
+      "community_name": "startRenderLoop",
+      "id": "src_graphics_effects_windlines_windeffectmanager_update"
     },
     {
       "label": ".display()",
@@ -1815,8 +1815,8 @@
       "_origin": "ast",
       "community": 9,
       "norm_label": ".display()",
-      "id": "src_graphics_effects_windlines_windeffectmanager_display",
-      "community_name": "WindEffectManager"
+      "community_name": "WindEffectManager",
+      "id": "src_graphics_effects_windlines_windeffectmanager_display"
     },
     {
       "label": "Castles.ts",
@@ -1826,8 +1826,8 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": "castles.ts",
-      "id": "src_graphics_scenery_castles",
-      "community_name": "getTerrainHeight"
+      "community_name": "getTerrainHeight",
+      "id": "src_graphics_scenery_castles"
     },
     {
       "label": "Castles",
@@ -1837,8 +1837,8 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": "castles",
-      "id": "src_graphics_scenery_castles_castles",
-      "community_name": "getTerrainHeight"
+      "community_name": "getTerrainHeight",
+      "id": "src_graphics_scenery_castles_castles"
     },
     {
       "label": ".constructor()",
@@ -1848,8 +1848,8 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": ".constructor()",
-      "id": "src_graphics_scenery_castles_castles_constructor",
-      "community_name": "getTerrainHeight"
+      "community_name": "getTerrainHeight",
+      "id": "src_graphics_scenery_castles_castles_constructor"
     },
     {
       "label": "Floor.ts",
@@ -1859,8 +1859,8 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": "floor.ts",
-      "id": "src_graphics_scenery_floor",
-      "community_name": "getTerrainHeight"
+      "community_name": "getTerrainHeight",
+      "id": "src_graphics_scenery_floor"
     },
     {
       "label": "Floor",
@@ -1870,8 +1870,8 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": "floor",
-      "id": "src_graphics_scenery_floor_floor",
-      "community_name": "getTerrainHeight"
+      "community_name": "getTerrainHeight",
+      "id": "src_graphics_scenery_floor_floor"
     },
     {
       "label": ".constructor()",
@@ -1881,8 +1881,8 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": ".constructor()",
-      "id": "src_graphics_scenery_floor_floor_constructor",
-      "community_name": "getTerrainHeight"
+      "community_name": "getTerrainHeight",
+      "id": "src_graphics_scenery_floor_floor_constructor"
     },
     {
       "label": "Flowers.ts",
@@ -1892,8 +1892,8 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": "flowers.ts",
-      "id": "src_graphics_scenery_flowers",
-      "community_name": "getTerrainHeight"
+      "community_name": "getTerrainHeight",
+      "id": "src_graphics_scenery_flowers"
     },
     {
       "label": "Flowers",
@@ -1903,8 +1903,8 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": "flowers",
-      "id": "src_graphics_scenery_flowers_flowers",
-      "community_name": "getTerrainHeight"
+      "community_name": "getTerrainHeight",
+      "id": "src_graphics_scenery_flowers_flowers"
     },
     {
       "label": ".constructor()",
@@ -1914,8 +1914,8 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": ".constructor()",
-      "id": "src_graphics_scenery_flowers_flowers_constructor",
-      "community_name": "getTerrainHeight"
+      "community_name": "getTerrainHeight",
+      "id": "src_graphics_scenery_flowers_flowers_constructor"
     },
     {
       "label": "Grass.ts",
@@ -1925,8 +1925,8 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": "grass.ts",
-      "id": "src_graphics_scenery_grass",
-      "community_name": "getTerrainHeight"
+      "community_name": "getTerrainHeight",
+      "id": "src_graphics_scenery_grass"
     },
     {
       "label": "Grass",
@@ -1936,8 +1936,8 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": "grass",
-      "id": "src_graphics_scenery_grass_grass",
-      "community_name": "getTerrainHeight"
+      "community_name": "getTerrainHeight",
+      "id": "src_graphics_scenery_grass_grass"
     },
     {
       "label": ".constructor()",
@@ -1947,8 +1947,8 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": ".constructor()",
-      "id": "src_graphics_scenery_grass_grass_constructor",
-      "community_name": "getTerrainHeight"
+      "community_name": "getTerrainHeight",
+      "id": "src_graphics_scenery_grass_grass_constructor"
     },
     {
       "label": "Leaves.ts",
@@ -1958,8 +1958,8 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": "leaves.ts",
-      "id": "src_graphics_scenery_leaves",
-      "community_name": "getTerrainHeight"
+      "community_name": "getTerrainHeight",
+      "id": "src_graphics_scenery_leaves"
     },
     {
       "label": "LEAF_COLORS",
@@ -1969,8 +1969,8 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": "leaf_colors",
-      "id": "src_graphics_scenery_leaves_leaf_colors",
-      "community_name": "getTerrainHeight"
+      "community_name": "getTerrainHeight",
+      "id": "src_graphics_scenery_leaves_leaf_colors"
     },
     {
       "label": "LeafParticle",
@@ -1980,8 +1980,8 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": "leafparticle",
-      "id": "src_graphics_scenery_leaves_leafparticle",
-      "community_name": "getTerrainHeight"
+      "community_name": "getTerrainHeight",
+      "id": "src_graphics_scenery_leaves_leafparticle"
     },
     {
       "label": "Leaves",
@@ -1991,8 +1991,8 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": "leaves",
-      "id": "src_graphics_scenery_leaves_leaves",
-      "community_name": "getTerrainHeight"
+      "community_name": "getTerrainHeight",
+      "id": "src_graphics_scenery_leaves_leaves"
     },
     {
       "label": ".constructor()",
@@ -2002,8 +2002,8 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": ".constructor()",
-      "id": "src_graphics_scenery_leaves_leaves_constructor",
-      "community_name": "getTerrainHeight"
+      "community_name": "getTerrainHeight",
+      "id": "src_graphics_scenery_leaves_leaves_constructor"
     },
     {
       "label": ".spawnParticle()",
@@ -2013,8 +2013,8 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": ".spawnparticle()",
-      "id": "src_graphics_scenery_leaves_leaves_spawnparticle",
-      "community_name": "getTerrainHeight"
+      "community_name": "getTerrainHeight",
+      "id": "src_graphics_scenery_leaves_leaves_spawnparticle"
     },
     {
       "label": ".update()",
@@ -2024,8 +2024,8 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": ".update()",
-      "id": "src_graphics_scenery_leaves_leaves_update",
-      "community_name": "getTerrainHeight"
+      "community_name": "getTerrainHeight",
+      "id": "src_graphics_scenery_leaves_leaves_update"
     },
     {
       "label": "SceneryWindLines.ts",
@@ -2035,8 +2035,8 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": "scenerywindlines.ts",
-      "id": "src_graphics_scenery_scenerywindlines",
-      "community_name": "getTerrainHeight"
+      "community_name": "getTerrainHeight",
+      "id": "src_graphics_scenery_scenerywindlines"
     },
     {
       "label": "SceneryWindLines",
@@ -2046,8 +2046,8 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": "scenerywindlines",
-      "id": "src_graphics_scenery_scenerywindlines_scenerywindlines",
-      "community_name": "getTerrainHeight"
+      "community_name": "getTerrainHeight",
+      "id": "src_graphics_scenery_scenerywindlines_scenerywindlines"
     },
     {
       "label": ".constructor()",
@@ -2057,8 +2057,8 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": ".constructor()",
-      "id": "src_graphics_scenery_scenerywindlines_scenerywindlines_constructor",
-      "community_name": "getTerrainHeight"
+      "community_name": "getTerrainHeight",
+      "id": "src_graphics_scenery_scenerywindlines_scenerywindlines_constructor"
     },
     {
       "label": ".update()",
@@ -2068,8 +2068,8 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": ".update()",
-      "id": "src_graphics_scenery_scenerywindlines_scenerywindlines_update",
-      "community_name": "getTerrainHeight"
+      "community_name": "getTerrainHeight",
+      "id": "src_graphics_scenery_scenerywindlines_scenerywindlines_update"
     },
     {
       "label": "Trees.ts",
@@ -2079,8 +2079,8 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": "trees.ts",
-      "id": "src_graphics_scenery_trees",
-      "community_name": "getTerrainHeight"
+      "community_name": "getTerrainHeight",
+      "id": "src_graphics_scenery_trees"
     },
     {
       "label": "treePositions",
@@ -2090,8 +2090,8 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": "treepositions",
-      "id": "src_graphics_scenery_trees_treepositions",
-      "community_name": "getTerrainHeight"
+      "community_name": "getTerrainHeight",
+      "id": "src_graphics_scenery_trees_treepositions"
     },
     {
       "label": "Trees",
@@ -2101,8 +2101,8 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": "trees",
-      "id": "src_graphics_scenery_trees_trees",
-      "community_name": "getTerrainHeight"
+      "community_name": "getTerrainHeight",
+      "id": "src_graphics_scenery_trees_trees"
     },
     {
       "label": ".constructor()",
@@ -2112,8 +2112,8 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": ".constructor()",
-      "id": "src_graphics_scenery_trees_trees_constructor",
-      "community_name": "getTerrainHeight"
+      "community_name": "getTerrainHeight",
+      "id": "src_graphics_scenery_trees_trees_constructor"
     },
     {
       "label": "WaterSurface.ts",
@@ -2123,8 +2123,8 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": "watersurface.ts",
-      "id": "src_graphics_scenery_watersurface",
-      "community_name": "getTerrainHeight"
+      "community_name": "getTerrainHeight",
+      "id": "src_graphics_scenery_watersurface"
     },
     {
       "label": "WaterSurface",
@@ -2134,8 +2134,8 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": "watersurface",
-      "id": "src_graphics_scenery_watersurface_watersurface",
-      "community_name": "getTerrainHeight"
+      "community_name": "getTerrainHeight",
+      "id": "src_graphics_scenery_watersurface_watersurface"
     },
     {
       "label": ".constructor()",
@@ -2145,8 +2145,8 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": ".constructor()",
-      "id": "src_graphics_scenery_watersurface_watersurface_constructor",
-      "community_name": "getTerrainHeight"
+      "community_name": "getTerrainHeight",
+      "id": "src_graphics_scenery_watersurface_watersurface_constructor"
     },
     {
       "label": "World.ts",
@@ -2156,8 +2156,8 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": "world.ts",
-      "id": "src_graphics_scenery_world",
-      "community_name": "getTerrainHeight"
+      "community_name": "getTerrainHeight",
+      "id": "src_graphics_scenery_world"
     },
     {
       "label": "World",
@@ -2167,8 +2167,8 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": "world",
-      "id": "src_graphics_scenery_world_world",
-      "community_name": "getTerrainHeight"
+      "community_name": "getTerrainHeight",
+      "id": "src_graphics_scenery_world_world"
     },
     {
       "label": ".constructor()",
@@ -2178,8 +2178,8 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": ".constructor()",
-      "id": "src_graphics_scenery_world_world_constructor",
-      "community_name": "getTerrainHeight"
+      "community_name": "getTerrainHeight",
+      "id": "src_graphics_scenery_world_world_constructor"
     },
     {
       "label": ".update()",
@@ -2189,8 +2189,8 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": ".update()",
-      "id": "src_graphics_scenery_world_world_update",
-      "community_name": "getTerrainHeight"
+      "community_name": "getTerrainHeight",
+      "id": "src_graphics_scenery_world_world_update"
     },
     {
       "label": "ui_billboards.ts",
@@ -2200,8 +2200,8 @@
       "_origin": "ast",
       "community": 7,
       "norm_label": "ui_billboards.ts",
-      "id": "src_graphics_ui_ui_billboards",
-      "community_name": "ui_billboards.ts"
+      "community_name": "ui_billboards.ts",
+      "id": "src_graphics_ui_ui_billboards"
     },
     {
       "label": "hpGeo",
@@ -2211,8 +2211,8 @@
       "_origin": "ast",
       "community": 7,
       "norm_label": "hpgeo",
-      "id": "src_graphics_ui_ui_billboards_hpgeo",
-      "community_name": "ui_billboards.ts"
+      "community_name": "ui_billboards.ts",
+      "id": "src_graphics_ui_ui_billboards_hpgeo"
     },
     {
       "label": "hpBgMat",
@@ -2222,8 +2222,8 @@
       "_origin": "ast",
       "community": 7,
       "norm_label": "hpbgmat",
-      "id": "src_graphics_ui_ui_billboards_hpbgmat",
-      "community_name": "ui_billboards.ts"
+      "community_name": "ui_billboards.ts",
+      "id": "src_graphics_ui_ui_billboards_hpbgmat"
     },
     {
       "label": "hpFgMat",
@@ -2233,8 +2233,8 @@
       "_origin": "ast",
       "community": 7,
       "norm_label": "hpfgmat",
-      "id": "src_graphics_ui_ui_billboards_hpfgmat",
-      "community_name": "ui_billboards.ts"
+      "community_name": "ui_billboards.ts",
+      "id": "src_graphics_ui_ui_billboards_hpfgmat"
     },
     {
       "label": "hpBarsBg",
@@ -2244,8 +2244,8 @@
       "_origin": "ast",
       "community": 7,
       "norm_label": "hpbarsbg",
-      "id": "src_graphics_ui_ui_billboards_hpbarsbg",
-      "community_name": "ui_billboards.ts"
+      "community_name": "ui_billboards.ts",
+      "id": "src_graphics_ui_ui_billboards_hpbarsbg"
     },
     {
       "label": "hpBarsFg",
@@ -2255,8 +2255,8 @@
       "_origin": "ast",
       "community": 7,
       "norm_label": "hpbarsfg",
-      "id": "src_graphics_ui_ui_billboards_hpbarsfg",
-      "community_name": "ui_billboards.ts"
+      "community_name": "ui_billboards.ts",
+      "id": "src_graphics_ui_ui_billboards_hpbarsfg"
     },
     {
       "label": "cdRingGeo",
@@ -2266,8 +2266,8 @@
       "_origin": "ast",
       "community": 7,
       "norm_label": "cdringgeo",
-      "id": "src_graphics_ui_ui_billboards_cdringgeo",
-      "community_name": "ui_billboards.ts"
+      "community_name": "ui_billboards.ts",
+      "id": "src_graphics_ui_ui_billboards_cdringgeo"
     },
     {
       "label": "cdRingMat",
@@ -2277,8 +2277,8 @@
       "_origin": "ast",
       "community": 7,
       "norm_label": "cdringmat",
-      "id": "src_graphics_ui_ui_billboards_cdringmat",
-      "community_name": "ui_billboards.ts"
+      "community_name": "ui_billboards.ts",
+      "id": "src_graphics_ui_ui_billboards_cdringmat"
     },
     {
       "label": "cdRings",
@@ -2288,8 +2288,8 @@
       "_origin": "ast",
       "community": 7,
       "norm_label": "cdrings",
-      "id": "src_graphics_ui_ui_billboards_cdrings",
-      "community_name": "ui_billboards.ts"
+      "community_name": "ui_billboards.ts",
+      "id": "src_graphics_ui_ui_billboards_cdrings"
     },
     {
       "label": "immuneRingGeo",
@@ -2299,8 +2299,8 @@
       "_origin": "ast",
       "community": 7,
       "norm_label": "immuneringgeo",
-      "id": "src_graphics_ui_ui_billboards_immuneringgeo",
-      "community_name": "ui_billboards.ts"
+      "community_name": "ui_billboards.ts",
+      "id": "src_graphics_ui_ui_billboards_immuneringgeo"
     },
     {
       "label": "immuneRingMat",
@@ -2310,8 +2310,8 @@
       "_origin": "ast",
       "community": 7,
       "norm_label": "immuneringmat",
-      "id": "src_graphics_ui_ui_billboards_immuneringmat",
-      "community_name": "ui_billboards.ts"
+      "community_name": "ui_billboards.ts",
+      "id": "src_graphics_ui_ui_billboards_immuneringmat"
     },
     {
       "label": "immuneRings",
@@ -2321,8 +2321,8 @@
       "_origin": "ast",
       "community": 7,
       "norm_label": "immunerings",
-      "id": "src_graphics_ui_ui_billboards_immunerings",
-      "community_name": "ui_billboards.ts"
+      "community_name": "ui_billboards.ts",
+      "id": "src_graphics_ui_ui_billboards_immunerings"
     },
     {
       "label": "dummy",
@@ -2332,8 +2332,8 @@
       "_origin": "ast",
       "community": 7,
       "norm_label": "dummy",
-      "id": "src_graphics_ui_ui_billboards_dummy",
-      "community_name": "ui_billboards.ts"
+      "community_name": "ui_billboards.ts",
+      "id": "src_graphics_ui_ui_billboards_dummy"
     },
     {
       "label": "_deadMatrix",
@@ -2343,8 +2343,8 @@
       "_origin": "ast",
       "community": 7,
       "norm_label": "_deadmatrix",
-      "id": "src_graphics_ui_ui_billboards_deadmatrix",
-      "community_name": "ui_billboards.ts"
+      "community_name": "ui_billboards.ts",
+      "id": "src_graphics_ui_ui_billboards_deadmatrix"
     },
     {
       "label": "nameGeo",
@@ -2354,8 +2354,8 @@
       "_origin": "ast",
       "community": 7,
       "norm_label": "namegeo",
-      "id": "src_graphics_ui_ui_billboards_namegeo",
-      "community_name": "ui_billboards.ts"
+      "community_name": "ui_billboards.ts",
+      "id": "src_graphics_ui_ui_billboards_namegeo"
     },
     {
       "label": "createNameTexture()",
@@ -2365,8 +2365,8 @@
       "_origin": "ast",
       "community": 12,
       "norm_label": "createnametexture()",
-      "id": "src_graphics_ui_ui_billboards_createnametexture",
-      "community_name": "changeModel"
+      "community_name": "changeModel",
+      "id": "src_graphics_ui_ui_billboards_createnametexture"
     },
     {
       "label": "initNameBars()",
@@ -2376,8 +2376,8 @@
       "_origin": "ast",
       "community": 12,
       "norm_label": "initnamebars()",
-      "id": "src_graphics_ui_ui_billboards_initnamebars",
-      "community_name": "changeModel"
+      "community_name": "changeModel",
+      "id": "src_graphics_ui_ui_billboards_initnamebars"
     },
     {
       "label": "main.ts",
@@ -2387,8 +2387,8 @@
       "_origin": "ast",
       "community": 6,
       "norm_label": "main.ts",
-      "id": "src_main",
-      "community_name": "main.ts"
+      "community_name": "main.ts",
+      "id": "src_main"
     },
     {
       "label": "sharedBuffer",
@@ -2398,8 +2398,8 @@
       "_origin": "ast",
       "community": 6,
       "norm_label": "sharedbuffer",
-      "id": "src_main_sharedbuffer",
-      "community_name": "main.ts"
+      "community_name": "main.ts",
+      "id": "src_main_sharedbuffer"
     },
     {
       "label": "sharedData",
@@ -2409,8 +2409,8 @@
       "_origin": "ast",
       "community": 6,
       "norm_label": "shareddata",
-      "id": "src_main_shareddata",
-      "community_name": "main.ts"
+      "community_name": "main.ts",
+      "id": "src_main_shareddata"
     },
     {
       "label": "worker",
@@ -2420,8 +2420,8 @@
       "_origin": "ast",
       "community": 6,
       "norm_label": "worker",
-      "id": "src_main_worker",
-      "community_name": "main.ts"
+      "community_name": "main.ts",
+      "id": "src_main_worker"
     },
     {
       "label": "btnStart",
@@ -2431,8 +2431,8 @@
       "_origin": "ast",
       "community": 6,
       "norm_label": "btnstart",
-      "id": "src_main_btnstart",
-      "community_name": "main.ts"
+      "community_name": "main.ts",
+      "id": "src_main_btnstart"
     },
     {
       "label": "btnReset",
@@ -2442,8 +2442,8 @@
       "_origin": "ast",
       "community": 6,
       "norm_label": "btnreset",
-      "id": "src_main_btnreset",
-      "community_name": "main.ts"
+      "community_name": "main.ts",
+      "id": "src_main_btnreset"
     },
     {
       "label": "scoreA",
@@ -2453,8 +2453,8 @@
       "_origin": "ast",
       "community": 6,
       "norm_label": "scorea",
-      "id": "src_main_scorea",
-      "community_name": "main.ts"
+      "community_name": "main.ts",
+      "id": "src_main_scorea"
     },
     {
       "label": "scoreB",
@@ -2464,8 +2464,8 @@
       "_origin": "ast",
       "community": 6,
       "norm_label": "scoreb",
-      "id": "src_main_scoreb",
-      "community_name": "main.ts"
+      "community_name": "main.ts",
+      "id": "src_main_scoreb"
     },
     {
       "label": "overlay",
@@ -2475,8 +2475,8 @@
       "_origin": "ast",
       "community": 6,
       "norm_label": "overlay",
-      "id": "src_main_overlay",
-      "community_name": "main.ts"
+      "community_name": "main.ts",
+      "id": "src_main_overlay"
     },
     {
       "label": "overlayMsg",
@@ -2486,8 +2486,8 @@
       "_origin": "ast",
       "community": 6,
       "norm_label": "overlaymsg",
-      "id": "src_main_overlaymsg",
-      "community_name": "main.ts"
+      "community_name": "main.ts",
+      "id": "src_main_overlaymsg"
     },
     {
       "label": "overlayBtn",
@@ -2497,8 +2497,8 @@
       "_origin": "ast",
       "community": 6,
       "norm_label": "overlaybtn",
-      "id": "src_main_overlaybtn",
-      "community_name": "main.ts"
+      "community_name": "main.ts",
+      "id": "src_main_overlaybtn"
     },
     {
       "label": "statsContainer",
@@ -2508,8 +2508,8 @@
       "_origin": "ast",
       "community": 6,
       "norm_label": "statscontainer",
-      "id": "src_main_statscontainer",
-      "community_name": "main.ts"
+      "community_name": "main.ts",
+      "id": "src_main_statscontainer"
     },
     {
       "label": "workerTicks",
@@ -2519,8 +2519,8 @@
       "_origin": "ast",
       "community": 6,
       "norm_label": "workerticks",
-      "id": "src_main_workerticks",
-      "community_name": "main.ts"
+      "community_name": "main.ts",
+      "id": "src_main_workerticks"
     },
     {
       "label": "selectModel",
@@ -2530,8 +2530,8 @@
       "_origin": "ast",
       "community": 6,
       "norm_label": "selectmodel",
-      "id": "src_main_selectmodel",
-      "community_name": "main.ts"
+      "community_name": "main.ts",
+      "id": "src_main_selectmodel"
     },
     {
       "label": "selectMatchup",
@@ -2541,8 +2541,8 @@
       "_origin": "ast",
       "community": 6,
       "norm_label": "selectmatchup",
-      "id": "src_main_selectmatchup",
-      "community_name": "main.ts"
+      "community_name": "main.ts",
+      "id": "src_main_selectmatchup"
     },
     {
       "label": "enableControls()",
@@ -2552,8 +2552,8 @@
       "_origin": "ast",
       "community": 6,
       "norm_label": "enablecontrols()",
-      "id": "src_main_enablecontrols",
-      "community_name": "main.ts"
+      "community_name": "main.ts",
+      "id": "src_main_enablecontrols"
     },
     {
       "label": "disableControls()",
@@ -2563,8 +2563,8 @@
       "_origin": "ast",
       "community": 6,
       "norm_label": "disablecontrols()",
-      "id": "src_main_disablecontrols",
-      "community_name": "main.ts"
+      "community_name": "main.ts",
+      "id": "src_main_disablecontrols"
     },
     {
       "label": "battle.worker.ts",
@@ -2574,8 +2574,8 @@
       "_origin": "ast",
       "community": 3,
       "norm_label": "battle.worker.ts",
-      "id": "src_simulation_battle_worker",
-      "community_name": "battle.worker.ts"
+      "community_name": "battle.worker.ts",
+      "id": "src_simulation_battle_worker"
     },
     {
       "label": "initUnits()",
@@ -2585,8 +2585,8 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": "initunits()",
-      "id": "src_simulation_battle_worker_initunits",
-      "community_name": "getTerrainHeight"
+      "community_name": "getTerrainHeight",
+      "id": "src_simulation_battle_worker_initunits"
     },
     {
       "label": "findNearestEnemy()",
@@ -2596,8 +2596,8 @@
       "_origin": "ast",
       "community": 3,
       "norm_label": "findnearestenemy()",
-      "id": "src_simulation_battle_worker_findnearestenemy",
-      "community_name": "battle.worker.ts"
+      "community_name": "battle.worker.ts",
+      "id": "src_simulation_battle_worker_findnearestenemy"
     },
     {
       "label": "findLowestHpAlly()",
@@ -2607,8 +2607,8 @@
       "_origin": "ast",
       "community": 3,
       "norm_label": "findlowesthpally()",
-      "id": "src_simulation_battle_worker_findlowesthpally",
-      "community_name": "battle.worker.ts"
+      "community_name": "battle.worker.ts",
+      "id": "src_simulation_battle_worker_findlowesthpally"
     },
     {
       "label": "statsDamageDealt",
@@ -2618,8 +2618,8 @@
       "_origin": "ast",
       "community": 3,
       "norm_label": "statsdamagedealt",
-      "id": "src_simulation_battle_worker_statsdamagedealt",
-      "community_name": "battle.worker.ts"
+      "community_name": "battle.worker.ts",
+      "id": "src_simulation_battle_worker_statsdamagedealt"
     },
     {
       "label": "statsDamageTaken",
@@ -2629,8 +2629,8 @@
       "_origin": "ast",
       "community": 3,
       "norm_label": "statsdamagetaken",
-      "id": "src_simulation_battle_worker_statsdamagetaken",
-      "community_name": "battle.worker.ts"
+      "community_name": "battle.worker.ts",
+      "id": "src_simulation_battle_worker_statsdamagetaken"
     },
     {
       "label": "statsKills",
@@ -2640,8 +2640,8 @@
       "_origin": "ast",
       "community": 3,
       "norm_label": "statskills",
-      "id": "src_simulation_battle_worker_statskills",
-      "community_name": "battle.worker.ts"
+      "community_name": "battle.worker.ts",
+      "id": "src_simulation_battle_worker_statskills"
     },
     {
       "label": "statsHealDone",
@@ -2651,8 +2651,8 @@
       "_origin": "ast",
       "community": 3,
       "norm_label": "statshealdone",
-      "id": "src_simulation_battle_worker_statshealdone",
-      "community_name": "battle.worker.ts"
+      "community_name": "battle.worker.ts",
+      "id": "src_simulation_battle_worker_statshealdone"
     },
     {
       "label": "applyDamage()",
@@ -2662,8 +2662,8 @@
       "_origin": "ast",
       "community": 3,
       "norm_label": "applydamage()",
-      "id": "src_simulation_battle_worker_applydamage",
-      "community_name": "battle.worker.ts"
+      "community_name": "battle.worker.ts",
+      "id": "src_simulation_battle_worker_applydamage"
     },
     {
       "label": "DelayedDamage",
@@ -2673,8 +2673,8 @@
       "_origin": "ast",
       "community": 3,
       "norm_label": "delayeddamage",
-      "id": "src_simulation_battle_worker_delayeddamage",
-      "community_name": "battle.worker.ts"
+      "community_name": "battle.worker.ts",
+      "id": "src_simulation_battle_worker_delayeddamage"
     },
     {
       "label": "delayedDamages",
@@ -2684,8 +2684,8 @@
       "_origin": "ast",
       "community": 3,
       "norm_label": "delayeddamages",
-      "id": "src_simulation_battle_worker_delayeddamages",
-      "community_name": "battle.worker.ts"
+      "community_name": "battle.worker.ts",
+      "id": "src_simulation_battle_worker_delayeddamages"
     },
     {
       "label": "queueDamage()",
@@ -2695,8 +2695,8 @@
       "_origin": "ast",
       "community": 3,
       "norm_label": "queuedamage()",
-      "id": "src_simulation_battle_worker_queuedamage",
-      "community_name": "battle.worker.ts"
+      "community_name": "battle.worker.ts",
+      "id": "src_simulation_battle_worker_queuedamage"
     },
     {
       "label": "animLockTicks",
@@ -2706,8 +2706,8 @@
       "_origin": "ast",
       "community": 3,
       "norm_label": "animlockticks",
-      "id": "src_simulation_battle_worker_animlockticks",
-      "community_name": "battle.worker.ts"
+      "community_name": "battle.worker.ts",
+      "id": "src_simulation_battle_worker_animlockticks"
     },
     {
       "label": "tick()",
@@ -2717,8 +2717,8 @@
       "_origin": "ast",
       "community": 3,
       "norm_label": "tick()",
-      "id": "src_simulation_battle_worker_tick",
-      "community_name": "battle.worker.ts"
+      "community_name": "battle.worker.ts",
+      "id": "src_simulation_battle_worker_tick"
     },
     {
       "label": "config.ts",
@@ -2728,8 +2728,8 @@
       "_origin": "ast",
       "community": 3,
       "norm_label": "config.ts",
-      "id": "src_simulation_config",
-      "community_name": "battle.worker.ts"
+      "community_name": "battle.worker.ts",
+      "id": "src_simulation_config"
     },
     {
       "label": "ARMOR",
@@ -2739,8 +2739,8 @@
       "_origin": "ast",
       "community": 3,
       "norm_label": "armor",
-      "id": "src_simulation_config_armor",
-      "community_name": "battle.worker.ts"
+      "community_name": "battle.worker.ts",
+      "id": "src_simulation_config_armor"
     },
     {
       "label": "HP_PER_TYPE",
@@ -2750,8 +2750,8 @@
       "_origin": "ast",
       "community": 3,
       "norm_label": "hp_per_type",
-      "id": "src_simulation_config_hp_per_type",
-      "community_name": "battle.worker.ts"
+      "community_name": "battle.worker.ts",
+      "id": "src_simulation_config_hp_per_type"
     },
     {
       "label": "UnitAttributes",
@@ -2761,8 +2761,8 @@
       "_origin": "ast",
       "community": 3,
       "norm_label": "unitattributes",
-      "id": "src_simulation_config_unitattributes",
-      "community_name": "battle.worker.ts"
+      "community_name": "battle.worker.ts",
+      "id": "src_simulation_config_unitattributes"
     },
     {
       "label": "ATTRIBUTES",
@@ -2772,8 +2772,8 @@
       "_origin": "ast",
       "community": 3,
       "norm_label": "attributes",
-      "id": "src_simulation_config_attributes",
-      "community_name": "battle.worker.ts"
+      "community_name": "battle.worker.ts",
+      "id": "src_simulation_config_attributes"
     },
     {
       "label": "DEFAULT_ATTRIBUTES",
@@ -2783,8 +2783,8 @@
       "_origin": "ast",
       "community": 3,
       "norm_label": "default_attributes",
-      "id": "src_simulation_config_default_attributes",
-      "community_name": "battle.worker.ts"
+      "community_name": "battle.worker.ts",
+      "id": "src_simulation_config_default_attributes"
     },
     {
       "label": "TANK_SKILLS",
@@ -2794,8 +2794,8 @@
       "_origin": "ast",
       "community": 3,
       "norm_label": "tank_skills",
-      "id": "src_simulation_config_tank_skills",
-      "community_name": "battle.worker.ts"
+      "community_name": "battle.worker.ts",
+      "id": "src_simulation_config_tank_skills"
     },
     {
       "label": "ARCHER_SKILLS",
@@ -2805,8 +2805,8 @@
       "_origin": "ast",
       "community": 3,
       "norm_label": "archer_skills",
-      "id": "src_simulation_config_archer_skills",
-      "community_name": "battle.worker.ts"
+      "community_name": "battle.worker.ts",
+      "id": "src_simulation_config_archer_skills"
     },
     {
       "label": "MAGE_SKILLS",
@@ -2816,8 +2816,8 @@
       "_origin": "ast",
       "community": 3,
       "norm_label": "mage_skills",
-      "id": "src_simulation_config_mage_skills",
-      "community_name": "battle.worker.ts"
+      "community_name": "battle.worker.ts",
+      "id": "src_simulation_config_mage_skills"
     },
     {
       "label": "HEALER_SKILLS",
@@ -2827,8 +2827,8 @@
       "_origin": "ast",
       "community": 3,
       "norm_label": "healer_skills",
-      "id": "src_simulation_config_healer_skills",
-      "community_name": "battle.worker.ts"
+      "community_name": "battle.worker.ts",
+      "id": "src_simulation_config_healer_skills"
     },
     {
       "label": "constants.ts",
@@ -2838,8 +2838,8 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": "constants.ts",
-      "id": "src_simulation_constants",
-      "community_name": "getTerrainHeight"
+      "community_name": "getTerrainHeight",
+      "id": "src_simulation_constants"
     },
     {
       "label": "getTerrainHeight()",
@@ -2849,8 +2849,8 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": "getterrainheight()",
-      "id": "src_simulation_constants_getterrainheight",
-      "community_name": "getTerrainHeight"
+      "community_name": "getTerrainHeight",
+      "id": "src_simulation_constants_getterrainheight"
     }
   ],
   "links": [
@@ -7295,5 +7295,5 @@
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "63b7cf151a371db5b96b139957e7ddd19a7570e7"
+  "built_at_commit": "4b0adbe65b8e5511b26db8bd2369c1ed7e609220"
 }

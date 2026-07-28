@@ -286,7 +286,11 @@ export function changeModel(
                 for (let i = 0; i < UNIT_COUNT; i++) {
                     const team = i < TEAM_SIZE ? TEAM_A : 1;
                     const localIdx = i < TEAM_SIZE ? i : i - TEAM_SIZE;
-                    let uType = localIdx % 4;
+                    let uType = localIdx % 3;
+                    const healerCount = Math.max(1, Math.round(TEAM_SIZE * 0.02));
+                    if (localIdx < healerCount) {
+                        uType = 3;
+                    }
                     if (matchup === "mage_vs_tank") {
                         uType = team === TEAM_A ? 2 : 0;
                     } else if (matchup === "archer_vs_tank") {
