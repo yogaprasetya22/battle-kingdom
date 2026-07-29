@@ -438,7 +438,6 @@ export function spawnArrowVolleyFX(
     const isBlue = team === 1;
     const colorCircle = isBlue ? 0x00aaff : 0xff4433;
     const colorRune = isBlue ? 0x88ccff : 0xffaa44;
-    const colorBeam = isBlue ? 0x44bbff : 0xff7722;
     const colorStar = isBlue ? 0x99ddff : 0xffdd66;
 
     // Ground rune circle
@@ -473,31 +472,24 @@ export function spawnArrowVolleyFX(
     inner.position.set(centerX, groundY + 0.04, centerZ);
     scene.add(inner);
 
-    // Light pillar
-    const beamGeo = new THREE.CylinderGeometry(
-        0.05,
-        radius * 0.9,
-        8,
-        16,
-        1,
-        true,
-    );
-    const beamMat = new THREE.MeshBasicMaterial({
-        color: colorBeam,
+    // Falling arrows — instanced
+    const COUNT = 60;
+    const arrowGeo = new THREE.CylinderGeometry(0.01, 0.035, 1.0, 4);
+
+    const arrowMat = new THREE.MeshBasicMaterial({
+        color: colorStar,
         transparent: true,
-        opacity: 0.3,
+        opacity: 0.95,
         blending: THREE.AdditiveBlending,
         depthWrite: false,
-        side: THREE.DoubleSide,
     });
-    const beam = new THREE.Mesh(beamGeo, beamMat);
-    beam.position.set(centerX, groundY + 4.0, centerZ);
-    scene.add(beam);
+    const arrows = new THREE.InstancedMesh(arrowGeo, arrowMat, COUNT);
+    arrows.frustumCulled = false;
+    scene.add(arrows);
 
-    // Falling stars — instanced
-    const COUNT = 60;
-    const starGeo = pooledPlane(0.5, 0.5);
-    const starMat = new THREE.MeshBasicMaterial({
+    // Arrow impact rings — instanced
+    const impactRingGeo = new THREE.PlaneGeometry(1.2, 1.2);
+    const impactRingMat = new THREE.MeshBasicMaterial({
         map: starTex,
         color: colorStar,
         transparent: true,
@@ -505,52 +497,60 @@ export function spawnArrowVolleyFX(
         depthWrite: false,
         side: THREE.DoubleSide,
     });
-    const stars = new THREE.InstancedMesh(starGeo, starMat, COUNT);
-    stars.frustumCulled = false;
+    const impacts = new THREE.InstancedMesh(impactRingGeo, impactRingMat, COUNT);
+    impacts.frustumCulled = false;
+    scene.add(impacts);
 
     const data: {
         ax: number;
         az: number;
         startY: number;
         speed: number;
-        rotSpeed: number;
-        texIdx: number;
+        hitTime: number;
     }[] = [];
+
     for (let k = 0; k < COUNT; k++) {
         const angle = Math.random() * Math.PI * 2;
         const r = Math.random() * radius;
+        const targetX = centerX + Math.cos(angle) * r;
+        const targetZ = centerZ + Math.sin(angle) * r;
+        const startY = groundY + 9 + Math.random() * 6;
+        const speed = 0.015 + Math.random() * 0.01; // units per ms
+        const height = startY - groundY;
+        const hitTime = height / speed;
+
         data.push({
-            ax: centerX + Math.cos(angle) * r,
-            az: centerZ + Math.sin(angle) * r,
-            startY: groundY + 9 + Math.random() * 6,
-            speed: 0.14 + Math.random() * 0.12,
-            rotSpeed: (Math.random() - 0.5) * 6,
-            texIdx: k % 2, // alternate star textures
+            ax: targetX,
+            az: targetZ,
+            startY,
+            speed,
+            hitTime,
         });
     }
-    scene.add(stars);
 
-    const DURATION = 1.6;
+    const DURATION = 1.8;
     const startTime = performance.now();
 
     activeFX.push({
         update(_delta) {
             const elapsed = performance.now() - startTime;
             if (elapsed > DURATION * 1000) {
-                scene.remove(stars);
+                scene.remove(arrows);
+                scene.remove(impacts);
                 scene.remove(ring);
                 scene.remove(inner);
-                scene.remove(beam);
+
                 ringGeo.dispose();
                 ringMat.dispose();
                 innerGeo.dispose();
                 innerMat.dispose();
-                beamGeo.dispose();
-                beamMat.dispose();
-                starGeo.dispose();
-                starMat.dispose();
+                arrowGeo.dispose();
+                arrowMat.dispose();
+                impactRingGeo.dispose();
+                impactRingMat.dispose();
                 return false;
             }
+
             const t = elapsed / (DURATION * 1000);
             const et = easeOutCubic(t);
 
@@ -558,33 +558,55 @@ export function spawnArrowVolleyFX(
             ringMat.opacity = 0.95 * (1 - et);
             inner.rotation.z -= 0.025;
             innerMat.opacity = 0.7 * (1 - et);
-            beamMat.opacity = 0.3 * (1 - et);
 
-            const cq = camera.quaternion;
             for (let k = 0; k < COUNT; k++) {
                 const d = data[k];
-                const ay = Math.max(
-                    groundY,
-                    d.startY - d.speed * elapsed * 0.08,
-                );
-                _tempObj.position.set(d.ax, ay, d.az);
-                _tempObj.quaternion.copy(cq);
-                _tempObj.rotateZ(elapsed * 0.001 * d.rotSpeed);
-                if (ay <= groundY + 0.15) {
-                    const landT = Math.max(
-                        0,
-                        1 -
-                            (elapsed * 0.08 - (d.startY - groundY) / d.speed) *
-                                0.15,
-                    );
-                    _tempObj.scale.setScalar(landT);
+
+                if (elapsed < d.hitTime) {
+                    // Falling phase: move straight down
+                    const distY = d.speed * elapsed;
+                    const ax = d.ax;
+                    const ay = d.startY - distY;
+                    const az = d.az;
+
+                    _tempObj.position.set(ax, ay, az);
+                    _tempObj.scale.set(1, 1, 1);
+                    _tempObj.rotation.set(0, 0, 0);
+                    _tempObj.updateMatrix();
+                    arrows.setMatrixAt(k, _tempObj.matrix);
+
+                    // Impact is inactive
+                    _tempObj.scale.setScalar(0);
+                    _tempObj.updateMatrix();
+                    impacts.setMatrixAt(k, _tempObj.matrix);
                 } else {
-                    _tempObj.scale.setScalar(1);
+                    // Arrow has hit the ground, arrow is hidden
+                    _tempObj.scale.setScalar(0);
+                    _tempObj.updateMatrix();
+                    arrows.setMatrixAt(k, _tempObj.matrix);
+
+                    // Animate impact ring
+                    const tHit = elapsed - d.hitTime;
+                    const impactDuration = 300; // ms
+                    if (tHit < impactDuration) {
+                        const hitT = tHit / impactDuration;
+                        _tempObj.position.set(d.ax, groundY + 0.02, d.az);
+                        _tempObj.rotation.set(-Math.PI / 2, 0, 0);
+                        const scaleFactor = hitT * 1.5;
+                        _tempObj.scale.set(scaleFactor, scaleFactor, 1);
+                        _tempObj.updateMatrix();
+                        impacts.setMatrixAt(k, _tempObj.matrix);
+                    } else {
+                        // Impact has finished, hide
+                        _tempObj.scale.setScalar(0);
+                        _tempObj.updateMatrix();
+                        impacts.setMatrixAt(k, _tempObj.matrix);
+                    }
                 }
-                _tempObj.updateMatrix();
-                stars.setMatrixAt(k, _tempObj.matrix);
             }
-            stars.instanceMatrix.needsUpdate = true;
+
+            arrows.instanceMatrix.needsUpdate = true;
+            impacts.instanceMatrix.needsUpdate = true;
             return true;
         },
     });
