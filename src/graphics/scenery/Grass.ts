@@ -1,165 +1,276 @@
-import * as THREE from 'three';
-import { getTerrainHeight } from '../../simulation/constants';
+import * as THREE from "three";
+import { getTerrainHeight } from "../../simulation/constants";
+
+/**
+ * Grass.ts — Clustered natural grass patches.
+ * World divided into 12×9 large cells (each ~6.7×6.7 units).
+ * Each cell gets 0–6 clump patches based on terrain height.
+ * Each patch = 4–10 tufts clustered within 1.2 unit radius.
+ * Total: ~500 patches × ~7 tufts × 5 blades ≈ 17,500 visual blades.
+ * Two-frequency wind, per-blade color variation, Early-Z enabled.
+ */
+
+interface Patch {
+    cx: number;
+    cz: number;
+    count: number;
+}
 
 export class Grass {
-  meshes: THREE.Mesh[] = [];
+    meshes: THREE.Mesh[] = [];
 
-  constructor(scene: THREE.Scene, uniforms: { uTime: { value: number } }) {
-    // ponytail: 12x12 Micro-chunking (144 clusters) for extremely tight frustum culling.
-    // We combine this with the "Grass Clumps" technique (3 blades compiled into 1 instance vertex group)
-    // to render 1.000.000 visual blades using only 333.333 logical instance groups (reducing GPU geometry overhead by 66%).
-    const totalGrassVisual = 30000;
-    const bladesPerClump = 3;
-    const totalClumps = Math.floor(totalGrassVisual / bladesPerClump); // 50,000 clumps
+    constructor(scene: THREE.Scene, uniforms: { uTime: { value: number } }) {
+        const bladesPerClump = 5;
+        const worldW = 80;
+        const worldH = 60;
 
-    const gridDivisions = 6; // 6x6 = 36 grids — cuts draw calls by 75% compared to 12x12
-    const clusterCount = gridDivisions * gridDivisions;
-    const clumpsPerCluster = Math.floor(totalClumps / clusterCount);
+        // ── Spatial grid for patches ──
+        const cellW = 6.7;
+        const cellH = 6.7;
+        const cellsX = Math.ceil(worldW / cellW); // 12
+        const cellsZ = Math.ceil(worldH / cellH); // 9
+        const x0 = -worldW / 2;
+        const z0 = -worldH / 2;
 
-    const worldWidth = 76;
-    const worldLength = 56;
-    const colWidth = worldWidth / gridDivisions;
-    const rowLength = worldLength / gridDivisions;
+        // ── Density function: more grass in valleys, less on slopes ──
+        const densityAt = (x: number, z: number): number => {
+            const h = getTerrainHeight(x, z);
+            // No grass underwater
+            if (h < -0.1) return 0;
+            // Valley bottom (just above water): high density
+            if (h < 0.3) return 0.9;
+            // Gentle slopes
+            if (h < 1.0) return 0.7;
+            // Mid slopes
+            if (h < 2.0) return 0.4;
+            // High peaks: sparse
+            if (h < 3.0) return 0.15;
+            return 0;
+        };
 
-    const colorBottom = new THREE.Color(0x6e6848);
-    const colorTop = new THREE.Color(0xc2af78);
+        // ── Generate patches ──
+        const patches: Patch[] = [];
+        const rng = mulberry32(42); // deterministic seed
 
-    // Custom ShaderMaterial with forced Early-Z configs and transparent: false (allows GPU occlusion culling)
-    const grassMat = new THREE.ShaderMaterial({
-      uniforms: {
-        uTime: uniforms.uTime,
-        colorBottom: { value: colorBottom },
-        colorTop: { value: colorTop }
-      },
-      vertexShader: `
-        uniform float uTime;
-        uniform vec3 colorBottom;
-        uniform vec3 colorTop;
-        attribute vec4 aGrassParams; // x: vertexIdx, y: rot, z: scaleY, w: scaleX
-        attribute vec3 aClumpOffset; // offset of this blade inside the clump (X, Z offset, rotation offset)
-        varying vec3 vColor;
+        for (let ci = 0; ci < cellsX; ci++) {
+            for (let cj = 0; cj < cellsZ; cj++) {
+                const cxCell = x0 + ci * cellW + cellW / 2;
+                const czCell = z0 + cj * cellH + cellH / 2;
+                const d = densityAt(cxCell, czCell);
+                if (d <= 0) continue;
 
-        void main() {
-          float vertexIdx = aGrassParams.x;
-          float baseRot = aGrassParams.y;
-          float scaleY = aGrassParams.z;
-          float scaleX = aGrassParams.w;
+                // 0–6 patches per cell based on density
+                const maxPatches = Math.floor(d * 6);
+                const numPatches =
+                    maxPatches > 0 ? 1 + Math.floor(rng() * maxPatches) : 0;
 
-          float bladeWidth = 0.12;  // ponytail: widened to cover more screen space
-          float bladeHeight = 0.55; // taller for overlap density
+                for (let p = 0; p < numPatches; p++) {
+                    const px = cxCell + (rng() - 0.5) * cellW * 0.8;
+                    const pz = czCell + (rng() - 0.5) * cellH * 0.8;
+                    const hCheck = getTerrainHeight(px, pz);
 
-          // Calculate blade local shape offset
-          vec3 localOffset = vec3(0.0);
-          if (vertexIdx < 0.5) {
-            localOffset.y = bladeHeight * scaleY;
-          } else if (vertexIdx < 1.5) {
-            localOffset.x = -bladeWidth * scaleX * 0.25; // narrowed base
-          } else {
-            localOffset.x = bladeWidth * scaleX * 0.25;  // narrowed base
-          }
+                    // Skip if too steep or underwater
+                    if (hCheck < -0.05) continue;
+                    // Limit on steep slopes (check neighbor)
+                    const nx = getTerrainHeight(px + 1, pz) - hCheck;
+                    const nz = getTerrainHeight(px, pz + 1) - hCheck;
+                    const steepness = Math.sqrt(nx * nx + nz * nz);
+                    if (steepness > 1.5) continue;
 
-          // Combine clump rotation offset and base rotation
-          float rot = baseRot + aClumpOffset.z;
-          float cosRot = cos(rot);
-          float sinRot = sin(rot);
-
-          // Apply rotation and local clump offsets
-          vec3 rotatedOffset = vec3(localOffset.x * cosRot, localOffset.y, localOffset.x * sinRot);
-          rotatedOffset.x += aClumpOffset.x;
-          rotatedOffset.z += aClumpOffset.y;
-
-          // Wind simulation math
-          float wind = sin(uTime * 2.8 + (position.x + rotatedOffset.x) * 1.5 + (position.z + rotatedOffset.z) * 1.5) * 0.22;
-          rotatedOffset.x += wind * (rotatedOffset.y / 0.45);
-          rotatedOffset.z += wind * 0.3 * (rotatedOffset.y / 0.45);
-
-          // Final vertex position
-          vec3 transformed = position + rotatedOffset;
-
-          // Color interpolation
-          vColor = mix(colorBottom, colorTop, step(0.5, 1.0 - vertexIdx));
-
-          gl_Position = projectionMatrix * modelViewMatrix * vec4(transformed, 1.0);
-        }
-      `,
-      fragmentShader: `
-        varying vec3 vColor;
-        void main() {
-          gl_FragColor = vec4(vColor, 1.0);
-        }
-      `,
-      side: THREE.DoubleSide,
-      transparent: false, // ponytail: must be false to enable hardware Early-Z Occlusion Rejection
-      depthWrite: true,
-      depthTest: true
-    });
-
-    // Populate the 12x12 grid
-    for (let gz = 0; gz < gridDivisions; gz++) {
-      for (let gx = 0; gx < gridDivisions; gx++) {
-        const xMin = -worldWidth / 2 + gx * colWidth;
-        const zMin = -worldLength / 2 + gz * rowLength;
-
-        // Each clump has 3 blades. Each blade has 3 vertices.
-        const positions = new Float32Array(clumpsPerCluster * bladesPerClump * 3 * 3);
-        const params = new Float32Array(clumpsPerCluster * bladesPerClump * 3 * 4);
-        const clumpOffsets = new Float32Array(clumpsPerCluster * bladesPerClump * 3 * 3);
-
-        let vertexIdx = 0;
-        for (let i = 0; i < clumpsPerCluster; i++) {
-          const x = xMin + Math.random() * colWidth;
-          const z = zMin + Math.random() * rowLength;
-
-          // Keep path in central arena clean
-          if (Math.abs(x) < 2.2) {
-            i--;
-            continue;
-          }
-
-          const y = getTerrainHeight(x, z);
-          const baseRotation = Math.random() * Math.PI * 2;
-          const scaleY = 0.65 + Math.random() * 0.65;
-          const scaleX = 0.8 + Math.random() * 0.4;
-
-          // 3 blades per clump, with custom visual distributions (offsets & angles)
-          for (let b = 0; b < bladesPerClump; b++) {
-            const angleOffset = (b / bladesPerClump) * Math.PI * 2 + (Math.random() - 0.5) * 0.5;
-            // PERBESAR Jarak penyebarannya (sebelumnya 0.05 + Math.random() * 0.08)
-            // Menjadi lebih lebar agar satu rumpun menutupi area tanah yang lebih luas
-            const clumpDist = 0.15 + Math.random() * 0.15;
-            const cx = Math.cos(angleOffset) * clumpDist;
-            const cz = Math.sin(angleOffset) * clumpDist;
-
-            for (let v = 0; v < 3; v++) {
-              positions[vertexIdx * 3] = x;
-              positions[vertexIdx * 3 + 1] = y;
-              positions[vertexIdx * 3 + 2] = z;
-
-              params[vertexIdx * 4] = v;
-              params[vertexIdx * 4 + 1] = baseRotation;
-              params[vertexIdx * 4 + 2] = scaleY;
-              params[vertexIdx * 4 + 3] = scaleX;
-
-              clumpOffsets[vertexIdx * 3] = cx;
-              clumpOffsets[vertexIdx * 3 + 1] = cz;
-              clumpOffsets[vertexIdx * 3 + 2] = angleOffset;
-              vertexIdx++;
+                    const count = 4 + Math.floor(rng() * 7); // 4–10 tufts
+                    patches.push({ cx: px, cz: pz, count });
+                }
             }
-          }
         }
 
-        const grassGeo = new THREE.BufferGeometry();
-        grassGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-        grassGeo.setAttribute('aGrassParams', new THREE.BufferAttribute(params, 4));
-        grassGeo.setAttribute('aClumpOffset', new THREE.BufferAttribute(clumpOffsets, 3));
+        const totalClumps = patches.reduce((s, p) => s + p.count, 0);
+        const totalVertices = totalClumps * bladesPerClump * 3;
 
-        grassGeo.computeBoundingSphere();
+        // ── Build single merged geometry (no chunks — frustum handles it) ──
+        const positions = new Float32Array(totalVertices * 3);
+        const params = new Float32Array(totalVertices * 4);
+        const clumpOffsets = new Float32Array(totalVertices * 3);
+        const colorVars = new Float32Array(totalVertices);
 
-        const mesh = new THREE.Mesh(grassGeo, grassMat);
+        const colorBottom = new THREE.Color(0x4a6530);
+        const colorTop = new THREE.Color(0x8dbd4a);
+
+        let vi = 0;
+        for (const patch of patches) {
+            const py = getTerrainHeight(patch.cx, patch.cz);
+
+            for (let t = 0; t < patch.count; t++) {
+                // Random offset within patch radius
+                const angle = rng() * Math.PI * 2;
+                const dist = rng() * 1.2;
+                const tx = patch.cx + Math.cos(angle) * dist;
+                const tz = patch.cz + Math.sin(angle) * dist;
+                const ty = getTerrainHeight(tx, tz);
+
+                // Skip if steep within patch
+                if (Math.abs(ty - py) > 0.8) continue;
+
+                const baseRotation = rng() * Math.PI * 2;
+                const clumpScaleY = 0.6 + rng() * 0.6;
+                const clumpScaleX = 0.6 + rng() * 0.5;
+
+                for (let b = 0; b < bladesPerClump; b++) {
+                    const fanAngle =
+                        (b / bladesPerClump - 0.5) * Math.PI * 0.65;
+                    const angleOffset = fanAngle + (rng() - 0.5) * 0.3;
+                    const clumpDist = 0.06 + b * 0.05 + rng() * 0.06;
+                    const cx = Math.cos(baseRotation + angleOffset) * clumpDist;
+                    const cz = Math.sin(baseRotation + angleOffset) * clumpDist;
+
+                    const bladeScaleY = clumpScaleY * (0.75 + rng() * 0.5);
+                    const bladeScaleX = clumpScaleX * (0.7 + rng() * 0.6);
+                    const colorVar = rng();
+
+                    for (let v = 0; v < 3; v++) {
+                        const idx = vi * 3;
+                        positions[idx] = tx;
+                        positions[idx + 1] = ty;
+                        positions[idx + 2] = tz;
+
+                        const pi = vi * 4;
+                        params[pi] = v;
+                        params[pi + 1] = baseRotation;
+                        params[pi + 2] = bladeScaleY;
+                        params[pi + 3] = bladeScaleX;
+
+                        const oi = vi * 3;
+                        clumpOffsets[oi] = cx;
+                        clumpOffsets[oi + 1] = cz;
+                        clumpOffsets[oi + 2] = angleOffset;
+
+                        colorVars[vi] = colorVar;
+                        vi++;
+                    }
+                }
+            }
+        }
+
+        // Trim to actual
+        const actualVerts = vi;
+        if (actualVerts === 0) return;
+
+        const trimPos = new Float32Array(positions.buffer, 0, actualVerts * 3);
+        const trimParams = new Float32Array(params.buffer, 0, actualVerts * 4);
+        const trimOff = new Float32Array(
+            clumpOffsets.buffer,
+            0,
+            actualVerts * 3,
+        );
+        const trimCol = new Float32Array(colorVars.buffer, 0, actualVerts);
+
+        const geo = new THREE.BufferGeometry();
+        geo.setAttribute(
+            "position",
+            new THREE.BufferAttribute(new Float32Array(trimPos), 3),
+        );
+        geo.setAttribute(
+            "aGrassParams",
+            new THREE.BufferAttribute(new Float32Array(trimParams), 4),
+        );
+        geo.setAttribute(
+            "aClumpOffset",
+            new THREE.BufferAttribute(new Float32Array(trimOff), 3),
+        );
+        geo.setAttribute(
+            "aColorVar",
+            new THREE.BufferAttribute(new Float32Array(trimCol), 1),
+        );
+        geo.computeBoundingSphere();
+
+        const grassMat = new THREE.ShaderMaterial({
+            uniforms: {
+                uTime: uniforms.uTime,
+                colorBottom: { value: colorBottom },
+                colorTop: { value: colorTop },
+            },
+            vertexShader: /* glsl */ `
+                uniform float uTime;
+                uniform vec3 colorBottom;
+                uniform vec3 colorTop;
+                attribute vec4 aGrassParams;
+                attribute vec3 aClumpOffset;
+                attribute float aColorVar;
+                varying vec3 vColor;
+
+                void main() {
+                    float vertexIdx = aGrassParams.x;
+                    float baseRot   = aGrassParams.y;
+                    float scaleY    = aGrassParams.z;
+                    float scaleX    = aGrassParams.w;
+
+                    float bladeWidth  = 0.09 * scaleX;
+                    float bladeHeight = 0.55 * scaleY;
+
+                    vec3 localOffset = vec3(0.0);
+                    if (vertexIdx < 0.5) {
+                        localOffset.y = bladeHeight;
+                    } else if (vertexIdx < 1.5) {
+                        localOffset.x = -bladeWidth * 0.3;
+                    } else {
+                        localOffset.x = bladeWidth * 0.3;
+                    }
+
+                    float rot = baseRot + aClumpOffset.z;
+                    float cr = cos(rot);
+                    float sr = sin(rot);
+
+                    vec3 rotated = vec3(
+                        localOffset.x * cr + aClumpOffset.x,
+                        localOffset.y,
+                        localOffset.x * sr + aClumpOffset.y
+                    );
+
+                    float worldX = position.x + rotated.x;
+                    float worldZ = position.z + rotated.z;
+                    float heightRatio = rotated.y / 0.55;
+
+                    float wind1 = sin(uTime * 1.5 + worldX * 1.5 + worldZ) * 0.12;
+                    float wind2 = sin(uTime * 3.8 + worldX * 3.5 + worldZ * 2.0) * 0.05;
+                    float wind = (wind1 + wind2) * heightRatio * heightRatio;
+
+                    rotated.x += wind;
+                    rotated.z += wind * 0.35;
+
+                    float tipness = vertexIdx < 0.5 ? 1.0 : 0.0;
+                    vec3 baseColor = mix(colorBottom, colorTop, tipness);
+                    float variation = 0.82 + aColorVar * 0.36;
+                    vColor = baseColor * variation;
+
+                    vec3 transformed = position + rotated;
+                    gl_Position = projectionMatrix * modelViewMatrix * vec4(transformed, 1.0);
+                }
+            `,
+            fragmentShader: /* glsl */ `
+                varying vec3 vColor;
+                void main() {
+                    gl_FragColor = vec4(vColor, 1.0);
+                }
+            `,
+            side: THREE.DoubleSide,
+            transparent: false,
+            depthWrite: true,
+            depthTest: true,
+        });
+
+        const mesh = new THREE.Mesh(geo, grassMat);
         mesh.frustumCulled = true;
         scene.add(mesh);
         this.meshes.push(mesh);
-      }
     }
-  }
+}
+
+/** Deterministic PRNG for reproducible patch placement */
+function mulberry32(a: number): () => number {
+    return () => {
+        a |= 0;
+        a = (a + 0x6d2b79f5) | 0;
+        let t = Math.imul(a ^ (a >>> 15), 1 | a);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
 }

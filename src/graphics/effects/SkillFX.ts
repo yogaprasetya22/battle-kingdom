@@ -1863,96 +1863,102 @@ export function spawnDivineShieldFX(
     scene: THREE.Scene,
     targetPos: THREE.Vector3,
 ) {
-    // 1. Double-shell golden shield (Outer wireframe + Inner solid glowing sphere)
-    const geoOuter = new THREE.SphereGeometry(0.8, 14, 14);
-    const matOuter = new THREE.MeshBasicMaterial({
-        color: 0xffd700, // Shiny gold
-        transparent: true,
-        opacity: 0.55,
-        wireframe: true,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false,
-    });
-    const shieldOuter = new THREE.Mesh(geoOuter, matOuter);
-    shieldOuter.position.copy(targetPos);
-    scene.add(shieldOuter);
+    // ── Golden Rune Circle + Rising Light Pillar ──
 
-    const geoInner = new THREE.SphereGeometry(0.72, 12, 12);
-    const matInner = new THREE.MeshBasicMaterial({
-        color: 0xffaa00, // Orange-gold
-        transparent: true,
-        opacity: 0.25,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false,
-    });
-    const shieldInner = new THREE.Mesh(geoInner, matInner);
-    shieldInner.position.copy(targetPos);
-    scene.add(shieldInner);
-
-    // 2. Small orbiting golden stars
-    const starCount = 6;
-    const stars: THREE.Mesh[] = [];
-    const starGeo = new THREE.DodecahedronGeometry(0.06);
-    const starMat = new THREE.MeshBasicMaterial({
-        color: 0xffe875,
+    // 1. Rune ring on ground — rotates, scales up, fades
+    const ringGeo = new THREE.RingGeometry(0.3, 1.1, 48, 1, 0, Math.PI * 2);
+    const ringMat = new THREE.MeshBasicMaterial({
+        color: 0xffd700,
+        side: THREE.DoubleSide,
         transparent: true,
         opacity: 0.9,
         blending: THREE.AdditiveBlending,
         depthWrite: false,
     });
+    const ring = new THREE.Mesh(ringGeo, ringMat);
+    ring.rotation.x = -Math.PI / 2;
+    ring.position.set(targetPos.x, targetPos.y + 0.05, targetPos.z);
+    scene.add(ring);
 
-    for (let i = 0; i < starCount; i++) {
-        const star = new THREE.Mesh(starGeo, starMat);
-        scene.add(star);
-        stars.push(star);
+    // 2. Rising light pillar
+    const pillarGeo = new THREE.CylinderGeometry(0.15, 0.5, 3.5, 16, 1, true);
+    const pillarMat = new THREE.MeshBasicMaterial({
+        color: 0xffdf80,
+        transparent: true,
+        opacity: 0.6,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+    });
+    const pillar = new THREE.Mesh(pillarGeo, pillarMat);
+    pillar.position.set(targetPos.x, targetPos.y + 1.75, targetPos.z);
+    scene.add(pillar);
+
+    // 3. Floating golden rune particles orbiting the unit
+    const runeCount = 10;
+    const runeGeo = new THREE.DodecahedronGeometry(0.05);
+    const runeMat = new THREE.MeshBasicMaterial({
+        color: 0xffe066,
+        transparent: true,
+        opacity: 0.85,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+    });
+    const runes: THREE.Mesh[] = [];
+    const runeAngles: number[] = [];
+    const runeSpeeds: number[] = [];
+    const runeHeights: number[] = [];
+
+    for (let i = 0; i < runeCount; i++) {
+        const r = new THREE.Mesh(runeGeo, runeMat);
+        scene.add(r);
+        runes.push(r);
+        runeAngles.push((Math.PI * 2 * i) / runeCount);
+        runeSpeeds.push(2.5 + Math.random() * 3.5);
+        runeHeights.push(0.6 + Math.random() * 2.0);
     }
 
     let age = 0;
-    const duration = 1.3; // Visually matches shield active state
+    const duration = 1.3;
 
     activeFX.push({
         update(delta) {
             age += delta;
             const t = Math.min(1.0, age / duration);
 
-            // Counter-rotation of inner/outer shield shells
-            shieldOuter.rotation.y += delta * 1.8;
-            shieldOuter.rotation.x += delta * 0.7;
-            shieldInner.rotation.y -= delta * 1.2;
+            // Ring: expand + rotate + fade
+            const ringScale = 0.2 + easeOutBack(t) * 2.0;
+            ring.scale.setScalar(ringScale);
+            ring.rotation.z += delta * 3.0;
+            ringMat.opacity = 0.9 * (1.0 - t * t);
 
-            // Pulsate shield scale slightly
-            const pulse = 1.0 + 0.05 * Math.sin(age * 12.0);
-            shieldOuter.scale.setScalar(pulse);
-            shieldInner.scale.setScalar(pulse);
+            // Pillar: rise + narrow top + fade
+            pillar.position.y = targetPos.y + 1.75 + t * 2.0;
+            pillar.scale.set(1.0 - t * 0.7, 1.0, 1.0 - t * 0.7);
+            pillarMat.opacity = 0.6 * (1.0 - t);
 
-            // Fade out
-            matOuter.opacity = 0.55 * (1.0 - t);
-            matInner.opacity = 0.25 * (1.0 - t);
-
-            // Orbit stars around the shield
-            for (let i = 0; i < stars.length; i++) {
-                const angle = age * 6.0 + i * ((Math.PI * 2) / starCount);
-                stars[i].position.set(
-                    targetPos.x + 0.95 * Math.cos(angle),
-                    targetPos.y + 0.15 * Math.sin(age * 3.0 + i),
-                    targetPos.z + 0.95 * Math.sin(angle),
+            // Runes: spiral orbit around unit
+            for (let i = 0; i < runeCount; i++) {
+                const angle = runeAngles[i] + age * runeSpeeds[i];
+                const radius = 1.0 + Math.sin(age * 2.0 + i) * 0.25;
+                runes[i].position.set(
+                    targetPos.x + Math.cos(angle) * radius,
+                    targetPos.y + runeHeights[i] + Math.sin(age * 4.0 + i) * 0.2,
+                    targetPos.z + Math.sin(angle) * radius,
                 );
-                stars[i].scale.setScalar(1.0 - t);
+                runes[i].scale.setScalar(1.0 - t);
             }
 
             if (t >= 1.0) {
-                scene.remove(shieldOuter);
-                scene.remove(shieldInner);
-                geoOuter.dispose();
-                geoInner.dispose();
-                matOuter.dispose();
-                matInner.dispose();
-
-                for (const star of stars) {
-                    scene.remove(star);
-                }
-                starGeo.dispose();
-                starMat.dispose();
+                scene.remove(ring);
+                ringGeo.dispose();
+                ringMat.dispose();
+                scene.remove(pillar);
+                pillarGeo.dispose();
+                pillarMat.dispose();
+                for (const r of runes) scene.remove(r);
+                runeGeo.dispose();
+                runeMat.dispose();
                 return false;
             }
             return true;

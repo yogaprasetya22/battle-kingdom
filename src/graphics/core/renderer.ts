@@ -204,7 +204,7 @@ export function startRenderLoop() {
         if (_onBeforeRender) _onBeforeRender(timestamp, delta);
 
         controls.update();
-        world.update(delta);
+        world.update(delta, camera.position);
         effectUniforms.uTime.value += delta;
 
         updateFX(delta);
