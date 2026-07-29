@@ -8,7 +8,7 @@ export class Grass {
     // ponytail: 12x12 Micro-chunking (144 clusters) for extremely tight frustum culling.
     // We combine this with the "Grass Clumps" technique (3 blades compiled into 1 instance vertex group)
     // to render 1.000.000 visual blades using only 333.333 logical instance groups (reducing GPU geometry overhead by 66%).
-    const totalGrassVisual = 10000;
+    const totalGrassVisual = 30000;
     const bladesPerClump = 3;
     const totalClumps = Math.floor(totalGrassVisual / bladesPerClump); // 50,000 clumps
 

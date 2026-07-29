@@ -5,18 +5,11 @@
  * ponytail: no framework, no DI, no event bus. Direct function calls.
  */
 
-import {
-    BUFFER_BYTES,
-    UNIT_COUNT,
-    TEAM_SIZE,
-    TEAM_A,
-    STRIDE,
-    IDX_HP,
-    IDX_TEAM,
-} from "./simulation/constants";
+import { BUFFER_BYTES, UNIT_COUNT, TEAM_SIZE } from "./simulation/constants";
 import {
     setSharedData,
     startRenderLoop,
+    setBeforeRenderCb,
     changeModel,
     spawnSkillFX,
     resetUnitsVisual,
@@ -34,7 +27,7 @@ for (let i = 0; i < NUM_WORKERS; i++) {
     workers.push(
         new Worker(new URL("./simulation/battle.worker.ts", import.meta.url), {
             type: "module",
-        })
+        }),
     );
 }
 
@@ -70,17 +63,41 @@ let battleWinner: "A" | "B" = "A";
 
 const aggregatedStats = {
     teamA: {
-        tankDealt: 0, tankTaken: 0, tankKills: 0, tankHealed: 0,
-        archerDealt: 0, archerTaken: 0, archerKills: 0, archerHealed: 0,
-        mageDealt: 0, mageTaken: 0, mageKills: 0, mageHealed: 0,
-        healerDealt: 0, healerTaken: 0, healerKills: 0, healerHealed: 0
+        tankDealt: 0,
+        tankTaken: 0,
+        tankKills: 0,
+        tankHealed: 0,
+        archerDealt: 0,
+        archerTaken: 0,
+        archerKills: 0,
+        archerHealed: 0,
+        mageDealt: 0,
+        mageTaken: 0,
+        mageKills: 0,
+        mageHealed: 0,
+        healerDealt: 0,
+        healerTaken: 0,
+        healerKills: 0,
+        healerHealed: 0,
     },
     teamB: {
-        tankDealt: 0, tankTaken: 0, tankKills: 0, tankHealed: 0,
-        archerDealt: 0, archerTaken: 0, archerKills: 0, archerHealed: 0,
-        mageDealt: 0, mageTaken: 0, mageKills: 0, mageHealed: 0,
-        healerDealt: 0, healerTaken: 0, healerKills: 0, healerHealed: 0
-    }
+        tankDealt: 0,
+        tankTaken: 0,
+        tankKills: 0,
+        tankHealed: 0,
+        archerDealt: 0,
+        archerTaken: 0,
+        archerKills: 0,
+        archerHealed: 0,
+        mageDealt: 0,
+        mageTaken: 0,
+        mageKills: 0,
+        mageHealed: 0,
+        healerDealt: 0,
+        healerTaken: 0,
+        healerKills: 0,
+        healerHealed: 0,
+    },
 };
 
 function enableControls() {
@@ -200,74 +217,65 @@ function showBattleEnd(winner: "A" | "B", stats: typeof aggregatedStats) {
     btnStart.disabled = true;
 }
 
+// Accumulated from worker tick_done messages
+let accumAliveA = 0;
+let accumAliveB = 0;
+let accumAliveOrUnspawnedA = 0;
+let accumAliveOrUnspawnedB = 0;
+
 function onTickComplete() {
     pendingTick = false;
     tickCount++;
     if (workerTicks) workerTicks.textContent = tickCount.toString();
 
-    // Count alive units on main thread to check end conditions
-    let aliveOrUnspawnedA = 0;
-    let aliveOrUnspawnedB = 0;
-    let aliveA = 0;
-    let aliveB = 0;
+    scoreA.textContent = accumAliveA.toString();
+    scoreB.textContent = accumAliveB.toString();
 
-    for (let i = 0; i < UNIT_COUNT; i++) {
-        const base = i * STRIDE;
-        const hp = sharedData[base + IDX_HP];
-        if (hp > 0 || hp === -999) {
-            if (sharedData[base + IDX_TEAM] === TEAM_A) {
-                aliveOrUnspawnedA++;
-                if (hp > 0) aliveA++;
-            } else {
-                aliveOrUnspawnedB++;
-                if (hp > 0) aliveB++;
-            }
-        }
-    }
-
-    scoreA.textContent = aliveA.toString();
-    scoreB.textContent = aliveB.toString();
-
-    if (aliveOrUnspawnedA === 0 || aliveOrUnspawnedB === 0) {
+    if (accumAliveOrUnspawnedA === 0 || accumAliveOrUnspawnedB === 0) {
         isRunning = false;
 
         // Reset and prepare statistics aggregation
         statsReceivedCount = 0;
-        battleWinner = aliveOrUnspawnedA > 0 ? "A" : "B";
+        battleWinner = accumAliveOrUnspawnedA > 0 ? "A" : "B";
 
-        aggregatedStats.teamA.tankDealt = 0; aggregatedStats.teamA.tankTaken = 0; aggregatedStats.teamA.tankKills = 0; aggregatedStats.teamA.tankHealed = 0;
-        aggregatedStats.teamA.archerDealt = 0; aggregatedStats.teamA.archerTaken = 0; aggregatedStats.teamA.archerKills = 0; aggregatedStats.teamA.archerHealed = 0;
-        aggregatedStats.teamA.mageDealt = 0; aggregatedStats.teamA.mageTaken = 0; aggregatedStats.teamA.mageKills = 0; aggregatedStats.teamA.mageHealed = 0;
-        aggregatedStats.teamA.healerDealt = 0; aggregatedStats.teamA.healerTaken = 0; aggregatedStats.teamA.healerKills = 0; aggregatedStats.teamA.healerHealed = 0;
+        aggregatedStats.teamA.tankDealt = 0;
+        aggregatedStats.teamA.tankTaken = 0;
+        aggregatedStats.teamA.tankKills = 0;
+        aggregatedStats.teamA.tankHealed = 0;
+        aggregatedStats.teamA.archerDealt = 0;
+        aggregatedStats.teamA.archerTaken = 0;
+        aggregatedStats.teamA.archerKills = 0;
+        aggregatedStats.teamA.archerHealed = 0;
+        aggregatedStats.teamA.mageDealt = 0;
+        aggregatedStats.teamA.mageTaken = 0;
+        aggregatedStats.teamA.mageKills = 0;
+        aggregatedStats.teamA.mageHealed = 0;
+        aggregatedStats.teamA.healerDealt = 0;
+        aggregatedStats.teamA.healerTaken = 0;
+        aggregatedStats.teamA.healerKills = 0;
+        aggregatedStats.teamA.healerHealed = 0;
 
-        aggregatedStats.teamB.tankDealt = 0; aggregatedStats.teamB.tankTaken = 0; aggregatedStats.teamB.tankKills = 0; aggregatedStats.teamB.tankHealed = 0;
-        aggregatedStats.teamB.archerDealt = 0; aggregatedStats.teamB.archerTaken = 0; aggregatedStats.teamB.archerKills = 0; aggregatedStats.teamB.archerHealed = 0;
-        aggregatedStats.teamB.mageDealt = 0; aggregatedStats.teamB.mageTaken = 0; aggregatedStats.teamB.mageKills = 0; aggregatedStats.teamB.mageHealed = 0;
-        aggregatedStats.teamB.healerDealt = 0; aggregatedStats.teamB.healerTaken = 0; aggregatedStats.teamB.healerKills = 0; aggregatedStats.teamB.healerHealed = 0;
+        aggregatedStats.teamB.tankDealt = 0;
+        aggregatedStats.teamB.tankTaken = 0;
+        aggregatedStats.teamB.tankKills = 0;
+        aggregatedStats.teamB.tankHealed = 0;
+        aggregatedStats.teamB.archerDealt = 0;
+        aggregatedStats.teamB.archerTaken = 0;
+        aggregatedStats.teamB.archerKills = 0;
+        aggregatedStats.teamB.archerHealed = 0;
+        aggregatedStats.teamB.mageDealt = 0;
+        aggregatedStats.teamB.mageTaken = 0;
+        aggregatedStats.teamB.mageKills = 0;
+        aggregatedStats.teamB.mageHealed = 0;
+        aggregatedStats.teamB.healerDealt = 0;
+        aggregatedStats.teamB.healerTaken = 0;
+        aggregatedStats.teamB.healerKills = 0;
+        aggregatedStats.teamB.healerHealed = 0;
 
         for (let i = 0; i < NUM_WORKERS; i++) {
             workers[i].postMessage({ type: "get_stats" });
         }
     }
-}
-
-function gameLoop() {
-    if (!isRunning) return;
-
-    const now = performance.now();
-    const deltaTime = now - lastTime;
-
-    // ponytail: use 15ms threshold to prevent frame-skipping stutter on 60Hz displays (16.6ms frame time)
-    if (deltaTime >= 15 && !pendingTick) {
-        pendingTick = true;
-        workersDoneCount = 0;
-        for (let i = 0; i < NUM_WORKERS; i++) {
-            workers[i].postMessage({ type: "tick" });
-        }
-        lastTime = now - (deltaTime % 15);
-    }
-
-    requestAnimationFrame(gameLoop);
 }
 
 // ---- Worker message handlers ----
@@ -284,6 +292,20 @@ for (let i = 0; i < NUM_WORKERS; i++) {
 
         if (type === "tick_done") {
             workersDoneCount++;
+            // Accumulate partial alive counts from this worker
+            if (e.data.aliveA !== undefined) {
+                if (workersDoneCount === 1) {
+                    accumAliveA = e.data.aliveA;
+                    accumAliveB = e.data.aliveB;
+                    accumAliveOrUnspawnedA = e.data.aliveOrUnspawnedA;
+                    accumAliveOrUnspawnedB = e.data.aliveOrUnspawnedB;
+                } else {
+                    accumAliveA += e.data.aliveA;
+                    accumAliveB += e.data.aliveB;
+                    accumAliveOrUnspawnedA += e.data.aliveOrUnspawnedA;
+                    accumAliveOrUnspawnedB += e.data.aliveOrUnspawnedB;
+                }
+            }
             if (workersDoneCount === NUM_WORKERS) {
                 onTickComplete();
             }
@@ -324,7 +346,6 @@ btnStart.addEventListener("click", () => {
     isRunning = true;
     pendingTick = false;
     lastTime = performance.now();
-    gameLoop();
 });
 
 btnReset.addEventListener("click", () => {
@@ -373,6 +394,22 @@ selectMatchup.addEventListener("change", () => {
 
 // ---- Init sequence ----
 setSharedData(sharedData);
+
+// Inject worker tick dispatch into render loop (eliminates separate rAF)
+setBeforeRenderCb((_timestamp: number, _delta: number) => {
+    if (!isRunning) return;
+    const now = performance.now();
+    const deltaTime = now - lastTime;
+    if (deltaTime >= 15 && !pendingTick) {
+        pendingTick = true;
+        workersDoneCount = 0;
+        for (let i = 0; i < NUM_WORKERS; i++) {
+            workers[i].postMessage({ type: "tick" });
+        }
+        lastTime = now - (deltaTime % 15);
+    }
+});
+
 startRenderLoop();
 
 // Kirim buffer ke worker
@@ -388,4 +425,3 @@ for (let i = 0; i < NUM_WORKERS; i++) {
 
 // Load model awal secara dinamis
 changeModel("Knight", selectMatchup.value);
-

@@ -105,6 +105,22 @@ controls.maxPolarAngle = Math.PI / 2.1;
 controls.minDistance = 5;
 controls.maxDistance = 55;
 
+// ponytail: Throttle high-polling-rate gaming mouse events (e.g. 1000Hz+) to max 100Hz
+// This blocks excessive events in the capture phase before they reach OrbitControls, preventing main thread lag.
+let lastPointerMoveTime = 0;
+canvas.addEventListener(
+    "pointermove",
+    (e) => {
+        const now = performance.now();
+        if (now - lastPointerMoveTime < 10) {
+            e.stopImmediatePropagation();
+        } else {
+            lastPointerMoveTime = now;
+        }
+    },
+    { capture: true },
+);
+
 // Lights
 export const hemiLight = new THREE.HemisphereLight(0xffffff, 0xc2e2b5, 2.2);
 scene.add(hemiLight);

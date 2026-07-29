@@ -1,201 +1,42 @@
 /**
- * SkillFX.ts — Luxury skill effects with geometry pooling, easing curves, screen shake.
- *
- * ponytail: camera imported directly (no scene.getObjectByName perf hit),
- * shared geo pool avoids new/dispose churn, activeFX[] central update retained.
+ * SkillFX.ts — Skill effect spawn functions.
+ * Infrastructure (pools, textures, easing, updateFX) lives in FXCore.ts.
  */
 
 import * as THREE from "three";
 import { camera } from "../core/scene";
 import { soundFX } from "../core/SoundFX";
 
-// ═══════════════════════════════════════════════════════════════
-// Easing curves — cheap math, big visual upgrade
-// ═══════════════════════════════════════════════════════════════
-function easeOutCubic(t: number): number {
-    const u = 1 - t;
-    return 1 - u * u * u;
-}
-function easeOutQuad(t: number): number {
-    return t * (2 - t);
-}
-function easeOutBack(t: number): number {
-    const c1 = 1.70158;
-    const c3 = c1 + 1;
-    return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
-}
-
-// ═══════════════════════════════════════════════════════════════
-// Shared geometry pool — reuse PlaneGeometry to avoid GC churn
-// ═══════════════════════════════════════════════════════════════
-const _geoPool = new Map<string, THREE.PlaneGeometry>();
-function pooledPlane(w: number, h: number): THREE.PlaneGeometry {
-    const key = `${w.toFixed(2)}x${h.toFixed(2)}`;
-    if (!_geoPool.has(key)) _geoPool.set(key, new THREE.PlaneGeometry(w, h));
-    return _geoPool.get(key)!;
-}
-
-// ═══════════════════════════════════════════════════════════════
-// Texture loading — once at module init
-// ═══════════════════════════════════════════════════════════════
-const texLoader = new THREE.TextureLoader();
-const baseUrl = import.meta.env.BASE_URL;
-function loadTex(path: string) {
-    return texLoader.load(baseUrl + path);
-}
-
-const starTex = loadTex("particle-pack/PNG (Transparent)/star_05.png");
-const circleTex = loadTex("particle-pack/PNG (Transparent)/circle_03.png");
-const sparkTex = loadTex("particle-pack/PNG (Transparent)/spark_04.png");
-const smokeTex = loadTex("particle-pack/PNG (Transparent)/smoke_04.png");
-
-const fireTex = loadTex("particle-pack/PNG (Transparent)/fire_01.png");
-const flameTex = loadTex("particle-pack/PNG (Transparent)/flame_01.png");
-const scorchTex = loadTex("particle-pack/PNG (Transparent)/scorch_01.png");
-const lightTex = loadTex("particle-pack/PNG (Transparent)/light_02.png");
-const magicTex = loadTex("particle-pack/PNG (Transparent)/magic_01.png");
-const star2Tex = loadTex("particle-pack/PNG (Transparent)/star_08.png");
-
-// ═══════════════════════════════════════════════════════════════
-// Shared uniform for shader-based effects
-// ═══════════════════════════════════════════════════════════════
-export const effectUniforms = { uTime: { value: 0 } };
-
-// Generic MeshBasicMaterial pool to avoid GPU compile & GC memory churn
-interface MatSpecs {
-    color?: number;
-    map?: THREE.Texture | null;
-    transparent?: boolean;
-    opacity?: number;
-    blending?: THREE.Blending;
-    depthWrite?: boolean;
-    depthTest?: boolean;
-    side?: THREE.Side;
-}
-const _matPool = new Map<string, THREE.MeshBasicMaterial[]>();
-function getPooledMaterial(specs: MatSpecs): THREE.MeshBasicMaterial {
-    const mapKey = specs.map ? specs.map.uuid : "none";
-    const key = `${specs.color ?? 0xffffff}_${mapKey}_${specs.transparent ?? false}_${specs.blending ?? THREE.NormalBlending}_${specs.depthWrite ?? true}_${specs.depthTest ?? true}_${specs.side ?? THREE.FrontSide}`;
-    
-    let list = _matPool.get(key);
-    if (!list) {
-        list = [];
-        _matPool.set(key, list);
-    }
-    
-    if (list.length > 0) {
-        const mat = list.pop()!;
-        if (specs.opacity !== undefined) mat.opacity = specs.opacity;
-        return mat;
-    }
-    
-    return new THREE.MeshBasicMaterial({
-        color: specs.color,
-        map: specs.map,
-        transparent: specs.transparent,
-        opacity: specs.opacity,
-        blending: specs.blending,
-        depthWrite: specs.depthWrite,
-        depthTest: specs.depthTest,
-        side: specs.side
-    });
-}
-function releasePooledMaterial(mat: THREE.MeshBasicMaterial) {
-    const mapKey = mat.map ? mat.map.uuid : "none";
-    const key = `${mat.color.getHex()}_${mapKey}_${mat.transparent}_${mat.blending}_${mat.depthWrite}_${mat.depthTest}_${mat.side}`;
-    
-    let list = _matPool.get(key);
-    if (!list) {
-        list = [];
-        _matPool.set(key, list);
-    }
-    if (list.length < 40) {
-        list.push(mat);
-    } else {
-        mat.dispose();
-    }
-}
-
-
-// ═══════════════════════════════════════════════════════════════
-// Material factories for vertex effects (Iron Fortitude, Frost Nova)
-// ═══════════════════════════════════════════════════════════════
-export function createIronFortitudeMat(
-    baseColor: THREE.Color,
-): THREE.MeshStandardMaterial {
-    const mat = new THREE.MeshStandardMaterial({
-        color: baseColor,
-        roughness: 0.2,
-        metalness: 0.8,
-    });
-    mat.onBeforeCompile = (shader) => {
-        shader.uniforms.uEffectTime = effectUniforms.uTime;
-        shader.vertexShader = shader.vertexShader.replace(
-            "#include <project_vertex>",
-            `float p = sin(uEffectTime * 5.0) * 0.5 + 0.5;
-transformed += objectNormal * p * 0.18;
-#include <project_vertex>`,
-        );
-        shader.fragmentShader = shader.fragmentShader.replace(
-            "#include <dithering_fragment>",
-            `float fp = sin(uEffectTime * 5.0) * 0.5 + 0.5;
-gl_FragColor.rgb += vec3(1.0, 0.55, 0.0) * fp * 1.1;
-#include <dithering_fragment>`,
-        );
-    };
-    return mat;
-}
-
-export function createFrostNovaMat(): THREE.MeshStandardMaterial {
-    const mat = new THREE.MeshStandardMaterial({
-        color: new THREE.Color(0x33aaff),
-        roughness: 0.05,
-        metalness: 0.1,
-        emissive: new THREE.Color(0x0033cc),
-        emissiveIntensity: 0.7,
-    });
-    mat.onBeforeCompile = (shader) => {
-        shader.uniforms.uEffectTime = effectUniforms.uTime;
-        shader.vertexShader = shader.vertexShader.replace(
-            "#include <project_vertex>",
-            `float len = length(transformed);
-float n = sin(len * 12.0 + uEffectTime * 3.0) * 0.5 + 0.5;
-transformed += objectNormal * n * 0.22;
-#include <project_vertex>`,
-        );
-    };
-    return mat;
-}
-
-// ═══════════════════════════════════════════════════════════════
-// Central FX update list + budget
-// ═══════════════════════════════════════════════════════════════
-// ponytail: 500v500 fires ~5x more skills/sec — tighter budget & steeper quality falloff
-const MAX_FX_HARSH = 20;
-export const activeFX: Array<{ update: (delta: number) => boolean }> = [];
-export function updateFX(delta: number) {
-    for (let i = activeFX.length - 1; i >= 0; i--) {
-        if (!activeFX[i].update(delta)) activeFX.splice(i, 1);
-    }
-}
-export function canSpawnFX(): boolean {
-    return activeFX.length < MAX_FX_HARSH;
-}
-/** Scale particle count when busy: <5 FX = 1.0, 5-12 FX = 0.4, >12 FX = 0.15 */
-export function fxQualityScale(): number {
-    const n = activeFX.length;
-    if (n < 5)  return 1.0;
-    if (n < 12) return 0.4;
-    return 0.15;
-}
-
-// Pooled ring geometry — reuse for tank rings
-const _ringGeoPool = new Map<string, THREE.RingGeometry>();
-function pooledRing(inner: number, outer: number, segs: number, thetaStart = 0, thetaLength = Math.PI * 2): THREE.RingGeometry {
-    const key = `${inner.toFixed(2)}_${outer.toFixed(2)}_${segs}_${thetaStart.toFixed(2)}_${thetaLength.toFixed(2)}`;
-    if (!_ringGeoPool.has(key)) _ringGeoPool.set(key, new THREE.RingGeometry(inner, outer, segs, 1, thetaStart, thetaLength));
-    return _ringGeoPool.get(key)!;
-}
+import {
+    easeOutCubic,
+    easeOutQuad,
+    easeOutBack,
+    pooledPlane,
+    pooledRing,
+    starTex,
+    circleTex,
+    sparkTex,
+    smokeTex,
+    fireTex,
+    flameTex,
+    scorchTex,
+    lightTex,
+    magicTex,
+    star2Tex,
+    effectUniforms,
+    getPooledMaterial,
+    releasePooledMaterial,
+    createIronFortitudeMat,
+    createFrostNovaMat,
+    activeFX,
+    updateFX,
+    canSpawnFX,
+    fxQualityScale,
+    getCamQuad,
+    _tempObj,
+    spawnScreenFlash,
+    spawnExplosion,
+} from "./FXCore";
 
 // Pre-rendered taunt emoji — one canvas, recycled
 let _tauntTex: THREE.CanvasTexture | null = null;
@@ -216,119 +57,16 @@ function getTauntTex(): THREE.CanvasTexture {
     return _tauntTex;
 }
 
-// ═══════════════════════════════════════════════════════════════
-// Reusable helpers
-// ═══════════════════════════════════════════════════════════════
-const _camQuad = new THREE.Quaternion();
-const _tempObj = new THREE.Object3D();
-function getCamQuad(): THREE.Quaternion {
-    _camQuad.copy(camera.quaternion);
-    return _camQuad;
-}
-
-// Screen flash overlay — huge billboard flash at position
-function spawnScreenFlash(
-    scene: THREE.Scene,
-    pos: THREE.Vector3,
-    color: number,
-    size: number,
-): THREE.Mesh {
-    const geo = new THREE.PlaneGeometry(size, size);
-    const mat = new THREE.MeshBasicMaterial({
-        map: lightTex,
-        color,
-        transparent: true,
-        opacity: 1.0,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false,
-        side: THREE.DoubleSide,
-    });
-    const mesh = new THREE.Mesh(geo, mat);
-    mesh.position.copy(pos);
-    mesh.quaternion.copy(getCamQuad());
-    scene.add(mesh);
-    return mesh;
-}
-
-// ═══════════════════════════════════════════════════════════════
-// 1. Generic Explosion — shared material, no clone, quality-scaled
-// ═══════════════════════════════════════════════════════════════
-function spawnExplosion(
-    scene: THREE.Scene,
-    pos: THREE.Vector3,
-    color: number,
-    count: number = 20,
-    size: number = 0.25,
-) {
-    const qScale = fxQualityScale();
-    const actualCount = Math.max(4, Math.round(count * qScale));
-    if (!canSpawnFX()) return;
-
-    const geo = pooledPlane(size, size);
-    const mat = new THREE.MeshBasicMaterial({
-        map: sparkTex,
-        color,
-        transparent: true,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false,
-        side: THREE.DoubleSide,
-    });
-    const instancedMesh = new THREE.InstancedMesh(geo, mat, actualCount);
-    instancedMesh.frustumCulled = false;
-    scene.add(instancedMesh);
-
-    const positions: THREE.Vector3[] = [];
-    const velocities: THREE.Vector3[] = [];
-    const rotations: number[] = [];
-
-    for (let i = 0; i < actualCount; i++) {
-        positions.push(pos.clone());
-        rotations.push(Math.random() * Math.PI * 2);
-        
-        const theta = Math.random() * Math.PI * 2;
-        const phi = Math.acos(Math.random() * 2 - 1);
-        const speed = 1.2 + Math.random() * 2.5;
-        velocities.push(
-            new THREE.Vector3(
-                Math.sin(phi) * Math.cos(theta) * speed,
-                Math.sin(phi) * Math.sin(theta) * speed + 0.7,
-                Math.cos(phi) * speed,
-            ),
-        );
-    }
-
-    let age = 0;
-    const duration = 0.5;
-    activeFX.push({
-        update(delta) {
-            age += delta;
-            const t = Math.min(1, age / duration);
-            if (t >= 1) {
-                scene.remove(instancedMesh);
-                instancedMesh.dispose();
-                mat.dispose();
-                return false;
-            }
-            const et = easeOutCubic(t);
-            mat.opacity = 1 - et;
-            
-            const cq = camera.quaternion;
-            for (let i = 0; i < actualCount; i++) {
-                positions[i].addScaledVector(velocities[i], delta);
-                
-                _tempObj.position.copy(positions[i]);
-                _tempObj.quaternion.copy(cq);
-                _tempObj.rotateZ(rotations[i]);
-                _tempObj.scale.setScalar(1 - et);
-                _tempObj.updateMatrix();
-                
-                instancedMesh.setMatrixAt(i, _tempObj.matrix);
-            }
-            instancedMesh.instanceMatrix.needsUpdate = true;
-            return true;
-        },
-    });
-}
+// Re-export shared infrastructure for external consumers
+export {
+    effectUniforms,
+    activeFX,
+    updateFX,
+    canSpawnFX,
+    fxQualityScale,
+    createIronFortitudeMat,
+    createFrostNovaMat,
+};
 
 // ═══════════════════════════════════════════════════════════════
 // 2. Chain Lightning — zigzag with intense flicker + hit sparks
@@ -339,7 +77,12 @@ export function spawnLightningFX(
     team?: number,
 ): void {
     if (points.length < 2) return;
-    soundFX.playLightning(points[0].x, points[0].y, points[0].z, camera.position);
+    soundFX.playLightning(
+        points[0].x,
+        points[0].y,
+        points[0].z,
+        camera.position,
+    );
     const SEGMENTS = 8; // 8 segments per hop
 
     const isBlue = team === 1;
@@ -382,7 +125,10 @@ export function spawnLightningFX(
             const mesh = new THREE.Mesh(geo, mat);
             mesh.frustumCulled = false;
             // Position at midpoint
-            const mid = new THREE.Vector3().copy(lastPt).add(nextPt).multiplyScalar(0.5);
+            const mid = new THREE.Vector3()
+                .copy(lastPt)
+                .add(nextPt)
+                .multiplyScalar(0.5);
             mesh.position.copy(mid);
             mesh.lookAt(nextPt);
             mesh.rotateX(Math.PI / 2);
@@ -412,7 +158,7 @@ export function spawnLightningFX(
             // Flicker effect: random opacity drops
             const flicker = Math.random() > 0.35 ? 1.0 : 0.15;
             mat.opacity = 0.95 * (1 - t) * flicker;
-            
+
             // Jitter scale slightly to simulate high voltage vibration
             const scale = 0.85 + Math.random() * 0.3;
             meshes.forEach((m) => {
@@ -497,7 +243,11 @@ export function spawnArrowVolleyFX(
         depthWrite: false,
         side: THREE.DoubleSide,
     });
-    const impacts = new THREE.InstancedMesh(impactRingGeo, impactRingMat, COUNT);
+    const impacts = new THREE.InstancedMesh(
+        impactRingGeo,
+        impactRingMat,
+        COUNT,
+    );
     impacts.frustumCulled = false;
     scene.add(impacts);
 
@@ -616,7 +366,6 @@ export function spawnArrowVolleyFX(
 // 4. Meteor Explosion — scorch, shockwave, smoke, embers, screen flash
 // ═══════════════════════════════════════════════════════════════
 function spawnMeteorExplosion(scene: THREE.Scene, pos: THREE.Vector3) {
-
     // Scorch mark
     const scorchGeo = new THREE.PlaneGeometry(3.2, 3.2);
     const scorchMat = new THREE.MeshBasicMaterial({
@@ -684,11 +433,13 @@ function spawnMeteorExplosion(scene: THREE.Scene, pos: THREE.Vector3) {
     const smokeVels: THREE.Vector3[] = [];
     const smokeScales: number[] = [];
     for (let i = 0; i < SMOKE; i++) {
-        smokePositions.push(new THREE.Vector3(
-            pos.x + (Math.random() - 0.5) * 1.0,
-            pos.y + 0.3,
-            pos.z + (Math.random() - 0.5) * 1.0,
-        ));
+        smokePositions.push(
+            new THREE.Vector3(
+                pos.x + (Math.random() - 0.5) * 1.0,
+                pos.y + 0.3,
+                pos.z + (Math.random() - 0.5) * 1.0,
+            ),
+        );
         smokeVels.push(
             new THREE.Vector3(
                 (Math.random() - 0.5) * 0.5,
@@ -746,7 +497,7 @@ function spawnMeteorExplosion(scene: THREE.Scene, pos: THREE.Vector3) {
                 scene.remove(ring2);
                 scene.remove(smokeMesh);
                 scene.remove(emberMesh);
-                
+
                 smokeMesh.dispose();
                 emberMesh.dispose();
                 smokeMat.dispose();
@@ -779,12 +530,12 @@ function spawnMeteorExplosion(scene: THREE.Scene, pos: THREE.Vector3) {
             ring2Mat.opacity = Math.max(0, 1 - (t - 0.1) / 0.9);
 
             const cq = camera.quaternion;
-            
+
             // Update smoke
             for (let i = 0; i < SMOKE; i++) {
                 smokePositions[i].addScaledVector(smokeVels[i], delta);
                 smokeScales[i] += delta * 2;
-                
+
                 _tempObj.position.copy(smokePositions[i]);
                 _tempObj.quaternion.copy(cq);
                 _tempObj.scale.setScalar(smokeScales[i]);
@@ -798,7 +549,7 @@ function spawnMeteorExplosion(scene: THREE.Scene, pos: THREE.Vector3) {
             for (let i = 0; i < EMBER; i++) {
                 emberPositions[i].addScaledVector(emberVels[i], delta);
                 emberVels[i].y -= 9.8 * delta;
-                
+
                 _tempObj.position.copy(emberPositions[i]);
                 _tempObj.quaternion.copy(cq);
                 _tempObj.scale.setScalar((1 - et) * emberScales[i]);
@@ -1175,7 +926,7 @@ export function spawnTauntFX(
                 scene.remove(scorch);
                 scene.remove(icon);
                 scene.remove(instMesh);
-                
+
                 releasePooledMaterial(swMat);
                 releasePooledMaterial(ringMat);
                 releasePooledMaterial(ring2Mat);
@@ -1217,7 +968,7 @@ export function spawnTauntFX(
             for (let i = 0; i < PCOUNT; i++) {
                 pOffsets[i].addScaledVector(pVels[i], delta);
                 pVels[i].y -= 8 * delta;
-                
+
                 _tempObj.position.copy(pOffsets[i]);
                 _tempObj.quaternion.copy(cq);
                 _tempObj.scale.setScalar(1.0 - et * 0.5);
@@ -1355,7 +1106,7 @@ export function spawnShieldBashFX(
                 scene.remove(shock2);
                 scene.remove(flash);
                 scene.remove(instMesh);
-                
+
                 releasePooledMaterial(arcMat);
                 releasePooledMaterial(shockMat);
                 releasePooledMaterial(shock2Mat);
@@ -1388,7 +1139,7 @@ export function spawnShieldBashFX(
             for (let i = 0; i < SK; i++) {
                 sparkOffsets[i].addScaledVector(sparkVels[i], delta);
                 sparkVels[i].y -= 12 * delta;
-                
+
                 _tempObj.position.copy(sparkOffsets[i]);
                 _tempObj.quaternion.copy(cq);
                 _tempObj.scale.setScalar(1 - et);
@@ -1745,7 +1496,13 @@ export function spawnIronFortitudeAuraFX(
     for (let i = 0; i < SPS; i++) {
         const a = Math.random() * Math.PI * 2;
         const r = 0.2 + Math.random() * 1.2;
-        spOffsets.push(new THREE.Vector3(x + Math.cos(a) * r, y + 0.1, z + Math.sin(a) * r));
+        spOffsets.push(
+            new THREE.Vector3(
+                x + Math.cos(a) * r,
+                y + 0.1,
+                z + Math.sin(a) * r,
+            ),
+        );
         spVels.push(
             new THREE.Vector3(
                 (Math.random() - 0.5) * 0.6,
@@ -1767,7 +1524,7 @@ export function spawnIronFortitudeAuraFX(
                 scene.remove(ring3);
                 scene.remove(glyph);
                 scene.remove(instMesh);
-                
+
                 releasePooledMaterial(ringMat);
                 releasePooledMaterial(ring2Mat);
                 releasePooledMaterial(ring3Mat);
@@ -1793,7 +1550,7 @@ export function spawnIronFortitudeAuraFX(
             // Inner ring — fastest
             ring3.position.y = y + 0.08 + et * 5.5;
             ring3.scale.setScalar(1 + et * 0.8);
-            ring3.rotation.z += 0.10;
+            ring3.rotation.z += 0.1;
             ring3Mat.opacity = 0.9 * (1 - et) * (1 - et);
 
             // Glyph — rotates and fades
@@ -1807,7 +1564,7 @@ export function spawnIronFortitudeAuraFX(
             for (let i = 0; i < SPS; i++) {
                 spOffsets[i].addScaledVector(spVels[i], delta);
                 spVels[i].y += Math.sin(age * 8 + i) * 0.3 * delta;
-                
+
                 _tempObj.position.copy(spOffsets[i]);
                 _tempObj.quaternion.copy(cq);
                 _tempObj.scale.setScalar(1 - et);
@@ -1946,12 +1703,12 @@ export function spawnIceShatterFX(
         mesh.position.set(
             x + (Math.random() - 0.5) * 0.4,
             y + (Math.random() - 0.5) * 0.4,
-            z + (Math.random() - 0.5) * 0.4
+            z + (Math.random() - 0.5) * 0.4,
         );
         mesh.rotation.set(
             Math.random() * Math.PI,
             Math.random() * Math.PI,
-            Math.random() * Math.PI
+            Math.random() * Math.PI,
         );
         // Random scale for variety
         const scale = 0.5 + Math.random() * 0.8;
@@ -1966,15 +1723,15 @@ export function spawnIceShatterFX(
             new THREE.Vector3(
                 Math.cos(angle) * speed,
                 2.0 + Math.random() * 2.5, // fly up initially
-                Math.sin(angle) * speed
-            )
+                Math.sin(angle) * speed,
+            ),
         );
         rotVels.push(
             new THREE.Vector3(
                 (Math.random() - 0.5) * 6,
                 (Math.random() - 0.5) * 6,
-                (Math.random() - 0.5) * 6
-            )
+                (Math.random() - 0.5) * 6,
+            ),
         );
     }
 
@@ -2005,7 +1762,8 @@ export function spawnIceShatterFX(
                 mesh.rotation.y += rotVels[i].y * delta;
                 mesh.rotation.z += rotVels[i].z * delta;
                 // Fade out
-                (mesh.material as THREE.MeshStandardMaterial).opacity = 0.85 * (1 - t);
+                (mesh.material as THREE.MeshStandardMaterial).opacity =
+                    0.85 * (1 - t);
             }
             return true;
         },
@@ -2016,7 +1774,7 @@ export function spawnHealFX(
     scene: THREE.Scene,
     start: THREE.Vector3,
     end: THREE.Vector3,
-    isRejuvenation: boolean = false
+    isRejuvenation: boolean = false,
 ) {
     const color = isRejuvenation ? 0x00ff88 : 0x33ff66; // bright neon green / mint green
 
@@ -2028,7 +1786,7 @@ export function spawnHealFX(
         transparent: true,
         opacity: 0.75,
         blending: THREE.AdditiveBlending,
-        depthWrite: false
+        depthWrite: false,
     });
 
     const beam = new THREE.Mesh(geo, mat);
@@ -2040,14 +1798,14 @@ export function spawnHealFX(
     // 2. Spiral vortex sparkles at the target
     const sparkleCount = isRejuvenation ? 18 : 10;
     const sparkles: THREE.Mesh[] = [];
-    
+
     const sGeo = new THREE.DodecahedronGeometry(0.08);
     const sMat = new THREE.MeshBasicMaterial({
         color: color,
         transparent: true,
         opacity: 0.95,
         blending: THREE.AdditiveBlending,
-        depthWrite: false
+        depthWrite: false,
     });
 
     for (let i = 0; i < sparkleCount; i++) {
@@ -2075,11 +1833,11 @@ export function spawnHealFX(
                 const theta = offsetTime * 14.0; // rotation speed
                 const radius = 0.5 * (1.0 - t * 0.7); // spiral narrows slightly
                 const height = (offsetTime * 2.5) % 2.0; // rise up to 2 units
-                
+
                 sparkles[i].position.set(
                     end.x + radius * Math.cos(theta),
                     end.y - 0.2 + height,
-                    end.z + radius * Math.sin(theta)
+                    end.z + radius * Math.sin(theta),
                 );
                 sparkles[i].scale.setScalar((1.0 - t) * 0.9);
             }
@@ -2097,11 +1855,14 @@ export function spawnHealFX(
                 return false;
             }
             return true;
-        }
+        },
     });
 }
 
-export function spawnDivineShieldFX(scene: THREE.Scene, targetPos: THREE.Vector3) {
+export function spawnDivineShieldFX(
+    scene: THREE.Scene,
+    targetPos: THREE.Vector3,
+) {
     // 1. Double-shell golden shield (Outer wireframe + Inner solid glowing sphere)
     const geoOuter = new THREE.SphereGeometry(0.8, 14, 14);
     const matOuter = new THREE.MeshBasicMaterial({
@@ -2110,7 +1871,7 @@ export function spawnDivineShieldFX(scene: THREE.Scene, targetPos: THREE.Vector3
         opacity: 0.55,
         wireframe: true,
         blending: THREE.AdditiveBlending,
-        depthWrite: false
+        depthWrite: false,
     });
     const shieldOuter = new THREE.Mesh(geoOuter, matOuter);
     shieldOuter.position.copy(targetPos);
@@ -2122,7 +1883,7 @@ export function spawnDivineShieldFX(scene: THREE.Scene, targetPos: THREE.Vector3
         transparent: true,
         opacity: 0.25,
         blending: THREE.AdditiveBlending,
-        depthWrite: false
+        depthWrite: false,
     });
     const shieldInner = new THREE.Mesh(geoInner, matInner);
     shieldInner.position.copy(targetPos);
@@ -2137,7 +1898,7 @@ export function spawnDivineShieldFX(scene: THREE.Scene, targetPos: THREE.Vector3
         transparent: true,
         opacity: 0.9,
         blending: THREE.AdditiveBlending,
-        depthWrite: false
+        depthWrite: false,
     });
 
     for (let i = 0; i < starCount; i++) {
@@ -2174,7 +1935,7 @@ export function spawnDivineShieldFX(scene: THREE.Scene, targetPos: THREE.Vector3
                 stars[i].position.set(
                     targetPos.x + 0.95 * Math.cos(angle),
                     targetPos.y + 0.15 * Math.sin(age * 3.0 + i),
-                    targetPos.z + 0.95 * Math.sin(angle)
+                    targetPos.z + 0.95 * Math.sin(angle),
                 );
                 stars[i].scale.setScalar(1.0 - t);
             }
@@ -2195,11 +1956,14 @@ export function spawnDivineShieldFX(scene: THREE.Scene, targetPos: THREE.Vector3
                 return false;
             }
             return true;
-        }
+        },
     });
 }
 
-export function spawnHolySanctuaryFX(scene: THREE.Scene, center: THREE.Vector3) {
+export function spawnHolySanctuaryFX(
+    scene: THREE.Scene,
+    center: THREE.Vector3,
+) {
     // 1. Glowing ground ring
     const geoRing = new THREE.RingGeometry(0.1, 5.0, 32);
     const matRing = new THREE.MeshBasicMaterial({
@@ -2208,7 +1972,7 @@ export function spawnHolySanctuaryFX(scene: THREE.Scene, center: THREE.Vector3) 
         transparent: true,
         opacity: 0.65,
         blending: THREE.AdditiveBlending,
-        depthWrite: false
+        depthWrite: false,
     });
     const sanctuary = new THREE.Mesh(geoRing, matRing);
     sanctuary.rotation.x = -Math.PI / 2;
@@ -2225,7 +1989,7 @@ export function spawnHolySanctuaryFX(scene: THREE.Scene, center: THREE.Vector3) 
         opacity: 0.35,
         blending: THREE.AdditiveBlending,
         depthWrite: false,
-        side: THREE.DoubleSide
+        side: THREE.DoubleSide,
     });
 
     const angleStep = (Math.PI * 2) / pillarCount;
@@ -2235,7 +1999,7 @@ export function spawnHolySanctuaryFX(scene: THREE.Scene, center: THREE.Vector3) 
         p.position.set(
             center.x + radius * Math.cos(i * angleStep),
             center.y + 2.5, // Center offset for cylinder
-            center.z + radius * Math.sin(i * angleStep)
+            center.z + radius * Math.sin(i * angleStep),
         );
         scene.add(p);
         pillars.push(p);
@@ -2274,6 +2038,6 @@ export function spawnHolySanctuaryFX(scene: THREE.Scene, center: THREE.Vector3) 
                 return false;
             }
             return true;
-        }
+        },
     });
 }

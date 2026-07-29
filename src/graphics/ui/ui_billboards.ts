@@ -2,21 +2,25 @@ import * as THREE from "three";
 import { UNIT_COUNT, TEAM_SIZE } from "../../simulation/constants";
 import { scene } from "../core/scene";
 
-// ---- 1. HP Bars ----
-const hpGeo = new THREE.PlaneGeometry(1.0, 0.1);
+// ---- 1. HP Bars (thinner, always on top) ----
+const hpGeo = new THREE.PlaneGeometry(1.0, 0.06);
 const hpBgMat = new THREE.MeshBasicMaterial({
     color: 0x330000,
     side: THREE.DoubleSide,
+    depthTest: false,
+    depthWrite: false,
 });
 const hpFgMat = new THREE.MeshBasicMaterial({
     color: 0x00ff00,
     side: THREE.DoubleSide,
+    depthTest: false,
+    depthWrite: false,
 });
 
 export const hpBarsBg = new THREE.InstancedMesh(hpGeo, hpBgMat, UNIT_COUNT);
 export const hpBarsFg = new THREE.InstancedMesh(hpGeo, hpFgMat, UNIT_COUNT);
-hpBarsBg.renderOrder = 2;
-hpBarsFg.renderOrder = 3;
+hpBarsBg.renderOrder = 999;
+hpBarsFg.renderOrder = 999;
 scene.add(hpBarsBg);
 scene.add(hpBarsFg);
 
@@ -29,7 +33,11 @@ const cdRingMat = new THREE.MeshBasicMaterial({
     opacity: 0.55,
 });
 
-export const cdRings = new THREE.InstancedMesh(cdRingGeo, cdRingMat, UNIT_COUNT);
+export const cdRings = new THREE.InstancedMesh(
+    cdRingGeo,
+    cdRingMat,
+    UNIT_COUNT,
+);
 cdRings.renderOrder = 1;
 scene.add(cdRings);
 
@@ -42,7 +50,11 @@ const immuneRingMat = new THREE.MeshBasicMaterial({
     opacity: 0.85,
 });
 
-export const immuneRings = new THREE.InstancedMesh(immuneRingGeo, immuneRingMat, UNIT_COUNT);
+export const immuneRings = new THREE.InstancedMesh(
+    immuneRingGeo,
+    immuneRingMat,
+    UNIT_COUNT,
+);
 immuneRings.renderOrder = 5;
 scene.add(immuneRings);
 
@@ -52,27 +64,25 @@ export const _deadMatrix = new THREE.Matrix4().makeScale(0, 0, 0);
 
 export let nameBarsA: THREE.InstancedMesh | null = null;
 export let nameBarsB: THREE.InstancedMesh | null = null;
-const nameGeo = new THREE.PlaneGeometry(2.0, 0.5); // Enlarged plane size slightly
+const nameGeo = new THREE.PlaneGeometry(2.0, 0.4);
 
 function createNameTexture(text: string, color: string) {
     const canvas = document.createElement("canvas");
-    // Doubled resolution for crispness
     canvas.width = 512;
     canvas.height = 128;
     const ctx = canvas.getContext("2d")!;
     ctx.clearRect(0, 0, 512, 128);
-    
-    // Crisp font scaling
+
     ctx.font = "bold 64px Inter, Arial, sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
 
-    // Draw thick dark outline for maximum legibility at high camera distance
+    // Thick outline
     ctx.strokeStyle = "rgba(0, 0, 0, 1.0)";
     ctx.lineWidth = 12;
     ctx.strokeText(text, 256, 64);
 
-    // Draw fill text
+    // Fill
     ctx.fillStyle = color;
     ctx.fillText(text, 256, 64);
 
@@ -82,7 +92,6 @@ function createNameTexture(text: string, color: string) {
 }
 
 export function initNameBars(modelName: string) {
-    // Bersihkan namebars lama jika ada
     if (nameBarsA) scene.remove(nameBarsA);
     if (nameBarsB) scene.remove(nameBarsB);
 
@@ -106,9 +115,11 @@ export function initNameBars(modelName: string) {
         map: texA,
         transparent: true,
         side: THREE.DoubleSide,
+        depthTest: false,
+        depthWrite: false,
     });
     nameBarsA = new THREE.InstancedMesh(nameGeo, matA, TEAM_SIZE);
-    nameBarsA.renderOrder = 4;
+    nameBarsA.renderOrder = 999;
     scene.add(nameBarsA);
 
     const texB = createNameTexture(nameB, "#3388ff");
@@ -116,8 +127,10 @@ export function initNameBars(modelName: string) {
         map: texB,
         transparent: true,
         side: THREE.DoubleSide,
+        depthTest: false,
+        depthWrite: false,
     });
     nameBarsB = new THREE.InstancedMesh(nameGeo, matB, TEAM_SIZE);
-    nameBarsB.renderOrder = 4;
+    nameBarsB.renderOrder = 999;
     scene.add(nameBarsB);
 }
