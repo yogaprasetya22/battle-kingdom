@@ -704,7 +704,8 @@ export function updateFrame(data: Float32Array, delta: number) {
         // ponytail: throttle billboard matrix update to every 3rd frame
         const _billUpdate = animFrameCount % 3 === 0;
         if (_billUpdate) {
-            const billY = y + scale * 1.9 + 0.3;
+            // Use interpolated mesh Y to avoid jitter from raw sim ticks
+            const billY = unit.root.position.y + scale * 1.9 + 0.3;
             // Distance culling: hide billboard beyond 80 world units
             const tooFar = distSq > 6400;
             if (hp > 0 && !tooFar) {

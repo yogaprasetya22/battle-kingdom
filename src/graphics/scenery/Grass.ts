@@ -1,5 +1,11 @@
 import * as THREE from "three";
-import { getTerrainHeight } from "../../simulation/constants";
+import {
+    getTerrainHeight,
+    BF_HALF_X,
+    BF_HALF_Z,
+    BF_BLEND,
+    LAKES,
+} from "../../simulation/constants";
 
 /**
  * Grass.ts — Clustered natural grass patches.
@@ -8,6 +14,8 @@ import { getTerrainHeight } from "../../simulation/constants";
  * Each patch = 4–10 tufts clustered within 1.2 unit radius.
  * Total: ~500 patches × ~7 tufts × 5 blades ≈ 17,500 visual blades.
  * Two-frequency wind, per-blade color variation, Early-Z enabled.
+ *
+ * Density: zero on flat battlefield, dense on forest slopes, zero near lake centers.
  */
 
 interface Patch {
@@ -16,35 +24,65 @@ interface Patch {
     count: number;
 }
 
+function smoothstep(e0: number, e1: number, x: number): number {
+    const t = Math.max(0, Math.min(1, (x - e0) / (e1 - e0)));
+    return t * t * (3 - 2 * t);
+}
+
+/** How deep inside a lake bowl (0=outside, 1=deepest center) */
+function lakeWetness(x: number, z: number): number {
+    let maxWet = 0;
+    for (const lake of LAKES) {
+        const dx = (x - lake.cx) / lake.rx;
+        const dz = (z - lake.cz) / lake.rz;
+        const distSq = dx * dx + dz * dz;
+        const wet = Math.exp(-distSq * 0.5);
+        if (wet > maxWet) maxWet = wet;
+    }
+    return maxWet;
+}
+
 export class Grass {
     meshes: THREE.Mesh[] = [];
 
     constructor(scene: THREE.Scene, uniforms: { uTime: { value: number } }) {
         const bladesPerClump = 5;
-        const worldW = 80;
-        const worldH = 60;
+        // Grid must extend beyond battlefield into forest zone.
+        // BF_HALF_X=42, BF_HALF_Z=38 → forest starts ~42+|x|, 38+|z|.
+        // Cover x∈[-90,90] z∈[-70,70] to reach lake regions.
+        const worldW = 180;
+        const worldH = 140;
 
         // ── Spatial grid for patches ──
         const cellW = 6.7;
         const cellH = 6.7;
-        const cellsX = Math.ceil(worldW / cellW); // 12
-        const cellsZ = Math.ceil(worldH / cellH); // 9
+        const cellsX = Math.ceil(worldW / cellW); // 27
+        const cellsZ = Math.ceil(worldH / cellH); // 21
         const x0 = -worldW / 2;
         const z0 = -worldH / 2;
 
-        // ── Density function: more grass in valleys, less on slopes ──
+        // ── Density function: dense in forest, zero on battlefield, zero near lakes ──
         const densityAt = (x: number, z: number): number => {
             const h = getTerrainHeight(x, z);
-            // No grass underwater
-            if (h < -0.1) return 0;
-            // Valley bottom (just above water): high density
-            if (h < 0.3) return 0.9;
-            // Gentle slopes
-            if (h < 1.0) return 0.7;
-            // Mid slopes
-            if (h < 2.0) return 0.4;
-            // High peaks: sparse
-            if (h < 3.0) return 0.15;
+
+            // Compute battlefield → forest factor
+            const dxEdge = Math.max(0, Math.abs(x) - BF_HALF_X);
+            const dzEdge = Math.max(0, Math.abs(z) - BF_HALF_Z);
+            const edgeDist = Math.sqrt(dxEdge * dxEdge + dzEdge * dzEdge);
+            const forestFactor = smoothstep(0, BF_BLEND, edgeDist);
+
+            // No grass in lake bowls
+            const wet = lakeWetness(x, z);
+            if (wet > 0.3) return 0;
+
+            // No grass on flat battlefield
+            if (forestFactor < 0.05) return 0;
+
+            // Density scales with forest factor and terrain elevation
+            if (h < 0.2) return forestFactor * 0.6;
+            if (h < 1.0) return forestFactor * 0.85;
+            if (h < 2.0) return forestFactor * 0.55;
+            if (h < 3.0) return forestFactor * 0.25;
             return 0;
         };
 
@@ -69,9 +107,19 @@ export class Grass {
                     const pz = czCell + (rng() - 0.5) * cellH * 0.8;
                     const hCheck = getTerrainHeight(px, pz);
 
-                    // Skip if too steep or underwater
+                    // Skip underwater or lake area
                     if (hCheck < -0.05) continue;
-                    // Limit on steep slopes (check neighbor)
+                    if (lakeWetness(px, pz) > 0.35) continue;
+
+                    // Re-check forest factor at exact position
+                    const pdxEdge = Math.max(0, Math.abs(px) - BF_HALF_X);
+                    const pdzEdge = Math.max(0, Math.abs(pz) - BF_HALF_Z);
+                    const pEdgeDist = Math.sqrt(
+                        pdxEdge * pdxEdge + pdzEdge * pdzEdge,
+                    );
+                    if (pEdgeDist < 1.0) continue; // too close to battlefield
+
+                    // Limit on steep slopes
                     const nx = getTerrainHeight(px + 1, pz) - hCheck;
                     const nz = getTerrainHeight(px, pz + 1) - hCheck;
                     const steepness = Math.sqrt(nx * nx + nz * nz);
@@ -86,7 +134,7 @@ export class Grass {
         const totalClumps = patches.reduce((s, p) => s + p.count, 0);
         const totalVertices = totalClumps * bladesPerClump * 3;
 
-        // ── Build single merged geometry (no chunks — frustum handles it) ──
+        // ── Build single merged geometry ──
         const positions = new Float32Array(totalVertices * 3);
         const params = new Float32Array(totalVertices * 4);
         const clumpOffsets = new Float32Array(totalVertices * 3);

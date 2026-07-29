@@ -1,59 +1,83 @@
 import * as THREE from "three";
-import { getTerrainHeight } from "../../simulation/constants";
+import {
+    getTerrainHeight,
+    LAKES,
+    BF_HALF_X,
+    BF_HALF_Z,
+    BF_BLEND,
+} from "../../simulation/constants";
+
+function smoothstep(e0: number, e1: number, x: number): number {
+    const t = Math.max(0, Math.min(1, (x - e0) / (e1 - e0)));
+    return t * t * (3 - 2 * t);
+}
+
+// How deep a point is inside a lake (0 = outside, 1 = deepest center)
+function lakeWetness(x: number, z: number): number {
+    let maxWet = 0;
+    for (const lake of LAKES) {
+        const dx = (x - lake.cx) / lake.rx;
+        const dz = (z - lake.cz) / lake.rz;
+        const distSq = dx * dx + dz * dz;
+        const wet = Math.exp(-distSq * 0.5);
+        if (wet > maxWet) maxWet = wet;
+    }
+    return maxWet;
+}
 
 export class Floor {
     mesh: THREE.Mesh;
+
     constructor(scene: THREE.Scene) {
         const groundGeo = new THREE.PlaneGeometry(240, 180, 192, 144);
         const groundPos = groundGeo.attributes.position;
         const colors: number[] = [];
-        const color = new THREE.Color();
+
+        const cBattleDry = new THREE.Color(0xc2a066);
+        const cBattleEdge = new THREE.Color(0xa58c54);
+        const cForest = new THREE.Color(0x6b8030);
+        const cForestRock = new THREE.Color(0x8a8470);
+        const cLakeBed = new THREE.Color(0x8b7355);
+        const cLakeDeep = new THREE.Color(0x6d5c42);
+        const cLakeShore = new THREE.Color(0xa8926a);
+
+        const work = new THREE.Color();
 
         for (let i = 0; i < groundPos.count; i++) {
             const vx = groundPos.getX(i);
-            const vy = groundPos.getY(i);
-            const height = getTerrainHeight(vx, -vy);
-            groundPos.setZ(i, height);
+            const vz = -groundPos.getY(i);
+            const h = getTerrainHeight(vx, vz);
 
-            const waterY = -0.15;
-            if (height < waterY) {
-                // Underwater lake bed — warm sandy brown
-                const wetT = Math.min(1.0, (waterY - height) / 0.85);
-                color
-                    .copy(new THREE.Color(0x8b7355))
-                    .lerp(new THREE.Color(0xa68968), wetT);
-            } else if (height < waterY + 0.08) {
-                // Wet shore transition — muddy transition
-                const t = (height - waterY) / 0.08;
-                color
-                    .copy(new THREE.Color(0x9d8b6f))
-                    .lerp(new THREE.Color(0xa89968), t);
-            } else if (height < 0.3) {
-                // Low flat — light green grass
-                const t = (height - (waterY + 0.08)) / 0.22;
-                color
-                    .copy(new THREE.Color(0xa89968))
-                    .lerp(new THREE.Color(0x9db84a), t);
-            } else if (height < 1.0) {
-              // Mid slopes — golden-green blend
-              const t = (height - 0.3) / 0.7;
-              color
-                .copy(new THREE.Color(0x9db84a))
-                .lerp(new THREE.Color(0xb5a860), t);
-            } else if (height < 2.2) {
-              // Steeper hills — golden olive
-              const t = (height - 1.0) / 1.2;
-              color
-                .copy(new THREE.Color(0xb5a860))
-                .lerp(new THREE.Color(0xa89656), t);
+            groundPos.setZ(i, h);
+
+            const dxEdge = Math.max(0, Math.abs(vx) - BF_HALF_X);
+            const dzEdge = Math.max(0, Math.abs(vz) - BF_HALF_Z);
+            const edgeDist = Math.sqrt(dxEdge * dxEdge + dzEdge * dzEdge);
+            const forestFactor = smoothstep(0, BF_BLEND, edgeDist);
+
+            const wetness = lakeWetness(vx, vz);
+
+            if (wetness > 0.15) {
+                if (wetness > 0.7) {
+                    const t = Math.min(1, (wetness - 0.7) / 0.3);
+                    work.copy(cLakeBed).lerp(cLakeDeep, t);
+                } else if (wetness > 0.35) {
+                    work.copy(cLakeBed);
+                } else {
+                    const t = (wetness - 0.15) / 0.2;
+                    work.copy(cLakeShore).lerp(cLakeBed, t);
+                }
+            } else if (forestFactor < 0.1) {
+                work.copy(cBattleDry);
+            } else if (forestFactor < 0.35) {
+                const t = (forestFactor - 0.1) / 0.25;
+                work.copy(cBattleEdge).lerp(cForest, t);
             } else {
-              // Mountain peaks — grey-brown rock
-              const t = Math.min(1.0, (height - 2.2) / 1.8);
-              color
-                .copy(new THREE.Color(0xa89656))
-                .lerp(new THREE.Color(0x8a8470), t);
+                const steepT = smoothstep(1.5, 3.5, h);
+                work.copy(cForest).lerp(cForestRock, steepT);
             }
-            colors.push(color.r, color.g, color.b);
+
+            colors.push(work.r, work.g, work.b);
         }
 
         groundGeo.setAttribute(

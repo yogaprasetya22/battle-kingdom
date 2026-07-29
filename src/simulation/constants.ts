@@ -49,37 +49,84 @@ export const BUFFER_BYTES =
 // Quantize coordinates to 0.5-unit grid cells. Terrain varies smoothly
 // (sin/cos with periods >8 units), so sub-grid error < 0.25 units — invisible.
 const GRID = 0.5;
-const CACHE_MAX = 512;
+const CACHE_MAX = 1024;
 const _hCache = new Map<number, number>();
 
 function cacheKey(x: number, z: number): number {
-    // Pack two 16-bit quantized ints into one 32-bit key.
-    // Bounds: x∈[-120,120], z∈[-90,90] → ix∈[-240,240], iz∈[-180,180] → fits int16.
     const ix = Math.round(x / GRID);
     const iz = Math.round(z / GRID);
     return (ix << 16) | (iz & 0xffff);
 }
 
-// Shared terrain height function (hills on the sides, valley/river in the center)
+function smoothstep(edge0: number, edge1: number, x: number): number {
+    const t = Math.max(0, Math.min(1, (x - edge0) / (edge1 - edge0)));
+    return t * t * (3 - 2 * t);
+}
+
+// ── Lake definitions ──
+// Bowl-shaped depressions in forest zones outside the battlefield.
+// Each lake is a Gaussian depression: -depth * exp(-dist²/(2*r²))
+export interface LakeDef {
+    cx: number;
+    cz: number;
+    rx: number;
+    rz: number;
+    depth: number;
+}
+
+export const LAKES: LakeDef[] = [
+    { cx: -68, cz: -62, rx: 15, rz: 10, depth: 1.4 }, // NW besar
+    { cx: 68, cz: -62, rx: 14, rz: 9, depth: 1.3 }, // NE besar
+    { cx: -68, cz: 62, rx: 13, rz: 10, depth: 1.2 }, // SW besar
+    { cx: 68, cz: 62, rx: 15, rz: 9, depth: 1.5 }, // SE besar
+    { cx: -88, cz: 0, rx: 9, rz: 7, depth: 1.0 }, // Barat jauh
+    { cx: 88, cz: 0, rx: 9, rz: 7, depth: 1.0 }, // Timur jauh
+];
+
+function lakeBowlHeight(x: number, z: number): number {
+    let h = 0;
+    for (const lake of LAKES) {
+        const dx = (x - lake.cx) / lake.rx;
+        const dz = (z - lake.cz) / lake.rz;
+        const distSq = dx * dx + dz * dz;
+        h -= lake.depth * Math.exp(-distSq * 0.5);
+    }
+    return h;
+}
+
+// ── Battlefield zone constants (exported for other modules) ──
+export const BF_HALF_X = 42;
+export const BF_HALF_Z = 38;
+export const BF_BLEND = 8; // transition width from flat → forest
+
+// Terrain height: flat battlefield center, forest hills + lake bowls on sides
 export function getTerrainHeight(x: number, z: number): number {
     const key = cacheKey(x, z);
     const cached = _hCache.get(key);
     if (cached !== undefined) return cached;
 
-    // z_factor makes the center corridor (z near 0) flatter, while outer regions have taller hills
-    const zFactor = Math.min(1.0, Math.abs(z) / 14.0);
+    // Distance from battlefield edge
+    const dxEdge = Math.max(0, Math.abs(x) - BF_HALF_X);
+    const dzEdge = Math.max(0, Math.abs(z) - BF_HALF_Z);
+    const edgeDist = Math.sqrt(dxEdge * dxEdge + dzEdge * dzEdge);
 
-    // Sine/Cosine combination for organic mountains
-    const h1 = Math.sin(x * 0.12) * Math.cos(z * 0.12) * 3.5;
-    const h2 = Math.sin(x * 0.28) * Math.sin(z * 0.22) * 1.2;
+    // 0 = inside flat battlefield, 1 = deep forest
+    const forestFactor = smoothstep(0, BF_BLEND, edgeDist);
 
-    // River valley bed in the center (x near 0)
-    const riverFactor = Math.max(0, 1.0 - Math.abs(x) / 5.5);
-    const riverValley = -riverFactor * 1.0;
+    // Forest hills — organic sine/cosine terrain
+    const h1 = Math.sin(x * 0.12 + 0.5) * Math.cos(z * 0.12) * 3.5;
+    const h2 = Math.sin(x * 0.28) * Math.sin(z * 0.22 + 1.2) * 1.2;
+    const hills = h1 + h2;
 
-    const result = (h1 + h2) * zFactor + riverValley;
+    // Lake bowl depressions
+    const bowls = lakeBowlHeight(x, z);
 
-    // ponytail: LRU eviction via Map delete of oldest entry when full
+    // Forest terrain = hills with lake bowls carved in
+    const forestTerrain = hills + bowls;
+
+    // Blend: flat (0) on battlefield → full terrain in forest
+    const result = forestTerrain * forestFactor;
+
     if (_hCache.size >= CACHE_MAX) {
         const firstKey = _hCache.keys().next().value;
         if (firstKey !== undefined) _hCache.delete(firstKey);
@@ -88,7 +135,7 @@ export function getTerrainHeight(x: number, z: number): number {
     return result;
 }
 
-// ponytail: invalidate cache when terrain params change (currently static, placeholder)
+// ponytail: invalidate cache when terrain params change
 export function invalidateTerrainCache(): void {
     _hCache.clear();
 }
