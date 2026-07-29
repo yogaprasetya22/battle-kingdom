@@ -12,7 +12,7 @@ const SOUND_FILE: Record<string, string> = {
     lightning: "lightning.mp3",
     iceShatter: "ice_shatter.mp3",
     heal: "heal.mp3",
-    death: "death.mp3",
+    death: "death_3.mp3",
     spawn: "spawn.mp3",
     victory: "victory.mp3",
     defeat: "defeat.mp3",

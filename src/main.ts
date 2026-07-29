@@ -60,7 +60,7 @@ const selectMatchup = document.getElementById(
 ) as HTMLSelectElement;
 
 let tickCount = 0;
-let isRunning = false;
+export let isRunning = false;
 let pendingTick = false;
 let workersDoneCount = 0;
 let lastTime = performance.now();
@@ -257,16 +257,17 @@ function gameLoop() {
     const now = performance.now();
     const deltaTime = now - lastTime;
 
-    if (deltaTime >= 16 && !pendingTick) {
+    // ponytail: use 15ms threshold to prevent frame-skipping stutter on 60Hz displays (16.6ms frame time)
+    if (deltaTime >= 15 && !pendingTick) {
         pendingTick = true;
         workersDoneCount = 0;
         for (let i = 0; i < NUM_WORKERS; i++) {
             workers[i].postMessage({ type: "tick" });
         }
-        lastTime = now - (deltaTime % 16);
+        lastTime = now - (deltaTime % 15);
     }
 
-    setTimeout(gameLoop, 0);
+    requestAnimationFrame(gameLoop);
 }
 
 // ---- Worker message handlers ----
@@ -386,4 +387,5 @@ for (let i = 0; i < NUM_WORKERS; i++) {
 }
 
 // Load model awal secara dinamis
-changeModel("Chef_Hat", selectMatchup.value);
+changeModel("Knight", selectMatchup.value);
+

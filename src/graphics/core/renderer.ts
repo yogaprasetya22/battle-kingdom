@@ -17,17 +17,18 @@ import {
     IDX_TARGET,
     TEAM_A,
     IDX_TYPE,
-    IDX_MAX_HP,
+    // IDX_MAX_HP,
     IDX_EFFECT_STATE,
-    IDX_SKILL1_CD,
-    IDX_SKILL2_CD,
-    IDX_SKILL3_CD,
-    IDX_IMMUNE_CD,
+    // IDX_SKILL1_CD,
+    // IDX_SKILL2_CD,
+    // IDX_SKILL3_CD,
+    // IDX_IMMUNE_CD,
     getTerrainHeight,
 } from "../../simulation/constants";
 
 import type { UnitVisual } from "./types";
 import { scene, camera, renderer, controls, gltfLoader } from "./scene";
+import { isRunning } from "../../main";
 import { soundFX } from "./SoundFX";
 import { World } from "../scenery/World";
 import {
@@ -35,7 +36,6 @@ import {
     hpBarsFg,
     cdRings,
     immuneRings,
-    dummy,
     _deadMatrix,
     nameBarsA,
     nameBarsB,
@@ -60,6 +60,7 @@ import {
     updateFX,
     canSpawnFX,
     effectUniforms,
+    activeFX,
 } from "../effects/SkillFX";
 
 // Global shared materials
@@ -70,6 +71,23 @@ let healerMatB: THREE.MeshStandardMaterial | null = null;
 let stunMat: THREE.MeshStandardMaterial | null = null;
 let buffMatA: THREE.MeshStandardMaterial | null = null;
 let buffMatB: THREE.MeshStandardMaterial | null = null;
+
+// ponytail: one InstancedMesh for ice — 1 draw call instead of up to 200
+const _iceGeo = new THREE.DodecahedronGeometry(0.65);
+const _iceMat = new THREE.MeshStandardMaterial({
+    color: 0x88e2ff,
+    roughness: 0.05,
+    metalness: 0.2,
+    transparent: true,
+    opacity: 0.55,
+    depthWrite: false,
+});
+const _iceInstanced = new THREE.InstancedMesh(_iceGeo, _iceMat, UNIT_COUNT);
+_iceInstanced.renderOrder = 6;
+_iceInstanced.count = 0; // start with 0 visible
+scene.add(_iceInstanced);
+const _iceMatrix = new THREE.Matrix4();
+const _iceDead = new THREE.Matrix4().makeScale(0, 0, 0);
 
 const units: UnitVisual[] = [];
 let modelLoaded = false;
@@ -99,60 +117,34 @@ function getModelsForMatchup(baseModel: string): {
     mage: string;
 } {
     const model = baseModel.toLowerCase();
-    let tank = "Knight_Golden_Male";
-    let archer = "Elf";
-    let mage = "Wizard";
+    let tank = "Knight";
+    let archer = "Ranger";
+    let mage = "Mage";
 
-    if (model.includes("knight")) {
-        tank = "Knight_Golden_Male";
-        archer = "Knight_Golden_Female";
-        mage = "Wizard";
-    } else if (model.includes("bluesoldier")) {
-        tank = "BlueSoldier_Male";
-        archer = "BlueSoldier_Female";
-        mage = "Wizard";
-    } else if (model.includes("soldier")) {
-        tank = "Soldier_Male";
-        archer = "Soldier_Female";
-        mage = "Witch";
-    } else if (model.includes("ninja")) {
-        tank = "Ninja_Sand";
-        archer = "Ninja_Female";
-        mage = "Ninja_Male";
-    } else if (model.includes("zombie")) {
-        tank = "Zombie_Male";
-        archer = "Zombie_Female";
-        mage = "Witch";
-    } else if (model.includes("chef")) {
-        tank = "Chef_Male";
-        archer = "Chef_Female";
-        mage = "Chef_Hat";
-    } else if (model.includes("cowboy")) {
-        tank = "Cowboy_Male";
-        archer = "Cowboy_Female";
-        mage = "Elf";
-    } else if (model.includes("doctor")) {
-        tank = "Doctor_Male_Old";
-        archer = "Doctor_Female_Young";
-        mage = "Doctor_Male_Young";
-    } else if (model.includes("casual")) {
-        tank = "Casual_Male";
-        archer = "Casual_Female";
-        mage = "Casual_Bald";
-    } else if (model === "wizard" || model === "witch") {
-        tank = "Knight_Male";
-        archer = "Elf";
-        mage = baseModel;
-    } else if (model === "elf") {
-        tank = "Knight_Golden_Male";
-        archer = "Elf";
-        mage = "Wizard";
-    } else if (model === "cow" || model === "pug") {
-        tank = "Cow";
-        archer = "Pug";
-        mage = "Elf";
-    } else {
-        tank = baseModel;
+    if (model.includes("barbarian")) {
+        tank = "Barbarian";
+        archer = "Rogue";
+        mage = "Mage";
+    } else if (model.includes("knight")) {
+        tank = "Knight";
+        archer = "Ranger";
+        mage = "Mage";
+    } else if (model.includes("rogue_hooded")) {
+        tank = "Knight";
+        archer = "Rogue_Hooded";
+        mage = "Mage";
+    } else if (model.includes("rogue")) {
+        tank = "Knight";
+        archer = "Rogue";
+        mage = "Mage";
+    } else if (model.includes("ranger")) {
+        tank = "Knight";
+        archer = "Ranger";
+        mage = "Mage";
+    } else if (model.includes("mage")) {
+        tank = "Knight";
+        archer = "Ranger";
+        mage = "Mage";
     }
     return { tank, archer, mage };
 }
@@ -183,6 +175,9 @@ export function changeModel(
     buffMatA?.dispose();
     buffMatB?.dispose();
     stunMat?.dispose();
+    // Reset ice instanced mesh
+    for (let _k = 0; _k < UNIT_COUNT; _k++) _iceInstanced.setMatrixAt(_k, _iceDead);
+    _iceInstanced.instanceMatrix.needsUpdate = true;
 
     // Bersihkan billboard nama via helper
     initNameBars(modelName);
@@ -196,7 +191,19 @@ export function changeModel(
         return new Promise((resolve, reject) => {
             const baseUrl = import.meta.env.BASE_URL;
             gltfLoader.load(
-                `${baseUrl}models/npc/${name}.glb`,
+                `${baseUrl}models/character/characters/${name}.glb?v=gltfpack`,
+                (gltf) => resolve(gltf),
+                undefined,
+                (err) => reject(err),
+            );
+        });
+    };
+
+    const loadAnimGLB = (name: string): Promise<any> => {
+        return new Promise((resolve, reject) => {
+            const baseUrl = import.meta.env.BASE_URL;
+            gltfLoader.load(
+                `${baseUrl}models/character/animation/${name}.glb?v=gltfpack`,
                 (gltf) => resolve(gltf),
                 undefined,
                 (err) => reject(err),
@@ -208,8 +215,11 @@ export function changeModel(
         loadGLB(classModels.tank),
         loadGLB(classModels.archer),
         loadGLB(classModels.mage),
+        loadAnimGLB("Rig_Medium_General"),
+        loadAnimGLB("Rig_Medium_MovementBasic"),
+        loadAnimGLB("Rig_Medium_CombatMelee"),
     ])
-        .then(([gltfTank, gltfArcher, gltfMage]) => {
+        .then(([gltfTank, gltfArcher, gltfMage, animGeneral, animMovement, animCombat]) => {
             logDiag("Model berhasil dimuat. Menginisialisasi visual...");
 
             let originalMat: THREE.MeshStandardMaterial | null = null;
@@ -333,35 +343,23 @@ export function changeModel(
                     scene.add(clonedScene);
 
                     const mixer = new THREE.AnimationMixer(clonedScene);
-                    const clips =
-                        targetGLTF.animations as THREE.AnimationClip[];
+                    const clips = [
+                        ...animGeneral.animations,
+                        ...animMovement.animations,
+                        ...animCombat.animations,
+                    ];
 
                     const idleClip =
-                        clips.find((c) => c.name.toLowerCase() === "idle") ||
+                        clips.find((c) => c.name === "Idle_A" || c.name.toLowerCase() === "idle") ||
                         clips[0];
                     const runClip =
-                        clips.find((c) => c.name.toLowerCase() === "run") ||
-                        clips.find((c) =>
-                            c.name.toLowerCase().includes("walk"),
-                        ) ||
+                        clips.find((c) => c.name === "Running_A" || c.name.toLowerCase() === "run" || c.name.toLowerCase().includes("walk")) ||
                         clips[0];
                     const attackClip =
-                        clips.find((c) => c.name.toLowerCase() === "punch") ||
-                        clips.find(
-                            (c) => c.name.toLowerCase() === "swordslash",
-                        ) ||
-                        clips.find((c) =>
-                            c.name.toLowerCase().includes("attack"),
-                        ) ||
-                        clips.find((c) =>
-                            c.name.toLowerCase().includes("slash"),
-                        ) ||
+                        clips.find((c) => c.name === "Melee_1H_Attack_Chop" || c.name.toLowerCase() === "punch" || c.name.toLowerCase().includes("attack") || c.name.toLowerCase().includes("slash")) ||
                         clips[0];
                     const deathClip =
-                        clips.find((c) => c.name.toLowerCase() === "death") ||
-                        clips.find((c) =>
-                            c.name.toLowerCase().includes("death"),
-                        ) ||
+                        clips.find((c) => c.name === "Death_A" || c.name.toLowerCase() === "death") ||
                         clips[0];
 
                     const actions = {
@@ -550,6 +548,15 @@ const _q1 = new THREE.Quaternion();
 let _hpThrottle = 0; // HP bar update every 2nd frame
 let animFrameCount = 0;
 
+// ponytail: Pre-allocate matrix composition variables to avoid Object3D composition overhead (1200x per frame)
+// const _billboardMatrix = new THREE.Matrix4();
+// const _billboardPos = new THREE.Vector3();
+// const _unitScale = new THREE.Vector3();
+// const _ringPos = new THREE.Vector3();
+// const _ringRot = new THREE.Euler();
+// const _ringQuat = new THREE.Quaternion();
+// const _ringScale = new THREE.Vector3();
+
 // Lerp speed: nilai 1.0 = langsung snap, 0.1 = smooth.  ~12 = responsive tapi tanpa jitter.
 const LERP_SPEED = 12;
 
@@ -557,9 +564,17 @@ const LERP_SPEED = 12;
 const _frustum = new THREE.Frustum();
 const _projScreen = new THREE.Matrix4();
 const _unitSphere = new THREE.Sphere(new THREE.Vector3(), 1.5); // radius 1.5 = cukup untuk semua unit types
+const _lastCameraMatrix = new THREE.Matrix4();
 
 function updateFrame(data: Float32Array, delta: number) {
     if (!modelLoaded) return;
+
+    const cameraMoved = !_lastCameraMatrix.equals(camera.matrixWorld);
+    if (cameraMoved) {
+        _lastCameraMatrix.copy(camera.matrixWorld);
+    }
+    // ponytail: Only upload matrices if simulation is running or camera is moving
+    const needsMatrixUpload = isRunning || cameraMoved;
 
     // Compute billboard orientation ONCE per frame (not per unit)
     _right.set(1, 0, 0).applyQuaternion(camera.quaternion);
@@ -583,28 +598,31 @@ function updateFrame(data: Float32Array, delta: number) {
         const targetIdx = data[base + IDX_TARGET];
         const state = data[base + IDX_ANIM];
         const uType = data[base + IDX_TYPE];
-        const maxHp = data[base + IDX_MAX_HP];
+        // const maxHp = data[base + IDX_MAX_HP];
         const effect = data[base + IDX_EFFECT_STATE];
 
         const unit = units[i];
         if (!unit) continue;
 
-        // ponytail: fast-skip units that haven't spawned yet
+        // ponytail: fast-skip units that haven't spawned yet, only update position/scale once on transition to save CPU
         if (hp === -999) {
-            unit.root.position.set(x, -999, z);
-            unit.root.scale.setScalar(0.0001);
-            (unit as any)._wasAlive = false;
+            unit.root.visible = false; // ponytail: hide completely to disable skeletal updates and rendering
+            if (unit.root.position.y !== -999) {
+                unit.root.position.set(x, -999, z);
+                unit.root.scale.setScalar(0.0001);
+                (unit as any)._wasAlive = false;
 
-            // ponytail: Reset all instanced matrices to hide them, otherwise they float at old positions when reset!
-            hpBarsBg.setMatrixAt(i, _deadMatrix);
-            hpBarsFg.setMatrixAt(i, _deadMatrix);
-            cdRings.setMatrixAt(i, _deadMatrix);
-            immuneRings.setMatrixAt(i, _deadMatrix);
-            if (nameBarsA && nameBarsB) {
-                if (i < TEAM_SIZE) {
-                    nameBarsA.setMatrixAt(i, _deadMatrix);
-                } else {
-                    nameBarsB.setMatrixAt(i - TEAM_SIZE, _deadMatrix);
+                // Reset all instanced matrices to hide them, otherwise they float at old positions when reset!
+                hpBarsBg.setMatrixAt(i, _deadMatrix);
+                hpBarsFg.setMatrixAt(i, _deadMatrix);
+                cdRings.setMatrixAt(i, _deadMatrix);
+                immuneRings.setMatrixAt(i, _deadMatrix);
+                if (nameBarsA && nameBarsB) {
+                    if (i < TEAM_SIZE) {
+                        nameBarsA.setMatrixAt(i, _deadMatrix);
+                    } else {
+                        nameBarsB.setMatrixAt(i - TEAM_SIZE, _deadMatrix);
+                    }
                 }
             }
             continue;
@@ -626,6 +644,18 @@ function updateFrame(data: Float32Array, delta: number) {
             _unitSphere.center.set(x, y, z);
             const inView = _frustum.intersectsSphere(_unitSphere);
             unit.root.visible = inView;
+
+            // LOD (Level of Detail): Sembunyikan mesh karakter jika sangat jauh (jarak > 45 unit)
+            // untuk menghemat draw calls & perhitungan skinning CPU. HP bar & nama tetap terlihat.
+            const dx = x - camera.position.x;
+            const dy = y - camera.position.y;
+            const dz = z - camera.position.z;
+            const distSq = dx * dx + dy * dy + dz * dz;
+            const showMesh = distSq < 2025; // 45^2 = 2025
+            
+            for (let m = 0; m < unit.meshes.length; m++) {
+                unit.meshes[m].visible = showMesh;
+            }
 
             // Spawn sound: unit transisi dari mati/unspawned ke hidup
             if (hp > 0 && !(unit as any)._wasAlive) {
@@ -699,56 +729,34 @@ function updateFrame(data: Float32Array, delta: number) {
                     soundFX.playDeath(x, y, z, camera.position);
                 }
             }
-            if ((unit as any).iceMesh) {
-                const ice = (unit as any).iceMesh;
-                unit.root.remove(ice);
-                ice.geometry.dispose();
-                (ice.material as THREE.Material).dispose();
-                (unit as any).iceMesh = null;
+            // Hide ice for dead units via instanced mesh
+            _iceInstanced.setMatrixAt(i, _iceDead);
+            _iceInstanced.instanceMatrix.needsUpdate = true;
+            // Spawn shatter FX when previously frozen
+            if (unit.currentEffectState > 0) {
                 spawnIceShatterFX(
                     scene,
                     unit.root.position.x,
                     unit.root.position.y + 0.5,
                     unit.root.position.z,
                 );
+                unit.currentEffectState = 0; // ponytail: reset effect state so shatter FX only spawns ONCE
             }
         } else {
             if (unit.currentEffectState !== effect) {
                 let activeMat = unit.team === TEAM_A ? teamMatA : teamMatB;
+                if (uType === 3) activeMat = unit.team === TEAM_A ? healerMatA : healerMatB;
                 if (effect > 0) {
                     activeMat = stunMat;
-                    if (!(unit as any).iceMesh) {
-                        const iceGeo = new THREE.DodecahedronGeometry(0.65);
-                        const iceMat = new THREE.MeshStandardMaterial({
-                            color: 0x88e2ff,
-                            roughness: 0.05,
-                            metalness: 0.2,
-                            transparent: true,
-                            opacity: 0.55,
-                            depthWrite: false,
-                        });
-                        const ice = new THREE.Mesh(iceGeo, iceMat);
-                        ice.position.set(0, 0.5, 0);
-                        unit.root.add(ice);
-                        (unit as any).iceMesh = ice;
-                    }
+                    // Show ice on instanced mesh
+                    _iceMatrix.makeTranslation(x, y + 0.5, z);
+                    _iceInstanced.setMatrixAt(i, _iceMatrix);
+                    _iceInstanced.instanceMatrix.needsUpdate = true;
                 } else {
-                    if ((unit as any).iceMesh) {
-                        const ice = (unit as any).iceMesh;
-                        unit.root.remove(ice);
-                        ice.geometry.dispose();
-                        (ice.material as THREE.Material).dispose();
-                        (unit as any).iceMesh = null;
-                        spawnIceShatterFX(
-                            scene,
-                            unit.root.position.x,
-                            unit.root.position.y + 0.5,
-                            unit.root.position.z,
-                        );
-                    }
-                }
-                if (effect < 0) {
-                    activeMat = unit.team === TEAM_A ? buffMatA : buffMatB;
+                    // Hide ice — use dead matrix
+                    _iceInstanced.setMatrixAt(i, _iceDead);
+                    _iceInstanced.instanceMatrix.needsUpdate = true;
+                    if (effect < 0) activeMat = unit.team === TEAM_A ? buffMatA : buffMatB;
                 }
                 if (activeMat) {
                     for (let m = 0; m < unit.meshes.length; m++) {
@@ -756,6 +764,11 @@ function updateFrame(data: Float32Array, delta: number) {
                     }
                 }
                 unit.currentEffectState = effect;
+            } else if (effect > 0) {
+                // Keep ice position in sync while frozen
+                _iceMatrix.makeTranslation(x, y + 0.5, z);
+                _iceInstanced.setMatrixAt(i, _iceMatrix);
+                _iceInstanced.instanceMatrix.needsUpdate = true;
             }
 
             if (targetIdx !== -1) {
@@ -792,7 +805,7 @@ function updateFrame(data: Float32Array, delta: number) {
         } else if (hp > 0) {
             let updateInterval = 1;
             if (!unit.root.visible) {
-                updateInterval = 12; // off-screen: update every 12 frames
+                updateInterval = 16; // off-screen: update every 16 frames
             } else {
                 const dx = x - camera.position.x;
                 const dy = y - camera.position.y;
@@ -800,11 +813,13 @@ function updateFrame(data: Float32Array, delta: number) {
                 const distSq = dx * dx + dy * dy + dz * dz;
 
                 if (distSq < 225) {
-                    updateInterval = 1; // dekat (<15u): update tiap frame
+                    updateInterval = 2; // Near: update every 2 frames
                 } else if (distSq < 900) {
-                    updateInterval = 2; // sedang (15-30u): update tiap 2 frame
+                    updateInterval = 4; // Mid-near: update every 4 frames
+                } else if (distSq < 2025) {
+                    updateInterval = 8; // Mid-far: update every 8 frames
                 } else {
-                    updateInterval = 4; // jauh (>=30u): update tiap 4 frame
+                    updateInterval = 16; // Far: update every 16 frames
                 }
             }
 
@@ -816,91 +831,30 @@ function updateFrame(data: Float32Array, delta: number) {
             }
         }
 
-        // Cooldown Ring (hanya pasang jika unit hidup & terlihat)
-        const cd1 = data[base + IDX_SKILL1_CD];
-        const cd2 = data[base + IDX_SKILL2_CD];
-        const cd3 = data[base + IDX_SKILL3_CD];
-        const immuneCd = data[base + IDX_IMMUNE_CD];
-
-        if (hp > 0 && unit.root.visible && (cd1 > 0 || cd2 > 0 || cd3 > 0)) {
-            dummy.position.set(x, y + 0.02, z);
-            dummy.rotation.set(-Math.PI / 2, 0, 0);
-            dummy.scale.set(scale * 1.5, scale * 1.5, 1.0);
-            dummy.updateMatrix();
-            cdRings.setMatrixAt(i, dummy.matrix);
-        } else {
-            cdRings.setMatrixAt(i, _deadMatrix);
-        }
-
-        // Immunity Ring (hanya pasang jika unit hidup & terlihat)
-        if (hp > 0 && unit.root.visible && immuneCd > 0) {
-            const angle = performance.now() * 0.003;
-            dummy.position.set(x, y + 0.5, z);
-            dummy.rotation.set(-Math.PI / 2, 0, angle);
-            dummy.scale.set(scale * 2.0, scale * 2.0, 1.0);
-            dummy.updateMatrix();
-            immuneRings.setMatrixAt(i, dummy.matrix);
-        } else {
-            immuneRings.setMatrixAt(i, _deadMatrix);
-        }
-
-        let headY = 1.85; // Raised from 1.35
-        if (uType === 0)
-            headY = 2.45; // Raised from 1.95 (Tank)
-        else if (uType === 1)
-            headY = 1.6; // Raised from 1.1 (Archer)
-        else if (uType === 2) headY = 1.95; // Raised from 1.45 (Mage)
-
-        // ponytail: use pre-computed _right / _forward (no new Vector3 per unit)
-        if (hp <= 0 || !unit.root.visible) {
-            hpBarsBg.setMatrixAt(i, _deadMatrix);
-            hpBarsFg.setMatrixAt(i, _deadMatrix);
-            cdRings.setMatrixAt(i, _deadMatrix);
-            immuneRings.setMatrixAt(i, _deadMatrix);
-            if (nameBarsA && nameBarsB) {
-                if (i < TEAM_SIZE) {
-                    nameBarsA.setMatrixAt(i, _deadMatrix);
-                } else {
-                    nameBarsB.setMatrixAt(i - TEAM_SIZE, _deadMatrix);
-                }
-            }
-        } else {
-            dummy.position.set(x, y + headY, z);
-            dummy.quaternion.copy(camera.quaternion);
-            dummy.scale.set(1, 1, 1);
-            dummy.updateMatrix();
-            hpBarsBg.setMatrixAt(i, dummy.matrix);
-
-            const hpPercent = Math.max(0, hp / maxHp);
-            dummy.position.set(x, y + headY, z);
-            dummy.quaternion.copy(camera.quaternion);
-            dummy.position.addScaledVector(_right, -0.5 * (1.0 - hpPercent));
-            dummy.scale.set(hpPercent, 1, 1);
-            dummy.updateMatrix();
-            hpBarsFg.setMatrixAt(i, dummy.matrix);
-
-            if (nameBarsA && nameBarsB) {
-                dummy.position.set(x, y + headY + 0.22, z); // Raised name offset to 0.22
-                dummy.scale.set(1.0, 1.0, 1.0);
-                dummy.quaternion.copy(camera.quaternion);
-                dummy.position.addScaledVector(_forward, 0.03);
-                dummy.updateMatrix();
-
-                if (i < TEAM_SIZE) {
-                    nameBarsA.setMatrixAt(i, dummy.matrix);
-                } else {
-                    nameBarsB.setMatrixAt(i - TEAM_SIZE, dummy.matrix);
-                }
+        // Cooldown Ring, Immunity Ring, HP Bars, Name Bars are temporarily disabled to debug performance
+        cdRings.setMatrixAt(i, _deadMatrix);
+        immuneRings.setMatrixAt(i, _deadMatrix);
+        hpBarsBg.setMatrixAt(i, _deadMatrix);
+        hpBarsFg.setMatrixAt(i, _deadMatrix);
+        if (nameBarsA && nameBarsB) {
+            if (i < TEAM_SIZE) {
+                nameBarsA.setMatrixAt(i, _deadMatrix);
+            } else {
+                nameBarsB.setMatrixAt(i - TEAM_SIZE, _deadMatrix);
             }
         }
     }
 
-    hpBarsBg.instanceMatrix.needsUpdate = true;
-    hpBarsFg.instanceMatrix.needsUpdate = true;
-    cdRings.instanceMatrix.needsUpdate = true;
-    immuneRings.instanceMatrix.needsUpdate = true;
-    if (nameBarsA) nameBarsA.instanceMatrix.needsUpdate = true;
-    if (nameBarsB) nameBarsB.instanceMatrix.needsUpdate = true;
+    if (needsMatrixUpload) {
+        hpBarsBg.instanceMatrix.needsUpdate = true;
+        hpBarsFg.instanceMatrix.needsUpdate = true;
+        cdRings.instanceMatrix.needsUpdate = true;
+        immuneRings.instanceMatrix.needsUpdate = true;
+        if (nameBarsA && nameBarsB) {
+            nameBarsA.instanceMatrix.needsUpdate = true;
+            nameBarsB.instanceMatrix.needsUpdate = true;
+        }
+    }
 }
 
 function fadeToAnimation(
@@ -950,6 +904,36 @@ export function startRenderLoop() {
 
         frameCount++;
         if (timestamp > lastFpsUpdate + 1000) {
+            let totalMeshes = 0;
+            let totalGroups = 0;
+            let totalInstanced = 0;
+            const meshTypes = new Map<string, number>();
+
+            scene.traverse((obj: any) => {
+                if (obj instanceof THREE.InstancedMesh) {
+                    totalInstanced++;
+                    const name = "InstancedMesh (" + (obj.name || "unnamed") + ")";
+                    meshTypes.set(name, (meshTypes.get(name) || 0) + 1);
+                } else if (obj.isMesh) {
+                    totalMeshes++;
+                    let name = "Mesh (" + (obj.name || "unnamed") + ")";
+                    if (!obj.name) {
+                        const geomType = obj.geometry ? obj.geometry.constructor.name : "no-geo";
+                        const matMap = (obj.material && obj.material.map) ? "has-texture" : "no-texture";
+                        name = `Mesh (unnamed: ${geomType}, ${matMap})`;
+                    }
+                    meshTypes.set(name, (meshTypes.get(name) || 0) + 1);
+                } else if (obj.isGroup) {
+                    totalGroups++;
+                }
+            });
+
+            let diagMsg = `Meshes: ${totalMeshes}, Groups: ${totalGroups}, Instanced: ${totalInstanced}, activeFX: ${activeFX.length}\n`;
+            meshTypes.forEach((count, name) => {
+                diagMsg += `  - ${name}: ${count}\n`;
+            });
+            logDiag(diagMsg);
+
             if (fpsVal) {
                 fpsVal.textContent = Math.round(
                     (frameCount * 1000) / (timestamp - lastFpsUpdate),
@@ -991,13 +975,8 @@ export function resetUnitsVisual() {
         unit.currentEffectState = 0;
         unit.accumulatedDelta = 0;
         unit.deathTime = undefined;
-        if ((unit as any).iceMesh) {
-            const ice = (unit as any).iceMesh;
-            unit.root.remove(ice);
-            ice.geometry.dispose();
-            (ice.material as THREE.Material).dispose();
-            (unit as any).iceMesh = null;
-        }
+        // Reset ice instanced mesh position for this unit
+        _iceInstanced.setMatrixAt(i, _iceDead);
         // Restore default team materials to prevent units staying white/buffed on reset
         const uType = sharedData ? sharedData[i * STRIDE + IDX_TYPE] : 0;
         let defaultMat = unit.team === TEAM_A ? teamMatA! : teamMatB!;
@@ -1014,4 +993,5 @@ export function resetUnitsVisual() {
             unit.actions.idle.play();
         }
     });
+    _iceInstanced.instanceMatrix.needsUpdate = true;
 }

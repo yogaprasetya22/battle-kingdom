@@ -66,13 +66,16 @@ loadingManager.onError = (url) => {
     }
 };
 
+
 export const gltfLoader = new GLTFLoader(loadingManager);
 gltfLoader.setMeshoptDecoder(MeshoptDecoder);
+// ponytail: no DRACOLoader — gltfpack output uses Meshopt, not Draco. Saves ~500KB wasm.
+
 
 // Canvas & WebGLRenderer
 export const canvas = document.getElementById("canvas") as HTMLCanvasElement;
-export const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5)); // ponytail: cap 1.5 — 56% less fill vs 2.0
+export const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: "high-performance" });
+renderer.setPixelRatio(1.0); // ponytail: cap to 1.0 to resolve camera drag lag on integrated GPUs
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = false;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
