@@ -79,6 +79,14 @@ const aggregatedStats = {
         healerTaken: 0,
         healerKills: 0,
         healerHealed: 0,
+        gunslingerDealt: 0,
+        gunslingerTaken: 0,
+        gunslingerKills: 0,
+        gunslingerHealed: 0,
+        assassinDealt: 0,
+        assassinTaken: 0,
+        assassinKills: 0,
+        assassinHealed: 0,
     },
     teamB: {
         tankDealt: 0,
@@ -97,6 +105,14 @@ const aggregatedStats = {
         healerTaken: 0,
         healerKills: 0,
         healerHealed: 0,
+        gunslingerDealt: 0,
+        gunslingerTaken: 0,
+        gunslingerKills: 0,
+        gunslingerHealed: 0,
+        assassinDealt: 0,
+        assassinTaken: 0,
+        assassinKills: 0,
+        assassinHealed: 0,
     },
 };
 
@@ -170,6 +186,20 @@ function showBattleEnd(winner: "A" | "B", stats: typeof aggregatedStats) {
         <div class="stats-cell">${stats.teamA.healerKills}</div>
         <div class="stats-cell">${stats.teamA.healerHealed}</div>
       </div>
+      <div class="stats-grid">
+        <div class="stats-class">🔫 Gunslinger</div>
+        <div class="stats-cell">${stats.teamA.gunslingerDealt}</div>
+        <div class="stats-cell">${stats.teamA.gunslingerTaken}</div>
+        <div class="stats-cell">${stats.teamA.gunslingerKills}</div>
+        <div class="stats-cell">${stats.teamA.gunslingerHealed}</div>
+      </div>
+      <div class="stats-grid">
+        <div class="stats-class">🗡️ Assassin</div>
+        <div class="stats-cell">${stats.teamA.assassinDealt}</div>
+        <div class="stats-cell">${stats.teamA.assassinTaken}</div>
+        <div class="stats-cell">${stats.teamA.assassinKills}</div>
+        <div class="stats-cell">${stats.teamA.assassinHealed}</div>
+      </div>
     </div>
 
     <div class="stats-team-section" style="margin-top: 15px;">
@@ -208,6 +238,20 @@ function showBattleEnd(winner: "A" | "B", stats: typeof aggregatedStats) {
         <div class="stats-cell">${stats.teamB.healerTaken}</div>
         <div class="stats-cell">${stats.teamB.healerKills}</div>
         <div class="stats-cell">${stats.teamB.healerHealed}</div>
+      </div>
+      <div class="stats-grid">
+        <div class="stats-class">🔫 Gunslinger</div>
+        <div class="stats-cell">${stats.teamB.gunslingerDealt}</div>
+        <div class="stats-cell">${stats.teamB.gunslingerTaken}</div>
+        <div class="stats-cell">${stats.teamB.gunslingerKills}</div>
+        <div class="stats-cell">${stats.teamB.gunslingerHealed}</div>
+      </div>
+      <div class="stats-grid">
+        <div class="stats-class">🗡️ Assassin</div>
+        <div class="stats-cell">${stats.teamB.assassinDealt}</div>
+        <div class="stats-cell">${stats.teamB.assassinTaken}</div>
+        <div class="stats-cell">${stats.teamB.assassinKills}</div>
+        <div class="stats-cell">${stats.teamB.assassinHealed}</div>
       </div>
     </div>
   `;
@@ -254,6 +298,14 @@ function onTickComplete() {
         aggregatedStats.teamA.healerTaken = 0;
         aggregatedStats.teamA.healerKills = 0;
         aggregatedStats.teamA.healerHealed = 0;
+        aggregatedStats.teamA.gunslingerDealt = 0;
+        aggregatedStats.teamA.gunslingerTaken = 0;
+        aggregatedStats.teamA.gunslingerKills = 0;
+        aggregatedStats.teamA.gunslingerHealed = 0;
+        aggregatedStats.teamA.assassinDealt = 0;
+        aggregatedStats.teamA.assassinTaken = 0;
+        aggregatedStats.teamA.assassinKills = 0;
+        aggregatedStats.teamA.assassinHealed = 0;
 
         aggregatedStats.teamB.tankDealt = 0;
         aggregatedStats.teamB.tankTaken = 0;
@@ -271,6 +323,14 @@ function onTickComplete() {
         aggregatedStats.teamB.healerTaken = 0;
         aggregatedStats.teamB.healerKills = 0;
         aggregatedStats.teamB.healerHealed = 0;
+        aggregatedStats.teamB.gunslingerDealt = 0;
+        aggregatedStats.teamB.gunslingerTaken = 0;
+        aggregatedStats.teamB.gunslingerKills = 0;
+        aggregatedStats.teamB.gunslingerHealed = 0;
+        aggregatedStats.teamB.assassinDealt = 0;
+        aggregatedStats.teamB.assassinTaken = 0;
+        aggregatedStats.teamB.assassinKills = 0;
+        aggregatedStats.teamB.assassinHealed = 0;
 
         for (let i = 0; i < NUM_WORKERS; i++) {
             workers[i].postMessage({ type: "get_stats" });

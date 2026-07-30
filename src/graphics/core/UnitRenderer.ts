@@ -4,7 +4,6 @@
  */
 
 import * as THREE from "three";
-import * as SkeletonUtils from "three/examples/jsm/utils/SkeletonUtils.js";
 import {
     UNIT_COUNT,
     TEAM_SIZE,
@@ -23,6 +22,7 @@ import {
 } from "../../simulation/constants";
 
 import type { UnitVisual } from "./types";
+import type { IUnitVisual } from "../units/base/IUnitVisual";
 import { scene, camera, gltfLoader } from "./scene";
 import { isRunning } from "../../main";
 import { soundFX } from "./SoundFX";
@@ -38,6 +38,12 @@ import {
     initNameBars,
 } from "../ui/ui_billboards";
 import { spawnIceShatterFX } from "../effects/SkillFX";
+import { weaponCache } from "../units/UnitVisualHelpers";
+import {
+    createUnitVisual,
+    getModelKey,
+    getUnitScale,
+} from "../units/UnitVisualFactory";
 
 // ── Shared materials ──
 let teamMatA: THREE.MeshStandardMaterial | null = null;
@@ -65,8 +71,48 @@ scene.add(_iceInstanced);
 const _iceMatrix = new THREE.Matrix4();
 const _iceDead = new THREE.Matrix4().makeScale(0, 0, 0);
 
+// ── Weapon cache (Fase 1) — populated in helpers module ──
+const WEAPON_ASSETS = [
+    { name: "sword_1handed", path: "sword_1handed.glb" },
+    { name: "shield_round_color", path: "shield_round_color.glb" },
+    { name: "bow_withString", path: "bow_withString.glb" },
+    { name: "quiver", path: "quiver.glb" },
+    { name: "staff", path: "staff.glb" },
+    { name: "wand", path: "wand.glb" },
+    { name: "spellbook_open", path: "spellbook_open.glb" },
+    { name: "crossbow_1handed", path: "crossbow_1handed.glb" },
+    { name: "dagger", path: "dagger.glb" },
+    { name: "mug_full", path: "mug_full.glb" },
+    { name: "spellbook_closed", path: "spellbook_closed.glb" },
+];
+let weaponsCached = false;
+
+async function preloadWeapons(): Promise<void> {
+    if (weaponsCached) return;
+    const baseUrl = import.meta.env.BASE_URL;
+    const results = await Promise.all(
+        WEAPON_ASSETS.map(
+            (w) =>
+                new Promise<{ name: string; gltf: any }>((resolve, reject) => {
+                    gltfLoader.load(
+                        `${baseUrl}models/character/weapons/${w.path}`,
+                        (gltf) => resolve({ name: w.name, gltf }),
+                        undefined,
+                        (err) => reject(err),
+                    );
+                }),
+        ),
+    );
+    results.forEach(({ name, gltf }) => {
+        weaponCache[name] = gltf.scene as THREE.Group;
+    });
+    weaponsCached = true;
+}
+
 // ── Unit registry ──
 const units: UnitVisual[] = [];
+/** Instance IUnitVisual untuk setiap unit (factory), untuk akses dispose() */
+const unitInstances: (IUnitVisual | null)[] = [];
 let modelLoaded = false;
 
 const logPanel = document.getElementById("log-panel");
@@ -84,11 +130,15 @@ function getModelsForMatchup(baseModel: string): {
     tank: string;
     archer: string;
     mage: string;
+    gunslinger: string;
+    assassin: string;
 } {
     const model = baseModel.toLowerCase();
     let tank = "Knight";
     let archer = "Ranger";
     let mage = "Mage";
+    let gunslinger = "Rogue_Hooded";
+    let assassin = "Rogue";
 
     if (model.includes("barbarian")) {
         tank = "Barbarian";
@@ -115,7 +165,7 @@ function getModelsForMatchup(baseModel: string): {
         archer = "Ranger";
         mage = "Mage";
     }
-    return { tank, archer, mage };
+    return { tank, archer, mage, gunslinger, assassin };
 }
 
 export function changeModel(
@@ -126,14 +176,11 @@ export function changeModel(
 ) {
     modelLoaded = false;
 
-    // Clean old units
-    units.forEach((unit) => {
-        scene.remove(unit.root);
-        if (unit.mixer) {
-            unit.mixer.stopAllAction();
-            unit.mixer.uncacheRoot(unit.root);
-        }
+    // Fase 5: Clean old units — gunakan IUnitVisual.dispose()
+    unitInstances.forEach((inst) => {
+        if (inst) inst.dispose();
     });
+    unitInstances.length = 0;
     units.length = 0;
 
     // Dispose old materials
@@ -178,23 +225,47 @@ export function changeModel(
         });
     };
 
-    Promise.all([
-        loadGLB(classModels.tank),
-        loadGLB(classModels.archer),
-        loadGLB(classModels.mage),
-        loadAnimGLB("Rig_Medium_General"),
-        loadAnimGLB("Rig_Medium_MovementBasic"),
-        loadAnimGLB("Rig_Medium_CombatMelee"),
-    ])
+    // Fase 1: Preload weapons, then load all character + animation rigs
+    preloadWeapons()
+        .then(() =>
+            Promise.all([
+                loadGLB(classModels.tank),
+                loadGLB(classModels.archer),
+                loadGLB(classModels.mage),
+                loadGLB(classModels.gunslinger),
+                loadGLB(classModels.assassin),
+                loadAnimGLB("Rig_Medium_General"),
+                loadAnimGLB("Rig_Medium_MovementBasic"),
+                loadAnimGLB("Rig_Medium_MovementAdvanced"),
+                loadAnimGLB("Rig_Medium_CombatMelee"),
+                loadAnimGLB("Rig_Medium_CombatRanged"),
+                loadAnimGLB("Rig_Medium_Tools"),
+            ]),
+        )
         .then(
             ([
                 gltfTank,
                 gltfArcher,
                 gltfMage,
+                gltfGunslinger,
+                gltfAssassin,
                 animGeneral,
                 animMovement,
+                animMovementAdv,
                 animCombat,
+                animCombatRanged,
+                animTools,
             ]) => {
+                // Build anim rig lookup by type
+                const animRigs: Record<string, THREE.AnimationClip[]> = {
+                    General: animGeneral.animations,
+                    MovementBasic: animMovement.animations,
+                    MovementAdvanced: animMovementAdv.animations,
+                    CombatMelee: animCombat.animations,
+                    CombatRanged: animCombatRanged.animations,
+                    Tools: animTools.animations,
+                };
+
                 logDiag("Model berhasil dimuat. Menginisialisasi visual...");
 
                 let originalMat: THREE.MeshStandardMaterial | null = null;
@@ -266,6 +337,15 @@ export function changeModel(
                 }
 
                 try {
+                    // Bangun map model GLTF untuk factory
+                    const gltfModels = {
+                        tank: gltfTank,
+                        archer: gltfArcher,
+                        mage: gltfMage,
+                        gunslinger: gltfGunslinger,
+                        assassin: gltfAssassin,
+                    };
+
                     for (let i = 0; i < UNIT_COUNT; i++) {
                         const team = i < TEAM_SIZE ? TEAM_A : 1;
                         const localIdx = i < TEAM_SIZE ? i : i - TEAM_SIZE;
@@ -291,93 +371,40 @@ export function changeModel(
                             uType = 0;
                         }
 
-                        let targetGLTF = gltfTank;
-                        if (uType === 1) targetGLTF = gltfArcher;
-                        else if (uType === 2 || uType === 3)
-                            targetGLTF = gltfMage;
+                        // Pilih material berdasarkan tim & tipe
+                        const mat =
+                            uType === 3
+                                ? team === TEAM_A
+                                    ? healerMatA!
+                                    : healerMatB!
+                                : team === TEAM_A
+                                  ? teamMatA!
+                                  : teamMatB!;
 
-                        const clonedScene = SkeletonUtils.clone(
-                            targetGLTF.scene,
-                        ) as THREE.Group;
-                        clonedScene.scale.setScalar(0.6);
+                        // Gunakan factory untuk membuat unit visual
+                        const srcGLTF = getModelKey(uType, gltfModels);
+                        const unitVis = createUnitVisual(
+                            uType,
+                            srcGLTF,
+                            mat,
+                            animRigs,
+                        );
+                        unitInstances[i] = unitVis;
 
-                        const meshes: THREE.Mesh[] = [];
-                        clonedScene.traverse((child: any) => {
-                            if (child.isMesh) {
-                                const mesh = child as THREE.Mesh;
-                                mesh.material =
-                                    uType === 3
-                                        ? team === TEAM_A
-                                            ? healerMatA!
-                                            : healerMatB!
-                                        : team === TEAM_A
-                                          ? teamMatA!
-                                          : teamMatB!;
-                                meshes.push(mesh);
-                            }
-                        });
+                        // Override scale sesuai tipe unit
+                        const scale = getUnitScale(uType);
+                        unitVis.root.scale.setScalar(scale);
 
-                        scene.add(clonedScene);
-
-                        const mixer = new THREE.AnimationMixer(clonedScene);
-                        const clips = [
-                            ...animGeneral.animations,
-                            ...animMovement.animations,
-                            ...animCombat.animations,
-                        ];
-
-                        const idleClip =
-                            clips.find(
-                                (c) =>
-                                    c.name === "Idle_A" ||
-                                    c.name.toLowerCase() === "idle",
-                            ) || clips[0];
-                        const runClip =
-                            clips.find(
-                                (c) =>
-                                    c.name === "Running_A" ||
-                                    c.name.toLowerCase() === "run" ||
-                                    c.name.toLowerCase().includes("walk"),
-                            ) || clips[0];
-                        const attackClip =
-                            clips.find(
-                                (c) =>
-                                    c.name === "Melee_1H_Attack_Chop" ||
-                                    c.name.toLowerCase() === "punch" ||
-                                    c.name.toLowerCase().includes("attack") ||
-                                    c.name.toLowerCase().includes("slash"),
-                            ) || clips[0];
-                        const deathClip =
-                            clips.find(
-                                (c) =>
-                                    c.name === "Death_A" ||
-                                    c.name.toLowerCase() === "death",
-                            ) || clips[0];
-
-                        const actions = {
-                            idle: mixer.clipAction(idleClip),
-                            run: mixer.clipAction(runClip),
-                            attack: mixer.clipAction(attackClip),
-                            death: mixer.clipAction(deathClip),
-                        };
-
-                        if (actions.death) {
-                            actions.death.setLoop(THREE.LoopOnce, 1);
-                            actions.death.clampWhenFinished = true;
-                        }
-                        if (actions.idle) {
-                            actions.idle.play();
-                            actions.idle.time =
-                                Math.random() * idleClip.duration;
-                        }
+                        scene.add(unitVis.root);
 
                         units.push({
-                            root: clonedScene,
-                            mixer,
-                            actions,
+                            root: unitVis.root,
+                            mixer: unitVis.mixer,
+                            actions: unitVis.actions,
                             currentAnimState: 0,
                             currentEffectState: 0,
-                            meshes,
+                            meshes: unitVis.meshes,
+                            weapons: unitVis.weapons,
                             team,
                             accumulatedDelta: 0,
                         });
@@ -523,11 +550,7 @@ export function updateFrame(data: Float32Array, delta: number) {
             continue;
         }
 
-        let scale = 0.6;
-        if (uType === 0) scale = 0.85;
-        else if (uType === 1) scale = 0.42;
-        else if (uType === 2) scale = 0.6;
-        else if (uType === 3) scale = 0.5;
+        const scale = getUnitScale(uType);
 
         // ponytail: compute distSq once, used for LOD + mixer throttle
         const dx = x - camera.position.x;
@@ -549,6 +572,13 @@ export function updateFrame(data: Float32Array, delta: number) {
 
             for (let m = 0; m < unit.meshes.length; m++) {
                 unit.meshes[m].visible = showMesh;
+            }
+
+            // Fase 5: LOD culling for attached weapons
+            if (unit.weapons) {
+                for (let w = 0; w < unit.weapons.length; w++) {
+                    unit.weapons[w].visible = showMesh;
+                }
             }
 
             if (hp > 0 && !(unit as any)._wasAlive) {

@@ -30,6 +30,12 @@ import {
     spawnHealFX,
     spawnDivineShieldFX,
     spawnHolySanctuaryFX,
+    spawnHighNoonFX,
+    spawnSmokeBombFX,
+    spawnFanFireFX,
+    spawnShadowStepFX,
+    spawnBackstabFX,
+    spawnPoisonBladeFX,
     updateFX,
     canSpawnFX,
     effectUniforms,
@@ -170,6 +176,58 @@ export function spawnSkillFX(event: { skill: string; [key: string]: any }) {
             scene,
             new THREE.Vector3(event.x, event.y, event.z),
         );
+    } else if (event.skill === "highNoon") {
+        soundFX.playBow(event.fx, event.fy, event.fz, camera.position);
+        spawnHighNoonFX(
+            scene,
+            event.fx,
+            event.fy,
+            event.fz,
+            event.tx,
+            event.ty,
+            event.tz,
+            event.team,
+        );
+    } else if (event.skill === "smokeBomb") {
+        soundFX.playDash(event.x, event.y, event.z, camera.position);
+        spawnSmokeBombFX(scene, event.x, event.y, event.z, event.team);
+    } else if (event.skill === "fanFire") {
+        soundFX.playArrowVolley(event.x, 0, event.z, camera.position);
+        spawnFanFireFX(
+            scene,
+            event.x,
+            event.z,
+            getTerrainHeight(event.x, event.z),
+            3.0,
+            event.team,
+        );
+    } else if (event.skill === "shadowStep") {
+        soundFX.playDash(event.fx, event.fy, event.fz, camera.position);
+        spawnShadowStepFX(
+            scene,
+            event.fx,
+            event.fy,
+            event.fz,
+            event.tx,
+            event.ty,
+            event.tz,
+            event.team,
+        );
+    } else if (event.skill === "backstab") {
+        soundFX.playSlash(event.fx, event.fy, event.fz, camera.position);
+        spawnBackstabFX(
+            scene,
+            event.fx,
+            event.fy,
+            event.fz,
+            event.tx,
+            event.ty,
+            event.tz,
+            event.team,
+        );
+    } else if (event.skill === "poisonBlade") {
+        soundFX.playSlash(event.fx, event.fy, event.fz, camera.position);
+        spawnPoisonBladeFX(scene, event.tx, event.ty, event.tz);
     }
 }
 

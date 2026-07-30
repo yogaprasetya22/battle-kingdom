@@ -199,7 +199,7 @@ transformed += objectNormal * n * 0.22;
 // ═══════════════════════════════════════════════════════════════
 // Active FX management
 // ═══════════════════════════════════════════════════════════════
-const MAX_FX_HARSH = 20;
+const MAX_FX_HARSH = 150;
 export const activeFX: Array<{ update: (delta: number) => boolean }> = [];
 
 export function updateFX(delta: number) {

@@ -26,9 +26,15 @@ export const UNIT_LOD_DIST_SQ = 6025;
 
 // Class Types
 export const TYPE_TANK = 0;
+export const TYPE_KNIGHT = 0; // alias — tank
 export const TYPE_ARCHER = 1;
 export const TYPE_MAGE = 2;
 export const TYPE_HEALER = 3;
+export const TYPE_ACOLYTE = 3; // alias — healer upgrade
+export const TYPE_GUNSLINGER = 4;
+export const TYPE_ASSASSIN = 5;
+export const TYPE_MERCHANT = 6;
+export const TYPE_DRUID = 7;
 
 // Teams
 export const TEAM_A = 0;

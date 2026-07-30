@@ -12,6 +12,7 @@ export interface UnitVisual {
     currentAnimState: number; // 0=idle, 1=run, 2=attack, 3=dead
     currentEffectState: number; // 0=none, >0=stun, <0=buff
     meshes: THREE.Mesh[]; // cache mesh references, hindari traverse tiap frame
+    weapons: THREE.Group[]; // attached weapon meshes for LOD/disposal
     team: number;
     deathTime?: number;
     accumulatedDelta: number;
