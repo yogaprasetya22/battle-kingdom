@@ -72,6 +72,9 @@ let battleTicks = 0;
 let startIndex = 0;
 let endIndex = UNIT_COUNT;
 
+// Option 1: Per-Worker State Tracking — store workerId as module-level variable
+let workerId = -1;
+
 // --- Spatial Hash Grid Configuration ---
 const cellSize = 6.0;
 const gridCols = Math.ceil((BOUND_X_MAX - BOUND_X_MIN) / cellSize);
@@ -1679,7 +1682,10 @@ self.onmessage = (e: MessageEvent) => {
         statsKills.fill(0);
         statsHealDone.fill(0);
         initUnits(data, e.data.matchup || "mix");
-        self.postMessage({ type: "ready" });
+
+        // Store workerId from init message (Option 1: Per-Worker State Tracking)
+        workerId = e.data.workerId ?? -1;
+        self.postMessage({ type: "ready", workerId });
     }
 
     if (type === "tick") {
@@ -1703,8 +1709,10 @@ self.onmessage = (e: MessageEvent) => {
                     }
                 }
             }
+            // Send workerId along with tick_done (Option 1: Per-Worker State Tracking)
             self.postMessage({
                 type: "tick_done",
+                workerId,
                 aliveA,
                 aliveB,
                 aliveOrUnspawnedA,

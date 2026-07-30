@@ -5,7 +5,7 @@
  * ponytail: no framework, no DI, no event bus. Direct function calls.
  */
 
-import { BUFFER_BYTES, UNIT_COUNT, TEAM_SIZE } from "./simulation/constants";
+import { BUFFER_BYTES, UNIT_COUNT } from "./simulation/constants";
 import {
     setSharedData,
     startRenderLoop,
@@ -16,6 +16,7 @@ import {
 } from "./graphics/core/renderer";
 import { soundFX } from "./graphics/core/SoundFX";
 import { CharacterViewer } from "./graphics/viewer/CharacterViewer";
+import { WorkerDiagnostics } from "./simulation/WorkerDiagnostics";
 
 // ---- Shared Buffer (bridge antara main thread & worker) ----
 const sharedBuffer = new SharedArrayBuffer(BUFFER_BYTES);
@@ -53,14 +54,32 @@ const selectMatchup = document.getElementById(
     "select-matchup",
 ) as HTMLSelectElement;
 
+// ---- Per-Worker State Tracking (Option 1: Synchronization Fix) ----
+interface WorkerTickState {
+    workerId: number;
+    currentTickId: number;
+    aliveA: number;
+    aliveB: number;
+    aliveOrUnspawnedA: number;
+    aliveOrUnspawnedB: number;
+}
+
 let tickCount = 0;
 export let isRunning = false;
 let pendingTick = false;
-let workersDoneCount = 0;
 let lastTime = performance.now();
 let readyWorkersCount = 0;
 let statsReceivedCount = 0;
 let battleWinner: "A" | "B" = "A";
+
+// Track current global tick ID (incremented each time we dispatch tick)
+let globalTickId = 0;
+
+// Per-worker state tracking: indexed by workerId (0, 1, 2, 3, ...)
+const workerTickStates: Map<number, WorkerTickState> = new Map();
+
+// Diagnostics for Option 1 synchronization (enable in dev/debug mode)
+const diagnostics = new WorkerDiagnostics(import.meta.env.DEV);
 
 const aggregatedStats = {
     teamA: {
@@ -340,6 +359,41 @@ function onTickComplete() {
     }
 }
 
+/**
+ * Check if all workers have completed the same tick ID.
+ * Returns true if all workers are synchronized on globalTickId.
+ */
+function allWorkersSyncedOnTick(): boolean {
+    if (workerTickStates.size !== NUM_WORKERS) {
+        return false;
+    }
+    for (const state of workerTickStates.values()) {
+        if (state.currentTickId !== globalTickId) {
+            return false;
+        }
+    }
+    return true;
+}
+
+/**
+ * Aggregate counts from all workers that are synced on the current tick.
+ */
+function aggregateWorkerCounts(): void {
+    accumAliveA = 0;
+    accumAliveB = 0;
+    accumAliveOrUnspawnedA = 0;
+    accumAliveOrUnspawnedB = 0;
+
+    for (const state of workerTickStates.values()) {
+        if (state.currentTickId === globalTickId) {
+            accumAliveA += state.aliveA;
+            accumAliveB += state.aliveB;
+            accumAliveOrUnspawnedA += state.aliveOrUnspawnedA;
+            accumAliveOrUnspawnedB += state.aliveOrUnspawnedB;
+        }
+    }
+}
+
 // ---- Worker message handlers ----
 for (let i = 0; i < NUM_WORKERS; i++) {
     workers[i].onmessage = (e: MessageEvent) => {
@@ -353,22 +407,36 @@ for (let i = 0; i < NUM_WORKERS; i++) {
         }
 
         if (type === "tick_done") {
-            workersDoneCount++;
-            // Accumulate partial alive counts from this worker
-            if (e.data.aliveA !== undefined) {
-                if (workersDoneCount === 1) {
-                    accumAliveA = e.data.aliveA;
-                    accumAliveB = e.data.aliveB;
-                    accumAliveOrUnspawnedA = e.data.aliveOrUnspawnedA;
-                    accumAliveOrUnspawnedB = e.data.aliveOrUnspawnedB;
-                } else {
-                    accumAliveA += e.data.aliveA;
-                    accumAliveB += e.data.aliveB;
-                    accumAliveOrUnspawnedA += e.data.aliveOrUnspawnedA;
-                    accumAliveOrUnspawnedB += e.data.aliveOrUnspawnedB;
-                }
+            const workerId = e.data.workerId ?? -1;
+
+            // Update per-worker state with current tick results
+            if (workerId >= 0 && e.data.aliveA !== undefined) {
+                workerTickStates.set(workerId, {
+                    workerId,
+                    currentTickId: globalTickId,
+                    aliveA: e.data.aliveA,
+                    aliveB: e.data.aliveB,
+                    aliveOrUnspawnedA: e.data.aliveOrUnspawnedA,
+                    aliveOrUnspawnedB: e.data.aliveOrUnspawnedB,
+                });
             }
-            if (workersDoneCount === NUM_WORKERS) {
+
+            // Check if all workers have synced on the current tick
+            if (allWorkersSyncedOnTick()) {
+                aggregateWorkerCounts();
+
+                // Record diagnostic snapshot for this tick
+                diagnostics.recordTick(
+                    globalTickId,
+                    workerTickStates,
+                    NUM_WORKERS,
+                    true,
+                    accumAliveA,
+                    accumAliveB,
+                    accumAliveOrUnspawnedA,
+                    accumAliveOrUnspawnedB,
+                );
+
                 onTickComplete();
             }
         }
@@ -391,7 +459,9 @@ function resetWorkers() {
     isRunning = false;
     pendingTick = false;
     tickCount = 0;
+    globalTickId = 0;
     readyWorkersCount = 0;
+    workerTickStates.clear();
     if (workerTicks) workerTicks.textContent = "0";
     resetUnitsVisual();
     for (let i = 0; i < NUM_WORKERS; i++) {
@@ -571,9 +641,25 @@ setBeforeRenderCb((_timestamp: number, _delta: number) => {
     const deltaTime = now - lastTime;
     if (deltaTime >= 15 && !pendingTick) {
         pendingTick = true;
-        workersDoneCount = 0;
+        globalTickId++;
+
+        // Reset worker states for this tick (mark all as pending)
         for (let i = 0; i < NUM_WORKERS; i++) {
-            workers[i].postMessage({ type: "tick" });
+            if (!workerTickStates.has(i)) {
+                workerTickStates.set(i, {
+                    workerId: i,
+                    currentTickId: globalTickId - 1,
+                    aliveA: 0,
+                    aliveB: 0,
+                    aliveOrUnspawnedA: 0,
+                    aliveOrUnspawnedB: 0,
+                });
+            }
+        }
+
+        // Dispatch tick to all workers
+        for (let i = 0; i < NUM_WORKERS; i++) {
+            workers[i].postMessage({ type: "tick", tickId: globalTickId });
         }
         lastTime = now - (deltaTime % 15);
     }
@@ -581,16 +667,32 @@ setBeforeRenderCb((_timestamp: number, _delta: number) => {
 
 startRenderLoop();
 
-// Kirim buffer ke worker
+// Kirim buffer ke worker dengan workerId untuk per-worker tracking
+// Distribute units evenly across ALL workers (not by team)
+const unitsPerWorker = Math.ceil(UNIT_COUNT / NUM_WORKERS);
 for (let i = 0; i < NUM_WORKERS; i++) {
+    const startIndex = i * unitsPerWorker;
+    const endIndex = Math.min((i + 1) * unitsPerWorker, UNIT_COUNT);
+
     workers[i].postMessage({
         type: "init",
+        workerId: i,
         buffer: sharedBuffer,
         matchup: selectMatchup.value,
-        startIndex: i === 0 ? 0 : TEAM_SIZE,
-        endIndex: i === 0 ? TEAM_SIZE : UNIT_COUNT,
+        startIndex,
+        endIndex,
     });
 }
+
+// Expose diagnostics to browser console for debugging
+(window as any).workerDiagnostics = {
+    report: () => diagnostics.generateReport(),
+    recentTicks: (count?: number) => diagnostics.getRecentTicks(count),
+    checkSync: () => diagnostics.detectSyncIssues(),
+    checkCounts: () => diagnostics.verifyCountConsistency(),
+    enable: () => diagnostics.setEnabled(true),
+    disable: () => diagnostics.setEnabled(false),
+};
 
 // Load model awal secara dinamis
 changeModel("Knight", selectMatchup.value);

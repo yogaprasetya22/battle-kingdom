@@ -5,8 +5,17 @@
 
 import * as THREE from "three";
 import { WindEffectManager } from "../effects/WindLines";
+import { DayCycleManager } from "./DayCycleManager";
 import { getTerrainHeight } from "../../simulation/constants";
-import { scene, camera, renderer, controls, gltfLoader } from "./scene";
+import {
+    scene,
+    camera,
+    renderer,
+    controls,
+    gltfLoader,
+    sun,
+    ambient,
+} from "./scene";
 import { soundFX } from "./SoundFX";
 import { World } from "../scenery/World";
 import {
@@ -52,6 +61,11 @@ const world = new World(scene, gltfLoader);
 
 const windEffect = new WindEffectManager(scene);
 windEffect.start();
+
+// ▸ Day Cycle Manager (4 periode: pagi, siang, sore, malam)
+const dayCycleManager = new DayCycleManager(scene, 60); // 60 detik per siklus (for testing)
+dayCycleManager.setDirectionalLight(sun);
+dayCycleManager.setAmbientLight(ambient);
 
 export function spawnSkillFX(event: { skill: string; [key: string]: any }) {
     if (!canSpawnFX()) return;
@@ -264,6 +278,9 @@ export function startRenderLoop() {
         controls.update();
         world.update(delta, camera.position);
         effectUniforms.uTime.value += delta;
+
+        // Update day cycle every frame
+        dayCycleManager.update();
 
         updateFX(delta);
         windEffect.update(delta);
