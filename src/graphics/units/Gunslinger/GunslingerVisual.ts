@@ -14,10 +14,10 @@ const CLIP_MAP = {
         "Rig_Medium_MovementAdvanced",
         "Rig_Medium_CombatRanged",
     ],
-    idle: ["Idle_A", "Idle_B"],
-    run: ["Running_HoldingRifle", "Running_A"],
+    idle: ["Ranged_1H_Idle", "Standing_Idle_01", "Idle_A"],
+    run: ["Running_HoldingRifle", "Running_Riflehold", "Running_A"],
     attack: ["Ranged_1H_Shoot", "Ranged_1H_Shooting", "Ranged_1H_Aiming"],
-    death: ["Death_A", "Death_B"],
+    death: ["Death_B", "Death_A"],
 };
 
 export class GunslingerVisual implements IUnitVisual {

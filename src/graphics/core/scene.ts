@@ -4,7 +4,7 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 // @ts-ignore
 import { MeshoptDecoder } from "three/examples/jsm/libs/meshopt_decoder.module.js";
 
-// Loader Manager & Hooks
+// Loader Manager for GLB only (exclude MP3s from progress tracking)
 export const loadingManager = new THREE.LoadingManager();
 
 loadingManager.onStart = (url) => {
@@ -66,15 +66,18 @@ loadingManager.onError = (url) => {
     }
 };
 
-
+// GLTFLoader uses LoadingManager (only GLB files tracked)
 export const gltfLoader = new GLTFLoader(loadingManager);
 gltfLoader.setMeshoptDecoder(MeshoptDecoder);
 // ponytail: no DRACOLoader — gltfpack output uses Meshopt, not Draco. Saves ~500KB wasm.
 
-
 // Canvas & WebGLRenderer
 export const canvas = document.getElementById("canvas") as HTMLCanvasElement;
-export const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: "high-performance" });
+export const renderer = new THREE.WebGLRenderer({
+    canvas,
+    antialias: false,
+    powerPreference: "high-performance",
+});
 renderer.setPixelRatio(1.0); // ponytail: cap to 1.0 to resolve camera drag lag on integrated GPUs
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = false;

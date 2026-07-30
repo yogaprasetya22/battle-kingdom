@@ -2,24 +2,26 @@ import * as THREE from "three";
 import { UNIT_COUNT, TEAM_SIZE } from "../../simulation/constants";
 import { scene } from "../core/scene";
 
-// ---- 1. HP Bars (thinner, always on top) ----
-const hpGeo = new THREE.PlaneGeometry(1.0, 0.06);
+// ---- 1. HP Bars (thinner, always on top, Ragnarok style border) ----
+const hpBgGeo = new THREE.PlaneGeometry(1.06, 0.10);
+const hpFgGeo = new THREE.PlaneGeometry(1.0, 0.05);
+
 const hpBgMat = new THREE.MeshBasicMaterial({
-    color: 0x330000,
+    color: 0x000000,
     side: THREE.DoubleSide,
     depthTest: false,
     depthWrite: false,
 });
 const hpFgMat = new THREE.MeshBasicMaterial({
-    color: 0x00ff00,
+    color: 0x2ecc71, // Ragnarok neon-ish green
     side: THREE.DoubleSide,
     depthTest: false,
     depthWrite: false,
 });
 
-export const hpBarsBg = new THREE.InstancedMesh(hpGeo, hpBgMat, UNIT_COUNT);
-export const hpBarsFg = new THREE.InstancedMesh(hpGeo, hpFgMat, UNIT_COUNT);
-hpBarsBg.renderOrder = 999;
+export const hpBarsBg = new THREE.InstancedMesh(hpBgGeo, hpBgMat, UNIT_COUNT);
+export const hpBarsFg = new THREE.InstancedMesh(hpFgGeo, hpFgMat, UNIT_COUNT);
+hpBarsBg.renderOrder = 998; // Background slightly behind foreground
 hpBarsFg.renderOrder = 999;
 scene.add(hpBarsBg);
 scene.add(hpBarsFg);
@@ -73,16 +75,18 @@ function createNameTexture(text: string, color: string) {
     const ctx = canvas.getContext("2d")!;
     ctx.clearRect(0, 0, 512, 128);
 
-    ctx.font = "bold 64px Inter, Arial, sans-serif";
+    ctx.font = "bold 64px 'Outfit', 'Inter', Arial, sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
 
-    // Thick outline
-    ctx.strokeStyle = "rgba(0, 0, 0, 1.0)";
-    ctx.lineWidth = 12;
+    // Crisp Ragnarok-style solid black outline with rounded joints
+    ctx.strokeStyle = "#000000";
+    ctx.lineWidth = 14;
+    ctx.lineJoin = "round";
+    ctx.lineCap = "round";
     ctx.strokeText(text, 256, 64);
 
-    // Fill
+    // Fill with crisp high-visibility color
     ctx.fillStyle = color;
     ctx.fillText(text, 256, 64);
 
@@ -96,21 +100,27 @@ export function initNameBars(modelName: string) {
     if (nameBarsB) scene.remove(nameBarsB);
 
     const model = modelName.toLowerCase();
-    let nameA = "Tank";
-    let nameB = "Tank";
+    let nameA = "Knight";
+    let nameB = "Knight";
 
     if (model.includes("mage")) {
         nameA = "Mage";
         nameB = "Mage";
-    } else if (model.includes("archer")) {
+    } else if (model.includes("archer") || model.includes("ranger")) {
         nameA = "Archer";
         nameB = "Archer";
-    } else if (model.includes("knight") || model.includes("soldier")) {
-        nameA = "Soldier";
-        nameB = "Soldier";
+    } else if (model.includes("barbarian")) {
+        nameA = "Barbarian";
+        nameB = "Barbarian";
+    } else if (model.includes("gunslinger") || model.includes("rogue_hooded")) {
+        nameA = "Gunslinger";
+        nameB = "Gunslinger";
+    } else if (model.includes("assassin") || model.includes("rogue")) {
+        nameA = "Assassin";
+        nameB = "Assassin";
     }
 
-    const texA = createNameTexture(nameA, "#ff3333");
+    const texA = createNameTexture(nameA, "#ffea00"); // Ragnarok gold/yellow name for readability
     const matA = new THREE.MeshBasicMaterial({
         map: texA,
         transparent: true,
@@ -122,7 +132,7 @@ export function initNameBars(modelName: string) {
     nameBarsA.renderOrder = 999;
     scene.add(nameBarsA);
 
-    const texB = createNameTexture(nameB, "#3388ff");
+    const texB = createNameTexture(nameB, "#00f0ff"); // High-contrast neon cyan for team B
     const matB = new THREE.MeshBasicMaterial({
         map: texB,
         transparent: true,

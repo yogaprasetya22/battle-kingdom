@@ -142,7 +142,7 @@ function getModelsForMatchup(baseModel: string): {
 
     if (model.includes("barbarian")) {
         tank = "Barbarian";
-        archer = "Rogue";
+        archer = "Rogue_Hooded";
         mage = "Mage";
     } else if (model.includes("knight")) {
         tank = "Knight";
@@ -154,7 +154,7 @@ function getModelsForMatchup(baseModel: string): {
         mage = "Mage";
     } else if (model.includes("rogue")) {
         tank = "Knight";
-        archer = "Rogue";
+        archer = "Rogue_Hooded";
         mage = "Mage";
     } else if (model.includes("ranger")) {
         tank = "Knight";
@@ -349,7 +349,7 @@ export function changeModel(
                     for (let i = 0; i < UNIT_COUNT; i++) {
                         const team = i < TEAM_SIZE ? TEAM_A : 1;
                         const localIdx = i < TEAM_SIZE ? i : i - TEAM_SIZE;
-                        let uType = localIdx % 3;
+                        let uType = localIdx % 6;
                         const healerCount = Math.max(
                             1,
                             Math.round(TEAM_SIZE * 0.02),
@@ -369,6 +369,10 @@ export function changeModel(
                             uType = 1;
                         } else if (matchup === "only_tank") {
                             uType = 0;
+                        } else if (matchup === "only_gunslinger") {
+                            uType = 4;
+                        } else if (matchup === "only_assassin") {
+                            uType = 5;
                         }
 
                         // Pilih material berdasarkan tim & tipe
@@ -456,19 +460,7 @@ const _lookTarget = new THREE.Vector3();
 const _q1 = new THREE.Quaternion();
 let animFrameCount = 0;
 
-// ── Billboard spatial hash for smart stacking ──
-interface BillEntry {
-    idx: number;
-    x: number;
-    yBase: number;
-    z: number;
-    distSq: number;
-    hpRatio: number;
-    team: number; // 0 = team A, 1 = team B
-    yOffset: number;
-}
-const _billData: BillEntry[] = [];
-let _billCount = 0;
+
 
 const LERP_SPEED = 12;
 
@@ -639,7 +631,6 @@ export function updateFrame(data: Float32Array, delta: number) {
                 }
                 unit.root.scale.setScalar(scale);
             }
-        }
 
         if (hp <= 0) {
             if (hp >= -10) {
@@ -731,29 +722,48 @@ export function updateFrame(data: Float32Array, delta: number) {
         }
 
         // Billboard positions — height based on unit scale
-        // ponytail: throttle billboard matrix update to every 3rd frame
-        const _billUpdate = animFrameCount % 3 === 0;
-        if (_billUpdate) {
-            // Use interpolated mesh Y to avoid jitter from raw sim ticks
-            const billY = unit.root.position.y + scale * 1.9 + 0.3;
-            // Distance culling: hide billboard beyond 80 world units
-            const tooFar = distSq > 6400;
-            if (hp > 0 && !tooFar) {
-                const maxHp = data[base + IDX_MAX_HP];
-                const hpRatio = maxHp > 0 ? hp / maxHp : 0;
-                // Defer to spatial hash pass
-                _billData[_billCount] = {
-                    idx: i,
-                    x,
-                    yBase: billY,
-                    z,
-                    distSq,
-                    hpRatio,
-                    team: i < TEAM_SIZE ? 0 : 1,
-                    yOffset: 0,
-                };
-                _billCount++;
-            } else {
+        // Use interpolated mesh coordinates to avoid jitter from raw simulation ticks
+        const billY = unit.root.position.y + scale * 1.9 + 0.3;
+        const meshX = unit.root.position.x;
+        const meshZ = unit.root.position.z;
+        
+        // Distance culling: hide billboard beyond 80 world units
+        const tooFar = distSq > 6400;
+        if (hp > 0 && !tooFar) {
+            const maxHp = data[base + IDX_MAX_HP];
+            const hpRatio = maxHp > 0 ? hp / maxHp : 0;
+            
+            // HP bar background
+            dummy.position.set(meshX, billY, meshZ);
+            dummy.scale.set(1, 1, 1);
+            dummy.lookAt(camera.position);
+            dummy.updateMatrix();
+            hpBarsBg.setMatrixAt(i, dummy.matrix);
+
+            // HP bar foreground
+            const clampedScaleX = Math.max(0.01, hpRatio);
+            dummy.position.set(meshX - (1 - clampedScaleX) * 0.5, billY, meshZ);
+            dummy.scale.set(clampedScaleX, 1, 1);
+            dummy.lookAt(camera.position);
+            dummy.updateMatrix();
+            hpBarsFg.setMatrixAt(i, dummy.matrix);
+
+            // Name label — above HP bar
+            dummy.position.set(meshX, billY + 0.35, meshZ);
+            dummy.scale.set(1, 1, 1);
+            dummy.lookAt(camera.position);
+            dummy.updateMatrix();
+            if (nameBarsA && nameBarsB) {
+                if (i < TEAM_SIZE) {
+                    nameBarsA.setMatrixAt(i, dummy.matrix);
+                } else {
+                    nameBarsB.setMatrixAt(i - TEAM_SIZE, dummy.matrix);
+                }
+            }
+
+            cdRings.setMatrixAt(i, _deadMatrix);
+            immuneRings.setMatrixAt(i, _deadMatrix);
+        } else {
                 // Dead or too far — hide
                 hpBarsBg.setMatrixAt(i, _deadMatrix);
                 hpBarsFg.setMatrixAt(i, _deadMatrix);
@@ -770,71 +780,6 @@ export function updateFrame(data: Float32Array, delta: number) {
         }
     }
 
-    // ── Pass 2: spatial hash for smart stacking ──
-    if (_billCount > 0) {
-        // Simple grid hash: 2-unit cell size; hash key = floor(x/2) | floor(z/2) << 16
-        const hashToIndices = new Map<number, number[]>();
-        for (let b = 0; b < _billCount; b++) {
-            const entry = _billData[b];
-            const key =
-                (Math.floor(entry.x * 0.5) & 0xffff) |
-                ((Math.floor(entry.z * 0.5) & 0xffff) << 16);
-            let arr = hashToIndices.get(key);
-            if (!arr) {
-                arr = [];
-                hashToIndices.set(key, arr);
-            }
-            arr.push(b);
-        }
-
-        // For each cluster: sort by distSq (nearest first), assign yOffset
-        hashToIndices.forEach((cluster) => {
-            if (cluster.length <= 1) return;
-            // Sort by distSq ascending (nearest = lowest yOffset)
-            cluster.sort((a, b) => _billData[a].distSq - _billData[b].distSq);
-            const baseY = _billData[cluster[0]].yBase;
-            for (let c = 0; c < cluster.length; c++) {
-                _billData[cluster[c]].yOffset = baseY + c * 0.45;
-            }
-        });
-
-        // Write matrices
-        for (let b = 0; b < _billCount; b++) {
-            const { idx, x, z, hpRatio, team, yOffset } = _billData[b];
-            const i = idx;
-
-            // HP bar background
-            dummy.position.set(x, yOffset, z);
-            dummy.scale.set(1, 1, 1);
-            dummy.lookAt(camera.position);
-            dummy.updateMatrix();
-            hpBarsBg.setMatrixAt(i, dummy.matrix);
-
-            // HP bar foreground
-            const clampedScaleX = Math.max(0.01, hpRatio);
-            dummy.position.set(x - (1 - clampedScaleX) * 0.5, yOffset, z);
-            dummy.scale.set(clampedScaleX, 1, 1);
-            dummy.lookAt(camera.position);
-            dummy.updateMatrix();
-            hpBarsFg.setMatrixAt(i, dummy.matrix);
-
-            // Name label — above HP bar
-            dummy.position.set(x, yOffset + 0.35, z);
-            dummy.scale.set(1, 1, 1);
-            dummy.lookAt(camera.position);
-            dummy.updateMatrix();
-            if (nameBarsA && nameBarsB) {
-                if (team === 0) {
-                    nameBarsA.setMatrixAt(i, dummy.matrix);
-                } else {
-                    nameBarsB.setMatrixAt(i - TEAM_SIZE, dummy.matrix);
-                }
-            }
-
-            cdRings.setMatrixAt(i, _deadMatrix);
-            immuneRings.setMatrixAt(i, _deadMatrix);
-        }
-    }
 
     if (needsMatrixUpload) {
         hpBarsBg.instanceMatrix.needsUpdate = true;
@@ -846,9 +791,6 @@ export function updateFrame(data: Float32Array, delta: number) {
             nameBarsB.instanceMatrix.needsUpdate = true;
         }
     }
-
-    // Reset for next frame
-    _billCount = 0;
 }
 
 export function resetUnitsVisual() {

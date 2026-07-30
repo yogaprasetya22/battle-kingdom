@@ -1,16 +1,24 @@
 <!DOCTYPE html>
 <html lang="id">
+
 <head>
   <!-- <script src="coi-serviceworker.js"></script> -->
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Battle Sim — 100 vs 100 | Three.js + Web Workers</title>
-  <meta name="description" content="Simulasi pertempuran massal 100 vs 100 unit menggunakan Pure Three.js dan Web Workers" />
+  <meta name="description"
+    content="Simulasi pertempuran massal 100 vs 100 unit menggunakan Pure Three.js dan Web Workers" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet" />
   <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
 
     body {
       background: #0f0f1a;
@@ -29,12 +37,14 @@
     /* HUD */
     #hud {
       position: fixed;
-      top: 0; left: 0; right: 0;
+      top: 0;
+      left: 0;
+      right: 0;
       display: flex;
       align-items: center;
       justify-content: space-between;
       padding: 16px 24px;
-      background: linear-gradient(to bottom, rgba(0,0,0,0.7) 0%, transparent 100%);
+      background: linear-gradient(to bottom, rgba(0, 0, 0, 0.7) 0%, transparent 100%);
       pointer-events: none;
       z-index: 10;
     }
@@ -69,16 +79,25 @@
     }
 
     .team-dot {
-      width: 12px; height: 12px;
+      width: 12px;
+      height: 12px;
       border-radius: 50%;
     }
-    .team-badge.a .team-dot { background: #ff4444; box-shadow: 0 0 8px #ff4444; }
-    .team-badge.b .team-dot { background: #4488ff; box-shadow: 0 0 8px #4488ff; }
+
+    .team-badge.a .team-dot {
+      background: #ff4444;
+      box-shadow: 0 0 8px #ff4444;
+    }
+
+    .team-badge.b .team-dot {
+      background: #4488ff;
+      box-shadow: 0 0 8px #4488ff;
+    }
 
     .vs-badge {
       font-size: 1.2rem;
       font-weight: 900;
-      color: rgba(255,255,255,0.4);
+      color: rgba(255, 255, 255, 0.4);
       letter-spacing: 0.1em;
     }
 
@@ -90,7 +109,7 @@
       font-weight: 600;
       letter-spacing: 0.15em;
       text-transform: uppercase;
-      color: rgba(255,255,255,0.4);
+      color: rgba(255, 255, 255, 0.4);
     }
 
     /* Controls */
@@ -125,27 +144,28 @@
     #btn-start {
       background: linear-gradient(135deg, #ff4444, #cc2200);
       color: #fff;
-      box-shadow: 0 4px 20px rgba(255,68,68,0.4);
+      box-shadow: 0 4px 20px rgba(255, 68, 68, 0.4);
     }
 
     #btn-start:not(:disabled):hover {
       transform: translateY(-2px);
-      box-shadow: 0 8px 28px rgba(255,68,68,0.6);
+      box-shadow: 0 8px 28px rgba(255, 68, 68, 0.6);
     }
 
     #btn-reset {
-      background: rgba(255,255,255,0.1);
-      color: rgba(255,255,255,0.8);
-      border: 1px solid rgba(255,255,255,0.2);
+      background: rgba(255, 255, 255, 0.1);
+      color: rgba(255, 255, 255, 0.8);
+      border: 1px solid rgba(255, 255, 255, 0.2);
       /* backdrop-filter: blur(8px); */
     }
 
     #btn-reset:not(:disabled):hover {
       transform: translateY(-2px);
-      background: rgba(255,255,255,0.2);
+      background: rgba(255, 255, 255, 0.2);
     }
 
-    #select-model, #select-matchup {
+    #select-model,
+    #select-matchup {
       padding: 12px 24px;
       background: rgba(0, 0, 0, 0.6);
       color: #fff;
@@ -168,17 +188,20 @@
       background-size: 16px;
     }
 
-    #select-model option, #select-matchup option {
+    #select-model option,
+    #select-matchup option {
       background-color: #11111e;
       color: #fff;
     }
 
-    #select-model:hover:not(:disabled), #select-matchup:hover:not(:disabled) {
+    #select-model:hover:not(:disabled),
+    #select-matchup:hover:not(:disabled) {
       background-color: rgba(255, 255, 255, 0.1);
       border-color: rgba(255, 255, 255, 0.4);
     }
 
-    #select-model:disabled, #select-matchup:disabled {
+    #select-model:disabled,
+    #select-matchup:disabled {
       opacity: 0.4;
       cursor: not-allowed;
     }
@@ -199,8 +222,15 @@
     }
 
     @keyframes fadeIn {
-      from { opacity: 0; transform: scale(0.95); }
-      to   { opacity: 1; transform: scale(1); }
+      from {
+        opacity: 0;
+        transform: scale(0.95);
+      }
+
+      to {
+        opacity: 1;
+        transform: scale(1);
+      }
     }
 
     #overlay h2 {
@@ -208,14 +238,14 @@
       font-weight: 600;
       letter-spacing: 0.2em;
       text-transform: uppercase;
-      color: rgba(255,255,255,0.5);
+      color: rgba(255, 255, 255, 0.5);
     }
 
     #overlay-msg {
       font-size: clamp(2rem, 6vw, 4rem);
       font-weight: 900;
       letter-spacing: -0.02em;
-      text-shadow: 0 0 40px rgba(255,255,255,0.3);
+      text-shadow: 0 0 40px rgba(255, 255, 255, 0.3);
     }
 
     #overlay-btn {
@@ -223,12 +253,12 @@
       color: #fff;
       padding: 14px 40px;
       font-size: 1rem;
-      box-shadow: 0 4px 24px rgba(68,136,255,0.5);
+      box-shadow: 0 4px 24px rgba(68, 136, 255, 0.5);
     }
 
     #overlay-btn:hover {
       transform: translateY(-2px);
-      box-shadow: 0 8px 32px rgba(68,136,255,0.7);
+      box-shadow: 0 8px 32px rgba(68, 136, 255, 0.7);
     }
 
     #stats-container {
@@ -265,8 +295,15 @@
       padding-left: 8px;
     }
 
-    .team-a-border { border-left-color: #ff4444; color: #ff4444; }
-    .team-b-border { border-left-color: #4488ff; color: #4488ff; }
+    .team-a-border {
+      border-left-color: #ff4444;
+      color: #ff4444;
+    }
+
+    .team-b-border {
+      border-left-color: #4488ff;
+      color: #4488ff;
+    }
 
     .stats-grid {
       display: grid;
@@ -303,7 +340,7 @@
       bottom: 80px;
       right: 20px;
       font-size: 0.65rem;
-      color: rgba(255,255,255,0.25);
+      color: rgba(255, 255, 255, 0.25);
       text-align: right;
       line-height: 1.6;
       pointer-events: none;
@@ -401,8 +438,13 @@
     }
 
     @keyframes rotate-bg {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
+      0% {
+        transform: rotate(0deg);
+      }
+
+      100% {
+        transform: rotate(360deg);
+      }
     }
 
     .loader-logo {
@@ -466,8 +508,359 @@
       color: #00ffaa;
       font-weight: bold;
     }
+
+    /* ── Model Viewer Overlay ── */
+    #viewer-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(8, 8, 17, 0.97);
+      z-index: 2000;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      animation: fadeIn 0.3s ease;
+    }
+
+    #viewer-overlay.active {
+      display: flex;
+    }
+
+    #viewer-close-bar {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 28px;
+      z-index: 30;
+      background: linear-gradient(to bottom, rgba(0, 0, 0, 0.6) 0%, transparent 100%);
+      pointer-events: none;
+    }
+
+    #viewer-char-name {
+      font-size: 1.6rem;
+      font-weight: 900;
+      letter-spacing: 0.04em;
+      color: #fff;
+      text-shadow: 0 0 24px rgba(255, 255, 255, 0.35);
+    }
+
+    #viewer-btn-close {
+      pointer-events: auto;
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      background: rgba(255, 68, 68, 0.15);
+      border: 1px solid rgba(255, 68, 68, 0.35);
+      color: #ff6666;
+      font-size: 1.15rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.25s ease;
+    }
+
+    #viewer-btn-close:hover {
+      background: rgba(255, 68, 68, 0.3);
+      border-color: rgba(255, 68, 68, 0.6);
+      box-shadow: 0 0 20px rgba(255, 68, 68, 0.25);
+      transform: scale(1.08);
+    }
+
+    #viewer-main {
+      flex: 1;
+      width: 100%;
+      display: flex;
+      align-items: stretch;
+      justify-content: center;
+      padding: 20px 20px 0 20px;
+      position: relative;
+      gap: 16px;
+    }
+
+    #viewer-canvas-container {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 60px;
+      position: relative;
+    }
+
+    #viewer-right-sidebar {
+      width: 380px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding: 12px;
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      overflow-y: auto;
+    }
+
+    #viewer-canvas-wrap {
+      width: 100%;
+      height: calc(100vh - 220px);
+      max-height: 75vh;
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: 0 0 60px rgba(68, 136, 255, 0.15), 0 0 120px rgba(0, 0, 0, 0.5);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: #1a1a2e;
+    }
+
+    .viewer-nav-btn {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: #fff;
+      font-size: 1.4rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.25s ease;
+      z-index: 20;
+    }
+
+    .viewer-nav-btn:hover {
+      background: rgba(255, 255, 255, 0.15);
+      border-color: rgba(255, 255, 255, 0.4);
+      transform: translateY(-50%) scale(1.1);
+      box-shadow: 0 0 24px rgba(255, 255, 255, 0.12);
+    }
+
+    #viewer-btn-prev {
+      left: 12px;
+    }
+
+    #viewer-btn-next {
+      right: 12px;
+    }
+
+    /* ── Bottom Panel ── */
+    #viewer-bottom-panel {
+      width: 100%;
+      padding: 14px 28px 20px 28px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      z-index: 20;
+    }
+
+    #viewer-anim-panel {
+      display: flex;
+      gap: 10px;
+    }
+
+    .viewer-anim-btn {
+      padding: 10px 22px;
+      border-radius: 50px;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      background: rgba(255, 255, 255, 0.06);
+      color: rgba(255, 255, 255, 0.8);
+      font-family: 'Inter', sans-serif;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .viewer-anim-btn:hover {
+      background: rgba(255, 255, 255, 0.15);
+      border-color: rgba(255, 255, 255, 0.35);
+      transform: translateY(-1px);
+    }
+
+    .viewer-anim-btn.active-anim {
+      background: rgba(68, 136, 255, 0.25);
+      border-color: rgba(68, 136, 255, 0.6);
+      color: #88bbff;
+      box-shadow: 0 0 12px rgba(68, 136, 255, 0.3);
+    }
+
+    #viewer-skill-panel {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: center;
+      max-width: 100%;
+    }
+
+    .viewer-skill-btn {
+      padding: 8px 18px;
+      border-radius: 50px;
+      border: 1px solid rgba(255, 170, 0, 0.3);
+      background: rgba(255, 170, 0, 0.08);
+      color: rgba(255, 200, 100, 0.9);
+      font-family: 'Inter', sans-serif;
+      font-size: 0.78rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+    }
+
+    .viewer-skill-btn:hover {
+      background: rgba(255, 170, 0, 0.2);
+      border-color: rgba(255, 170, 0, 0.6);
+      transform: translateY(-1px);
+      box-shadow: 0 0 16px rgba(255, 170, 0, 0.3);
+    }
+
+    /* ── Character Dots ── */
+    #viewer-char-dots {
+      display: flex;
+      gap: 8px;
+      padding: 2px 0;
+    }
+
+    .viewer-char-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.2);
+      transition: all 0.3s ease;
+      cursor: pointer;
+      pointer-events: auto;
+    }
+
+    .viewer-char-dot:hover {
+      background: rgba(255, 255, 255, 0.5);
+      transform: scale(1.3);
+    }
+
+    .viewer-char-dot.active {
+      background: #4488ff;
+      box-shadow: 0 0 10px rgba(68, 136, 255, 0.6);
+      transform: scale(1.4);
+    }
+
+    /* ── Weapon Offset Adjuster Panel ── */
+    #viewer-weapon-offset-panel {
+      width: 100%;
+      max-height: 800px;
+      overflow-y: auto;
+      margin-top: 8px;
+      padding: 12px;
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+    }
+
+    #viewer-loading-msg {
+      color: rgba(255, 255, 255, 0.5);
+      font-size: 0.85rem;
+      font-weight: 500;
+      letter-spacing: 0.05em;
+      animation: pulse-text 1.5s ease-in-out infinite;
+    }
+
+    @keyframes pulse-text {
+
+      0%,
+      100% {
+        opacity: 0.5;
+      }
+
+      50% {
+        opacity: 1;
+      }
+    }
+
+    /* ── Mobile Responsive ── */
+    @media (max-width: 768px) {
+      #viewer-main {
+        padding: 10px 52px 0 52px;
+      }
+
+      #viewer-canvas-wrap {
+        height: calc(100vh - 260px);
+        max-height: 60vh;
+        border-radius: 14px;
+      }
+
+      #viewer-char-name {
+        font-size: 1.2rem;
+      }
+
+      #viewer-close-bar {
+        height: 52px;
+        padding: 0 16px;
+      }
+
+      #viewer-btn-close {
+        width: 36px;
+        height: 36px;
+        font-size: 1rem;
+      }
+
+      .viewer-nav-btn {
+        width: 40px;
+        height: 40px;
+        font-size: 1.1rem;
+      }
+
+      #viewer-btn-prev {
+        left: 4px;
+      }
+
+      #viewer-btn-next {
+        right: 4px;
+      }
+
+      .viewer-anim-btn {
+        padding: 8px 14px;
+        font-size: 0.75rem;
+      }
+
+      .viewer-skill-btn {
+        padding: 6px 14px;
+        font-size: 0.7rem;
+      }
+
+      #viewer-bottom-panel {
+        padding: 10px 16px 14px 16px;
+        gap: 8px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      #viewer-main {
+        padding: 6px 44px 0 44px;
+      }
+
+      #viewer-canvas-wrap {
+        height: calc(100vh - 290px);
+        max-height: 50vh;
+      }
+
+      #viewer-anim-panel {
+        gap: 6px;
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+
+      .viewer-anim-btn {
+        padding: 7px 12px;
+        font-size: 0.7rem;
+      }
+    }
   </style>
 </head>
+
 <body>
   <!-- Modern Loading Suspense -->
   <div id="loader-overlay">
@@ -495,7 +888,8 @@
     <div style="color: #888; margin-bottom: 4px;">Latency: <span id="ms-val">16</span>ms</div>
     <div style="border-top: 1px solid rgba(255,255,255,0.1); padding-top: 4px; color: #aaa;">Worker Status:</div>
     <div style="color: #00ffaa;">Worker Ticks: <span id="worker-ticks">0</span></div>
-    <div style="border-top: 1px solid rgba(255,255,255,0.1); padding-top: 4px; color: #aaa; margin-top: 4px;">WebGL Diagnostics:</div>
+    <div style="border-top: 1px solid rgba(255,255,255,0.1); padding-top: 4px; color: #aaa; margin-top: 4px;">WebGL
+      Diagnostics:</div>
     <div style="color: #ffaa00;">Draw Calls: <span id="dc-val">0</span></div>
     <div style="color: #ff88ff;">Triangles: <span id="tri-val">0</span></div>
     <div style="color: #55aaff;">Geometries: <span id="geo-val">0</span></div>
@@ -529,6 +923,7 @@
       <option value="Rogue">Rogue</option>
       <option value="Rogue_Hooded">Rogue Hooded</option>
     </select>
+    <button id="btn-viewer" disabled>📖 Katalog Karakter</button>
     <select id="select-matchup" disabled>
       <option value="mix" selected>Campuran (Semua Kelas)</option>
       <option value="mage_vs_tank">Mage vs Tank</option>
@@ -558,6 +953,52 @@
     ⚙️ Web Worker: AI / Physics
   </div>
 
+  <!-- ── Model Viewer Overlay ── -->
+  <div id="viewer-overlay">
+    <!-- Top bar: nama + close -->
+    <div id="viewer-close-bar">
+      <div id="viewer-char-name">Knight</div>
+      <button id="viewer-btn-close" title="Tutup">✕</button>
+    </div>
+
+    <!-- Main area: canvas + nav buttons + right sidebar -->
+    <div id="viewer-main">
+      <!-- Left side: canvas container -->
+      <div id="viewer-canvas-container">
+        <button class="viewer-nav-btn" id="viewer-btn-prev" title="Sebelumnya">◀</button>
+        <div id="viewer-canvas-wrap">
+          <div id="viewer-loading-msg">Memuat karakter...</div>
+        </div>
+        <button class="viewer-nav-btn" id="viewer-btn-next" title="Selanjutnya">▶</button>
+      </div>
+
+      <!-- Right sidebar: weapon offset adjuster -->
+      <div id="viewer-right-sidebar">
+        <div id="viewer-weapon-offset-panel"></div>
+      </div>
+    </div>
+
+    <!-- Bottom panel: animasi + skill + dots -->
+    <div id="viewer-bottom-panel">
+      <div id="viewer-anim-panel">
+        <button class="viewer-anim-btn active-anim" data-anim="0">🧍 Idle</button>
+        <button class="viewer-anim-btn" data-anim="1">🏃 Run</button>
+        <button class="viewer-anim-btn" data-anim="2">⚔️ Attack</button>
+        <button class="viewer-anim-btn" data-anim="3">💀 Death</button>
+      </div>
+      <div id="viewer-skill-panel"></div>
+      <div id="viewer-char-dots">
+        <span class="viewer-char-dot active"></span>
+        <span class="viewer-char-dot"></span>
+        <span class="viewer-char-dot"></span>
+        <span class="viewer-char-dot"></span>
+        <span class="viewer-char-dot"></span>
+        <span class="viewer-char-dot"></span>
+      </div>
+    </div>
+  </div>
+
   <script type="module" src="/src/main.ts"></script>
 </body>
+
 </html>

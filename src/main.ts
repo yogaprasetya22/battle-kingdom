@@ -15,6 +15,7 @@ import {
     resetUnitsVisual,
 } from "./graphics/core/renderer";
 import { soundFX } from "./graphics/core/SoundFX";
+import { CharacterViewer } from "./graphics/viewer/CharacterViewer";
 
 // ---- Shared Buffer (bridge antara main thread & worker) ----
 const sharedBuffer = new SharedArrayBuffer(BUFFER_BYTES);
@@ -121,6 +122,7 @@ function enableControls() {
     btnReset.disabled = false;
     selectModel.disabled = false;
     selectMatchup.disabled = false;
+    if (btnViewer) btnViewer.disabled = false;
 }
 
 function disableControls() {
@@ -450,6 +452,113 @@ selectMatchup.addEventListener("change", () => {
     changeModel(selectModel.value, selectMatchup.value, () => {
         enableControls();
     });
+});
+
+// ── Model Viewer ──
+// Inisialisasi CharacterViewer (lazy — baru load saat user klik tombol)
+let characterViewer: CharacterViewer | null = null;
+let viewerLoaded = false;
+
+const viewerOverlay = document.getElementById(
+    "viewer-overlay",
+) as HTMLDivElement;
+const btnViewer = document.getElementById("btn-viewer") as HTMLButtonElement;
+const btnViewerClose = document.getElementById(
+    "viewer-btn-close",
+) as HTMLButtonElement;
+const btnViewerPrev = document.getElementById(
+    "viewer-btn-prev",
+) as HTMLButtonElement;
+const btnViewerNext = document.getElementById(
+    "viewer-btn-next",
+) as HTMLButtonElement;
+const viewerCanvasWrap = document.getElementById(
+    "viewer-canvas-wrap",
+) as HTMLDivElement;
+
+// Handler: buka viewer
+btnViewer.addEventListener("click", async () => {
+    // Hentikan pertempuran agar tidak bentrok
+    if (isRunning) {
+        isRunning = false;
+        resetWorkers();
+    }
+
+    // Tampilkan overlay
+    viewerOverlay.classList.add("active");
+
+    // Jika viewer belum pernah dibuat, buat sekarang
+    if (!characterViewer) {
+        characterViewer = new CharacterViewer();
+        characterViewer.attachToDOM(viewerCanvasWrap);
+
+        // Preload aset (dengan progress ke console)
+        await characterViewer.preloadAssets((msg, pct) => {
+            console.log(`[Viewer] ${msg} (${pct}%)`);
+        });
+
+        viewerLoaded = true;
+    }
+
+    // Mulai render loop viewer
+    characterViewer.startRenderLoop();
+
+    // Tampilkan karakter pertama
+    if (viewerLoaded) {
+        characterViewer.showCharacter(0);
+    }
+});
+
+// Handler: tutup viewer
+function closeViewer(): void {
+    if (characterViewer) {
+        characterViewer.stopRenderLoop();
+    }
+    viewerOverlay.classList.remove("active");
+}
+
+btnViewerClose.addEventListener("click", closeViewer);
+
+// Handler: navigasi kiri/kanan
+btnViewerPrev.addEventListener("click", () => {
+    if (characterViewer && viewerLoaded) {
+        characterViewer.prevCharacter();
+    }
+});
+
+btnViewerNext.addEventListener("click", () => {
+    if (characterViewer && viewerLoaded) {
+        characterViewer.nextCharacter();
+    }
+});
+
+// Handler: keyboard untuk navigasi viewer
+document.addEventListener("keydown", (e) => {
+    if (!viewerOverlay.classList.contains("active")) return;
+    if (e.key === "Escape") {
+        closeViewer();
+    } else if (e.key === "ArrowLeft") {
+        characterViewer?.prevCharacter();
+    } else if (e.key === "ArrowRight") {
+        characterViewer?.nextCharacter();
+    }
+});
+
+// Handler: tombol animasi di viewer
+document.addEventListener("click", (e) => {
+    const target = e.target as HTMLElement;
+    if (!target.classList.contains("viewer-anim-btn")) return;
+
+    const animState = parseInt(target.dataset.anim || "0", 10);
+    if (characterViewer) {
+        characterViewer.playAnimation(animState);
+
+        // Update active state UI
+        document.querySelectorAll(".viewer-anim-btn").forEach((btn) => {
+            btn.classList.remove("active-anim");
+        });
+        target.classList.add("active-anim");
+    }
 });
 
 // ---- Init sequence ----
