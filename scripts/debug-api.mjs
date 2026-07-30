@@ -1,4 +1,4 @@
-import { writeFileSync } from "node:fs";
+cimport { writeFileSync } from "node:fs";
 import { chromium } from "playwright";
 
 const browser = await chromium.launch({ headless: true });

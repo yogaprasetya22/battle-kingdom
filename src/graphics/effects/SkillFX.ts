@@ -1,201 +1,42 @@
 /**
- * SkillFX.ts — Luxury skill effects with geometry pooling, easing curves, screen shake.
- *
- * ponytail: camera imported directly (no scene.getObjectByName perf hit),
- * shared geo pool avoids new/dispose churn, activeFX[] central update retained.
+ * SkillFX.ts — Skill effect spawn functions.
+ * Infrastructure (pools, textures, easing, updateFX) lives in FXCore.ts.
  */
 
 import * as THREE from "three";
 import { camera } from "../core/scene";
 import { soundFX } from "../core/SoundFX";
 
-// ═══════════════════════════════════════════════════════════════
-// Easing curves — cheap math, big visual upgrade
-// ═══════════════════════════════════════════════════════════════
-function easeOutCubic(t: number): number {
-    const u = 1 - t;
-    return 1 - u * u * u;
-}
-function easeOutQuad(t: number): number {
-    return t * (2 - t);
-}
-function easeOutBack(t: number): number {
-    const c1 = 1.70158;
-    const c3 = c1 + 1;
-    return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
-}
-
-// ═══════════════════════════════════════════════════════════════
-// Shared geometry pool — reuse PlaneGeometry to avoid GC churn
-// ═══════════════════════════════════════════════════════════════
-const _geoPool = new Map<string, THREE.PlaneGeometry>();
-function pooledPlane(w: number, h: number): THREE.PlaneGeometry {
-    const key = `${w.toFixed(2)}x${h.toFixed(2)}`;
-    if (!_geoPool.has(key)) _geoPool.set(key, new THREE.PlaneGeometry(w, h));
-    return _geoPool.get(key)!;
-}
-
-// ═══════════════════════════════════════════════════════════════
-// Texture loading — once at module init
-// ═══════════════════════════════════════════════════════════════
-const texLoader = new THREE.TextureLoader();
-const baseUrl = import.meta.env.BASE_URL;
-function loadTex(path: string) {
-    return texLoader.load(baseUrl + path);
-}
-
-const starTex = loadTex("particle-pack/PNG (Transparent)/star_05.png");
-const circleTex = loadTex("particle-pack/PNG (Transparent)/circle_03.png");
-const sparkTex = loadTex("particle-pack/PNG (Transparent)/spark_04.png");
-const smokeTex = loadTex("particle-pack/PNG (Transparent)/smoke_04.png");
-
-const fireTex = loadTex("particle-pack/PNG (Transparent)/fire_01.png");
-const flameTex = loadTex("particle-pack/PNG (Transparent)/flame_01.png");
-const scorchTex = loadTex("particle-pack/PNG (Transparent)/scorch_01.png");
-const lightTex = loadTex("particle-pack/PNG (Transparent)/light_02.png");
-const magicTex = loadTex("particle-pack/PNG (Transparent)/magic_01.png");
-const star2Tex = loadTex("particle-pack/PNG (Transparent)/star_08.png");
-
-// ═══════════════════════════════════════════════════════════════
-// Shared uniform for shader-based effects
-// ═══════════════════════════════════════════════════════════════
-export const effectUniforms = { uTime: { value: 0 } };
-
-// Generic MeshBasicMaterial pool to avoid GPU compile & GC memory churn
-interface MatSpecs {
-    color?: number;
-    map?: THREE.Texture | null;
-    transparent?: boolean;
-    opacity?: number;
-    blending?: THREE.Blending;
-    depthWrite?: boolean;
-    depthTest?: boolean;
-    side?: THREE.Side;
-}
-const _matPool = new Map<string, THREE.MeshBasicMaterial[]>();
-function getPooledMaterial(specs: MatSpecs): THREE.MeshBasicMaterial {
-    const mapKey = specs.map ? specs.map.uuid : "none";
-    const key = `${specs.color ?? 0xffffff}_${mapKey}_${specs.transparent ?? false}_${specs.blending ?? THREE.NormalBlending}_${specs.depthWrite ?? true}_${specs.depthTest ?? true}_${specs.side ?? THREE.FrontSide}`;
-    
-    let list = _matPool.get(key);
-    if (!list) {
-        list = [];
-        _matPool.set(key, list);
-    }
-    
-    if (list.length > 0) {
-        const mat = list.pop()!;
-        if (specs.opacity !== undefined) mat.opacity = specs.opacity;
-        return mat;
-    }
-    
-    return new THREE.MeshBasicMaterial({
-        color: specs.color,
-        map: specs.map,
-        transparent: specs.transparent,
-        opacity: specs.opacity,
-        blending: specs.blending,
-        depthWrite: specs.depthWrite,
-        depthTest: specs.depthTest,
-        side: specs.side
-    });
-}
-function releasePooledMaterial(mat: THREE.MeshBasicMaterial) {
-    const mapKey = mat.map ? mat.map.uuid : "none";
-    const key = `${mat.color.getHex()}_${mapKey}_${mat.transparent}_${mat.blending}_${mat.depthWrite}_${mat.depthTest}_${mat.side}`;
-    
-    let list = _matPool.get(key);
-    if (!list) {
-        list = [];
-        _matPool.set(key, list);
-    }
-    if (list.length < 40) {
-        list.push(mat);
-    } else {
-        mat.dispose();
-    }
-}
-
-
-// ═══════════════════════════════════════════════════════════════
-// Material factories for vertex effects (Iron Fortitude, Frost Nova)
-// ═══════════════════════════════════════════════════════════════
-export function createIronFortitudeMat(
-    baseColor: THREE.Color,
-): THREE.MeshStandardMaterial {
-    const mat = new THREE.MeshStandardMaterial({
-        color: baseColor,
-        roughness: 0.2,
-        metalness: 0.8,
-    });
-    mat.onBeforeCompile = (shader) => {
-        shader.uniforms.uEffectTime = effectUniforms.uTime;
-        shader.vertexShader = shader.vertexShader.replace(
-            "#include <project_vertex>",
-            `float p = sin(uEffectTime * 5.0) * 0.5 + 0.5;
-transformed += objectNormal * p * 0.18;
-#include <project_vertex>`,
-        );
-        shader.fragmentShader = shader.fragmentShader.replace(
-            "#include <dithering_fragment>",
-            `float fp = sin(uEffectTime * 5.0) * 0.5 + 0.5;
-gl_FragColor.rgb += vec3(1.0, 0.55, 0.0) * fp * 1.1;
-#include <dithering_fragment>`,
-        );
-    };
-    return mat;
-}
-
-export function createFrostNovaMat(): THREE.MeshStandardMaterial {
-    const mat = new THREE.MeshStandardMaterial({
-        color: new THREE.Color(0x33aaff),
-        roughness: 0.05,
-        metalness: 0.1,
-        emissive: new THREE.Color(0x0033cc),
-        emissiveIntensity: 0.7,
-    });
-    mat.onBeforeCompile = (shader) => {
-        shader.uniforms.uEffectTime = effectUniforms.uTime;
-        shader.vertexShader = shader.vertexShader.replace(
-            "#include <project_vertex>",
-            `float len = length(transformed);
-float n = sin(len * 12.0 + uEffectTime * 3.0) * 0.5 + 0.5;
-transformed += objectNormal * n * 0.22;
-#include <project_vertex>`,
-        );
-    };
-    return mat;
-}
-
-// ═══════════════════════════════════════════════════════════════
-// Central FX update list + budget
-// ═══════════════════════════════════════════════════════════════
-// ponytail: 500v500 fires ~5x more skills/sec — tighter budget & steeper quality falloff
-const MAX_FX_HARSH = 20;
-export const activeFX: Array<{ update: (delta: number) => boolean }> = [];
-export function updateFX(delta: number) {
-    for (let i = activeFX.length - 1; i >= 0; i--) {
-        if (!activeFX[i].update(delta)) activeFX.splice(i, 1);
-    }
-}
-export function canSpawnFX(): boolean {
-    return activeFX.length < MAX_FX_HARSH;
-}
-/** Scale particle count when busy: <5 FX = 1.0, 5-12 FX = 0.4, >12 FX = 0.15 */
-export function fxQualityScale(): number {
-    const n = activeFX.length;
-    if (n < 5)  return 1.0;
-    if (n < 12) return 0.4;
-    return 0.15;
-}
-
-// Pooled ring geometry — reuse for tank rings
-const _ringGeoPool = new Map<string, THREE.RingGeometry>();
-function pooledRing(inner: number, outer: number, segs: number, thetaStart = 0, thetaLength = Math.PI * 2): THREE.RingGeometry {
-    const key = `${inner.toFixed(2)}_${outer.toFixed(2)}_${segs}_${thetaStart.toFixed(2)}_${thetaLength.toFixed(2)}`;
-    if (!_ringGeoPool.has(key)) _ringGeoPool.set(key, new THREE.RingGeometry(inner, outer, segs, 1, thetaStart, thetaLength));
-    return _ringGeoPool.get(key)!;
-}
+import {
+    easeOutCubic,
+    easeOutQuad,
+    easeOutBack,
+    pooledPlane,
+    pooledRing,
+    starTex,
+    circleTex,
+    sparkTex,
+    smokeTex,
+    fireTex,
+    flameTex,
+    scorchTex,
+    lightTex,
+    magicTex,
+    star2Tex,
+    effectUniforms,
+    getPooledMaterial,
+    releasePooledMaterial,
+    createIronFortitudeMat,
+    createFrostNovaMat,
+    activeFX,
+    updateFX,
+    canSpawnFX,
+    fxQualityScale,
+    getCamQuad,
+    _tempObj,
+    spawnScreenFlash,
+    spawnExplosion,
+} from "./FXCore";
 
 // Pre-rendered taunt emoji — one canvas, recycled
 let _tauntTex: THREE.CanvasTexture | null = null;
@@ -216,119 +57,16 @@ function getTauntTex(): THREE.CanvasTexture {
     return _tauntTex;
 }
 
-// ═══════════════════════════════════════════════════════════════
-// Reusable helpers
-// ═══════════════════════════════════════════════════════════════
-const _camQuad = new THREE.Quaternion();
-const _tempObj = new THREE.Object3D();
-function getCamQuad(): THREE.Quaternion {
-    _camQuad.copy(camera.quaternion);
-    return _camQuad;
-}
-
-// Screen flash overlay — huge billboard flash at position
-function spawnScreenFlash(
-    scene: THREE.Scene,
-    pos: THREE.Vector3,
-    color: number,
-    size: number,
-): THREE.Mesh {
-    const geo = new THREE.PlaneGeometry(size, size);
-    const mat = new THREE.MeshBasicMaterial({
-        map: lightTex,
-        color,
-        transparent: true,
-        opacity: 1.0,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false,
-        side: THREE.DoubleSide,
-    });
-    const mesh = new THREE.Mesh(geo, mat);
-    mesh.position.copy(pos);
-    mesh.quaternion.copy(getCamQuad());
-    scene.add(mesh);
-    return mesh;
-}
-
-// ═══════════════════════════════════════════════════════════════
-// 1. Generic Explosion — shared material, no clone, quality-scaled
-// ═══════════════════════════════════════════════════════════════
-function spawnExplosion(
-    scene: THREE.Scene,
-    pos: THREE.Vector3,
-    color: number,
-    count: number = 20,
-    size: number = 0.25,
-) {
-    const qScale = fxQualityScale();
-    const actualCount = Math.max(4, Math.round(count * qScale));
-    if (!canSpawnFX()) return;
-
-    const geo = pooledPlane(size, size);
-    const mat = new THREE.MeshBasicMaterial({
-        map: sparkTex,
-        color,
-        transparent: true,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false,
-        side: THREE.DoubleSide,
-    });
-    const instancedMesh = new THREE.InstancedMesh(geo, mat, actualCount);
-    instancedMesh.frustumCulled = false;
-    scene.add(instancedMesh);
-
-    const positions: THREE.Vector3[] = [];
-    const velocities: THREE.Vector3[] = [];
-    const rotations: number[] = [];
-
-    for (let i = 0; i < actualCount; i++) {
-        positions.push(pos.clone());
-        rotations.push(Math.random() * Math.PI * 2);
-        
-        const theta = Math.random() * Math.PI * 2;
-        const phi = Math.acos(Math.random() * 2 - 1);
-        const speed = 1.2 + Math.random() * 2.5;
-        velocities.push(
-            new THREE.Vector3(
-                Math.sin(phi) * Math.cos(theta) * speed,
-                Math.sin(phi) * Math.sin(theta) * speed + 0.7,
-                Math.cos(phi) * speed,
-            ),
-        );
-    }
-
-    let age = 0;
-    const duration = 0.5;
-    activeFX.push({
-        update(delta) {
-            age += delta;
-            const t = Math.min(1, age / duration);
-            if (t >= 1) {
-                scene.remove(instancedMesh);
-                instancedMesh.dispose();
-                mat.dispose();
-                return false;
-            }
-            const et = easeOutCubic(t);
-            mat.opacity = 1 - et;
-            
-            const cq = camera.quaternion;
-            for (let i = 0; i < actualCount; i++) {
-                positions[i].addScaledVector(velocities[i], delta);
-                
-                _tempObj.position.copy(positions[i]);
-                _tempObj.quaternion.copy(cq);
-                _tempObj.rotateZ(rotations[i]);
-                _tempObj.scale.setScalar(1 - et);
-                _tempObj.updateMatrix();
-                
-                instancedMesh.setMatrixAt(i, _tempObj.matrix);
-            }
-            instancedMesh.instanceMatrix.needsUpdate = true;
-            return true;
-        },
-    });
-}
+// Re-export shared infrastructure for external consumers
+export {
+    effectUniforms,
+    activeFX,
+    updateFX,
+    canSpawnFX,
+    fxQualityScale,
+    createIronFortitudeMat,
+    createFrostNovaMat,
+};
 
 // ═══════════════════════════════════════════════════════════════
 // 2. Chain Lightning — zigzag with intense flicker + hit sparks
@@ -339,7 +77,12 @@ export function spawnLightningFX(
     team?: number,
 ): void {
     if (points.length < 2) return;
-    soundFX.playLightning(points[0].x, points[0].y, points[0].z, camera.position);
+    soundFX.playLightning(
+        points[0].x,
+        points[0].y,
+        points[0].z,
+        camera.position,
+    );
     const SEGMENTS = 8; // 8 segments per hop
 
     const isBlue = team === 1;
@@ -382,7 +125,10 @@ export function spawnLightningFX(
             const mesh = new THREE.Mesh(geo, mat);
             mesh.frustumCulled = false;
             // Position at midpoint
-            const mid = new THREE.Vector3().copy(lastPt).add(nextPt).multiplyScalar(0.5);
+            const mid = new THREE.Vector3()
+                .copy(lastPt)
+                .add(nextPt)
+                .multiplyScalar(0.5);
             mesh.position.copy(mid);
             mesh.lookAt(nextPt);
             mesh.rotateX(Math.PI / 2);
@@ -412,7 +158,7 @@ export function spawnLightningFX(
             // Flicker effect: random opacity drops
             const flicker = Math.random() > 0.35 ? 1.0 : 0.15;
             mat.opacity = 0.95 * (1 - t) * flicker;
-            
+
             // Jitter scale slightly to simulate high voltage vibration
             const scale = 0.85 + Math.random() * 0.3;
             meshes.forEach((m) => {
@@ -497,7 +243,11 @@ export function spawnArrowVolleyFX(
         depthWrite: false,
         side: THREE.DoubleSide,
     });
-    const impacts = new THREE.InstancedMesh(impactRingGeo, impactRingMat, COUNT);
+    const impacts = new THREE.InstancedMesh(
+        impactRingGeo,
+        impactRingMat,
+        COUNT,
+    );
     impacts.frustumCulled = false;
     scene.add(impacts);
 
@@ -616,7 +366,6 @@ export function spawnArrowVolleyFX(
 // 4. Meteor Explosion — scorch, shockwave, smoke, embers, screen flash
 // ═══════════════════════════════════════════════════════════════
 function spawnMeteorExplosion(scene: THREE.Scene, pos: THREE.Vector3) {
-
     // Scorch mark
     const scorchGeo = new THREE.PlaneGeometry(3.2, 3.2);
     const scorchMat = new THREE.MeshBasicMaterial({
@@ -684,11 +433,13 @@ function spawnMeteorExplosion(scene: THREE.Scene, pos: THREE.Vector3) {
     const smokeVels: THREE.Vector3[] = [];
     const smokeScales: number[] = [];
     for (let i = 0; i < SMOKE; i++) {
-        smokePositions.push(new THREE.Vector3(
-            pos.x + (Math.random() - 0.5) * 1.0,
-            pos.y + 0.3,
-            pos.z + (Math.random() - 0.5) * 1.0,
-        ));
+        smokePositions.push(
+            new THREE.Vector3(
+                pos.x + (Math.random() - 0.5) * 1.0,
+                pos.y + 0.3,
+                pos.z + (Math.random() - 0.5) * 1.0,
+            ),
+        );
         smokeVels.push(
             new THREE.Vector3(
                 (Math.random() - 0.5) * 0.5,
@@ -746,7 +497,7 @@ function spawnMeteorExplosion(scene: THREE.Scene, pos: THREE.Vector3) {
                 scene.remove(ring2);
                 scene.remove(smokeMesh);
                 scene.remove(emberMesh);
-                
+
                 smokeMesh.dispose();
                 emberMesh.dispose();
                 smokeMat.dispose();
@@ -779,12 +530,12 @@ function spawnMeteorExplosion(scene: THREE.Scene, pos: THREE.Vector3) {
             ring2Mat.opacity = Math.max(0, 1 - (t - 0.1) / 0.9);
 
             const cq = camera.quaternion;
-            
+
             // Update smoke
             for (let i = 0; i < SMOKE; i++) {
                 smokePositions[i].addScaledVector(smokeVels[i], delta);
                 smokeScales[i] += delta * 2;
-                
+
                 _tempObj.position.copy(smokePositions[i]);
                 _tempObj.quaternion.copy(cq);
                 _tempObj.scale.setScalar(smokeScales[i]);
@@ -798,7 +549,7 @@ function spawnMeteorExplosion(scene: THREE.Scene, pos: THREE.Vector3) {
             for (let i = 0; i < EMBER; i++) {
                 emberPositions[i].addScaledVector(emberVels[i], delta);
                 emberVels[i].y -= 9.8 * delta;
-                
+
                 _tempObj.position.copy(emberPositions[i]);
                 _tempObj.quaternion.copy(cq);
                 _tempObj.scale.setScalar((1 - et) * emberScales[i]);
@@ -1175,7 +926,7 @@ export function spawnTauntFX(
                 scene.remove(scorch);
                 scene.remove(icon);
                 scene.remove(instMesh);
-                
+
                 releasePooledMaterial(swMat);
                 releasePooledMaterial(ringMat);
                 releasePooledMaterial(ring2Mat);
@@ -1217,7 +968,7 @@ export function spawnTauntFX(
             for (let i = 0; i < PCOUNT; i++) {
                 pOffsets[i].addScaledVector(pVels[i], delta);
                 pVels[i].y -= 8 * delta;
-                
+
                 _tempObj.position.copy(pOffsets[i]);
                 _tempObj.quaternion.copy(cq);
                 _tempObj.scale.setScalar(1.0 - et * 0.5);
@@ -1355,7 +1106,7 @@ export function spawnShieldBashFX(
                 scene.remove(shock2);
                 scene.remove(flash);
                 scene.remove(instMesh);
-                
+
                 releasePooledMaterial(arcMat);
                 releasePooledMaterial(shockMat);
                 releasePooledMaterial(shock2Mat);
@@ -1388,7 +1139,7 @@ export function spawnShieldBashFX(
             for (let i = 0; i < SK; i++) {
                 sparkOffsets[i].addScaledVector(sparkVels[i], delta);
                 sparkVels[i].y -= 12 * delta;
-                
+
                 _tempObj.position.copy(sparkOffsets[i]);
                 _tempObj.quaternion.copy(cq);
                 _tempObj.scale.setScalar(1 - et);
@@ -1745,7 +1496,13 @@ export function spawnIronFortitudeAuraFX(
     for (let i = 0; i < SPS; i++) {
         const a = Math.random() * Math.PI * 2;
         const r = 0.2 + Math.random() * 1.2;
-        spOffsets.push(new THREE.Vector3(x + Math.cos(a) * r, y + 0.1, z + Math.sin(a) * r));
+        spOffsets.push(
+            new THREE.Vector3(
+                x + Math.cos(a) * r,
+                y + 0.1,
+                z + Math.sin(a) * r,
+            ),
+        );
         spVels.push(
             new THREE.Vector3(
                 (Math.random() - 0.5) * 0.6,
@@ -1767,7 +1524,7 @@ export function spawnIronFortitudeAuraFX(
                 scene.remove(ring3);
                 scene.remove(glyph);
                 scene.remove(instMesh);
-                
+
                 releasePooledMaterial(ringMat);
                 releasePooledMaterial(ring2Mat);
                 releasePooledMaterial(ring3Mat);
@@ -1793,7 +1550,7 @@ export function spawnIronFortitudeAuraFX(
             // Inner ring — fastest
             ring3.position.y = y + 0.08 + et * 5.5;
             ring3.scale.setScalar(1 + et * 0.8);
-            ring3.rotation.z += 0.10;
+            ring3.rotation.z += 0.1;
             ring3Mat.opacity = 0.9 * (1 - et) * (1 - et);
 
             // Glyph — rotates and fades
@@ -1807,7 +1564,7 @@ export function spawnIronFortitudeAuraFX(
             for (let i = 0; i < SPS; i++) {
                 spOffsets[i].addScaledVector(spVels[i], delta);
                 spVels[i].y += Math.sin(age * 8 + i) * 0.3 * delta;
-                
+
                 _tempObj.position.copy(spOffsets[i]);
                 _tempObj.quaternion.copy(cq);
                 _tempObj.scale.setScalar(1 - et);
@@ -1916,6 +1673,97 @@ export function spawnBasicAttackFX(
                 return true;
             },
         });
+    } else if (uType === 4) {
+        // Gunslinger: Fast bullet trail projectile with impact
+        soundFX.playBow(start.x, start.y, start.z, camera.position);
+        let age = 0;
+        const flight = 0.15;
+        let trail: THREE.Mesh | null = null;
+        let trailMat: THREE.MeshBasicMaterial | null = null;
+
+        activeFX.push({
+            update(delta) {
+                age += delta;
+                if (!trail) {
+                    const trailGeo = new THREE.CylinderGeometry(0.04, 0.04, 1.0, 4);
+                    trailMat = new THREE.MeshBasicMaterial({
+                        color: 0xffcc44,
+                        transparent: true,
+                        opacity: 0.95,
+                        blending: THREE.AdditiveBlending,
+                        depthWrite: false,
+                    });
+                    trail = new THREE.Mesh(trailGeo, trailMat);
+                    trail.frustumCulled = false;
+                    trail.position.copy(start);
+                    trail.lookAt(end);
+                    trail.rotateX(Math.PI / 2);
+                    scene.add(trail);
+                }
+                const t = Math.min(1, age / flight);
+                if (t >= 1) {
+                    scene.remove(trail!);
+                    trail!.geometry.dispose();
+                    trailMat!.dispose();
+                    spawnExplosion(scene, end, 0xffaa22, 10, 0.12);
+                    return false;
+                }
+                trail!.position.lerpVectors(start, end, easeOutQuad(t));
+                return true;
+            },
+        });
+    } else if (uType === 5) {
+        // Assassin: Quick melee slash with impact sparks
+        soundFX.playSlash(end.x, end.y, end.z, camera.position);
+        let age = 0;
+        const slashLife = 0.15;
+        const mid = new THREE.Vector3().lerpVectors(start, end, 0.5);
+        mid.y += 0.3;
+
+        activeFX.push({
+            update(delta) {
+                age += delta;
+                const t = age / slashLife;
+                if (t < 0.03) {
+                    const arcGeo = new THREE.PlaneGeometry(1.4, 0.3);
+                    const arcMat = new THREE.MeshBasicMaterial({
+                        color: 0xff5533,
+                        transparent: true,
+                        opacity: 0.75,
+                        blending: THREE.AdditiveBlending,
+                        depthWrite: false,
+                        side: THREE.DoubleSide,
+                    });
+                    const arcMesh = new THREE.Mesh(arcGeo, arcMat);
+                    arcMesh.position.copy(mid);
+                    arcMesh.quaternion.copy(getCamQuad());
+                    arcMesh.frustumCulled = false;
+                    scene.add(arcMesh);
+
+                    let arcAge = 0;
+                    activeFX.push({
+                        update(d2) {
+                            arcAge += d2;
+                            const at = arcAge / 0.16;
+                            if (at >= 1) {
+                                scene.remove(arcMesh);
+                                arcMesh.geometry.dispose();
+                                arcMat.dispose();
+                                return false;
+                            }
+                            arcMat.opacity = 0.75 * (1 - at);
+                            arcMesh.scale.set(1 + at * 0.4, 1, 1);
+                            return true;
+                        },
+                    });
+                }
+                if (t >= 1) {
+                    spawnExplosion(scene, end, 0xff4422, 5, 0.08);
+                    return false;
+                }
+                return true;
+            },
+        });
     }
 }
 
@@ -1946,12 +1794,12 @@ export function spawnIceShatterFX(
         mesh.position.set(
             x + (Math.random() - 0.5) * 0.4,
             y + (Math.random() - 0.5) * 0.4,
-            z + (Math.random() - 0.5) * 0.4
+            z + (Math.random() - 0.5) * 0.4,
         );
         mesh.rotation.set(
             Math.random() * Math.PI,
             Math.random() * Math.PI,
-            Math.random() * Math.PI
+            Math.random() * Math.PI,
         );
         // Random scale for variety
         const scale = 0.5 + Math.random() * 0.8;
@@ -1966,15 +1814,15 @@ export function spawnIceShatterFX(
             new THREE.Vector3(
                 Math.cos(angle) * speed,
                 2.0 + Math.random() * 2.5, // fly up initially
-                Math.sin(angle) * speed
-            )
+                Math.sin(angle) * speed,
+            ),
         );
         rotVels.push(
             new THREE.Vector3(
                 (Math.random() - 0.5) * 6,
                 (Math.random() - 0.5) * 6,
-                (Math.random() - 0.5) * 6
-            )
+                (Math.random() - 0.5) * 6,
+            ),
         );
     }
 
@@ -2005,7 +1853,8 @@ export function spawnIceShatterFX(
                 mesh.rotation.y += rotVels[i].y * delta;
                 mesh.rotation.z += rotVels[i].z * delta;
                 // Fade out
-                (mesh.material as THREE.MeshStandardMaterial).opacity = 0.85 * (1 - t);
+                (mesh.material as THREE.MeshStandardMaterial).opacity =
+                    0.85 * (1 - t);
             }
             return true;
         },
@@ -2016,7 +1865,7 @@ export function spawnHealFX(
     scene: THREE.Scene,
     start: THREE.Vector3,
     end: THREE.Vector3,
-    isRejuvenation: boolean = false
+    isRejuvenation: boolean = false,
 ) {
     const color = isRejuvenation ? 0x00ff88 : 0x33ff66; // bright neon green / mint green
 
@@ -2028,7 +1877,7 @@ export function spawnHealFX(
         transparent: true,
         opacity: 0.75,
         blending: THREE.AdditiveBlending,
-        depthWrite: false
+        depthWrite: false,
     });
 
     const beam = new THREE.Mesh(geo, mat);
@@ -2040,14 +1889,14 @@ export function spawnHealFX(
     // 2. Spiral vortex sparkles at the target
     const sparkleCount = isRejuvenation ? 18 : 10;
     const sparkles: THREE.Mesh[] = [];
-    
+
     const sGeo = new THREE.DodecahedronGeometry(0.08);
     const sMat = new THREE.MeshBasicMaterial({
         color: color,
         transparent: true,
         opacity: 0.95,
         blending: THREE.AdditiveBlending,
-        depthWrite: false
+        depthWrite: false,
     });
 
     for (let i = 0; i < sparkleCount; i++) {
@@ -2075,11 +1924,11 @@ export function spawnHealFX(
                 const theta = offsetTime * 14.0; // rotation speed
                 const radius = 0.5 * (1.0 - t * 0.7); // spiral narrows slightly
                 const height = (offsetTime * 2.5) % 2.0; // rise up to 2 units
-                
+
                 sparkles[i].position.set(
                     end.x + radius * Math.cos(theta),
                     end.y - 0.2 + height,
-                    end.z + radius * Math.sin(theta)
+                    end.z + radius * Math.sin(theta),
                 );
                 sparkles[i].scale.setScalar((1.0 - t) * 0.9);
             }
@@ -2097,109 +1946,123 @@ export function spawnHealFX(
                 return false;
             }
             return true;
-        }
+        },
     });
 }
 
-export function spawnDivineShieldFX(scene: THREE.Scene, targetPos: THREE.Vector3) {
-    // 1. Double-shell golden shield (Outer wireframe + Inner solid glowing sphere)
-    const geoOuter = new THREE.SphereGeometry(0.8, 14, 14);
-    const matOuter = new THREE.MeshBasicMaterial({
-        color: 0xffd700, // Shiny gold
-        transparent: true,
-        opacity: 0.55,
-        wireframe: true,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false
-    });
-    const shieldOuter = new THREE.Mesh(geoOuter, matOuter);
-    shieldOuter.position.copy(targetPos);
-    scene.add(shieldOuter);
+export function spawnDivineShieldFX(
+    scene: THREE.Scene,
+    targetPos: THREE.Vector3,
+) {
+    // ── Golden Rune Circle + Rising Light Pillar ──
 
-    const geoInner = new THREE.SphereGeometry(0.72, 12, 12);
-    const matInner = new THREE.MeshBasicMaterial({
-        color: 0xffaa00, // Orange-gold
-        transparent: true,
-        opacity: 0.25,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false
-    });
-    const shieldInner = new THREE.Mesh(geoInner, matInner);
-    shieldInner.position.copy(targetPos);
-    scene.add(shieldInner);
-
-    // 2. Small orbiting golden stars
-    const starCount = 6;
-    const stars: THREE.Mesh[] = [];
-    const starGeo = new THREE.DodecahedronGeometry(0.06);
-    const starMat = new THREE.MeshBasicMaterial({
-        color: 0xffe875,
+    // 1. Rune ring on ground — rotates, scales up, fades
+    const ringGeo = new THREE.RingGeometry(0.3, 1.1, 48, 1, 0, Math.PI * 2);
+    const ringMat = new THREE.MeshBasicMaterial({
+        color: 0xffd700,
+        side: THREE.DoubleSide,
         transparent: true,
         opacity: 0.9,
         blending: THREE.AdditiveBlending,
-        depthWrite: false
+        depthWrite: false,
     });
+    const ring = new THREE.Mesh(ringGeo, ringMat);
+    ring.rotation.x = -Math.PI / 2;
+    ring.position.set(targetPos.x, targetPos.y + 0.05, targetPos.z);
+    scene.add(ring);
 
-    for (let i = 0; i < starCount; i++) {
-        const star = new THREE.Mesh(starGeo, starMat);
-        scene.add(star);
-        stars.push(star);
+    // 2. Rising light pillar
+    const pillarGeo = new THREE.CylinderGeometry(0.15, 0.5, 3.5, 16, 1, true);
+    const pillarMat = new THREE.MeshBasicMaterial({
+        color: 0xffdf80,
+        transparent: true,
+        opacity: 0.6,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+    });
+    const pillar = new THREE.Mesh(pillarGeo, pillarMat);
+    pillar.position.set(targetPos.x, targetPos.y + 1.75, targetPos.z);
+    scene.add(pillar);
+
+    // 3. Floating golden rune particles orbiting the unit
+    const runeCount = 10;
+    const runeGeo = new THREE.DodecahedronGeometry(0.05);
+    const runeMat = new THREE.MeshBasicMaterial({
+        color: 0xffe066,
+        transparent: true,
+        opacity: 0.85,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+    });
+    const runes: THREE.Mesh[] = [];
+    const runeAngles: number[] = [];
+    const runeSpeeds: number[] = [];
+    const runeHeights: number[] = [];
+
+    for (let i = 0; i < runeCount; i++) {
+        const r = new THREE.Mesh(runeGeo, runeMat);
+        scene.add(r);
+        runes.push(r);
+        runeAngles.push((Math.PI * 2 * i) / runeCount);
+        runeSpeeds.push(2.5 + Math.random() * 3.5);
+        runeHeights.push(0.6 + Math.random() * 2.0);
     }
 
     let age = 0;
-    const duration = 1.3; // Visually matches shield active state
+    const duration = 1.3;
 
     activeFX.push({
         update(delta) {
             age += delta;
             const t = Math.min(1.0, age / duration);
 
-            // Counter-rotation of inner/outer shield shells
-            shieldOuter.rotation.y += delta * 1.8;
-            shieldOuter.rotation.x += delta * 0.7;
-            shieldInner.rotation.y -= delta * 1.2;
+            // Ring: expand + rotate + fade
+            const ringScale = 0.2 + easeOutBack(t) * 2.0;
+            ring.scale.setScalar(ringScale);
+            ring.rotation.z += delta * 3.0;
+            ringMat.opacity = 0.9 * (1.0 - t * t);
 
-            // Pulsate shield scale slightly
-            const pulse = 1.0 + 0.05 * Math.sin(age * 12.0);
-            shieldOuter.scale.setScalar(pulse);
-            shieldInner.scale.setScalar(pulse);
+            // Pillar: rise + narrow top + fade
+            pillar.position.y = targetPos.y + 1.75 + t * 2.0;
+            pillar.scale.set(1.0 - t * 0.7, 1.0, 1.0 - t * 0.7);
+            pillarMat.opacity = 0.6 * (1.0 - t);
 
-            // Fade out
-            matOuter.opacity = 0.55 * (1.0 - t);
-            matInner.opacity = 0.25 * (1.0 - t);
-
-            // Orbit stars around the shield
-            for (let i = 0; i < stars.length; i++) {
-                const angle = age * 6.0 + i * ((Math.PI * 2) / starCount);
-                stars[i].position.set(
-                    targetPos.x + 0.95 * Math.cos(angle),
-                    targetPos.y + 0.15 * Math.sin(age * 3.0 + i),
-                    targetPos.z + 0.95 * Math.sin(angle)
+            // Runes: spiral orbit around unit
+            for (let i = 0; i < runeCount; i++) {
+                const angle = runeAngles[i] + age * runeSpeeds[i];
+                const radius = 1.0 + Math.sin(age * 2.0 + i) * 0.25;
+                runes[i].position.set(
+                    targetPos.x + Math.cos(angle) * radius,
+                    targetPos.y +
+                        runeHeights[i] +
+                        Math.sin(age * 4.0 + i) * 0.2,
+                    targetPos.z + Math.sin(angle) * radius,
                 );
-                stars[i].scale.setScalar(1.0 - t);
+                runes[i].scale.setScalar(1.0 - t);
             }
 
             if (t >= 1.0) {
-                scene.remove(shieldOuter);
-                scene.remove(shieldInner);
-                geoOuter.dispose();
-                geoInner.dispose();
-                matOuter.dispose();
-                matInner.dispose();
-
-                for (const star of stars) {
-                    scene.remove(star);
-                }
-                starGeo.dispose();
-                starMat.dispose();
+                scene.remove(ring);
+                ringGeo.dispose();
+                ringMat.dispose();
+                scene.remove(pillar);
+                pillarGeo.dispose();
+                pillarMat.dispose();
+                for (const r of runes) scene.remove(r);
+                runeGeo.dispose();
+                runeMat.dispose();
                 return false;
             }
             return true;
-        }
+        },
     });
 }
 
-export function spawnHolySanctuaryFX(scene: THREE.Scene, center: THREE.Vector3) {
+export function spawnHolySanctuaryFX(
+    scene: THREE.Scene,
+    center: THREE.Vector3,
+) {
     // 1. Glowing ground ring
     const geoRing = new THREE.RingGeometry(0.1, 5.0, 32);
     const matRing = new THREE.MeshBasicMaterial({
@@ -2208,7 +2071,7 @@ export function spawnHolySanctuaryFX(scene: THREE.Scene, center: THREE.Vector3) 
         transparent: true,
         opacity: 0.65,
         blending: THREE.AdditiveBlending,
-        depthWrite: false
+        depthWrite: false,
     });
     const sanctuary = new THREE.Mesh(geoRing, matRing);
     sanctuary.rotation.x = -Math.PI / 2;
@@ -2225,7 +2088,7 @@ export function spawnHolySanctuaryFX(scene: THREE.Scene, center: THREE.Vector3) 
         opacity: 0.35,
         blending: THREE.AdditiveBlending,
         depthWrite: false,
-        side: THREE.DoubleSide
+        side: THREE.DoubleSide,
     });
 
     const angleStep = (Math.PI * 2) / pillarCount;
@@ -2235,7 +2098,7 @@ export function spawnHolySanctuaryFX(scene: THREE.Scene, center: THREE.Vector3) 
         p.position.set(
             center.x + radius * Math.cos(i * angleStep),
             center.y + 2.5, // Center offset for cylinder
-            center.z + radius * Math.sin(i * angleStep)
+            center.z + radius * Math.sin(i * angleStep),
         );
         scene.add(p);
         pillars.push(p);
@@ -2274,6 +2137,723 @@ export function spawnHolySanctuaryFX(scene: THREE.Scene, center: THREE.Vector3) 
                 return false;
             }
             return true;
-        }
+        },
     });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// HIGH NOON — single shot trail with muzzle flash
+// ═══════════════════════════════════════════════════════════════
+export function spawnHighNoonFX(
+    scene: THREE.Scene,
+    fx: number,
+    fy: number,
+    fz: number,
+    tx: number,
+    ty: number,
+    tz: number,
+    _team?: number,
+): void {
+    if (!canSpawnFX()) return;
+
+    const isBlue = _team === 1;
+    const beamColor = isBlue ? 0x44aaff : 0xff8800;
+    const flashColor = isBlue ? 0x88ccff : 0xffcc44;
+    const sparkColor = isBlue ? 0xaaddff : 0xffdd88;
+
+    // ── 1. Large muzzle flash at shooter ──
+    const mGeo = pooledPlane(1.2, 1.2);
+    const mMat = getPooledMaterial({
+        map: sparkTex,
+        color: flashColor,
+        transparent: true,
+        opacity: 1.0,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+    });
+    const muzzle = new THREE.Mesh(mGeo, mMat);
+    muzzle.position.set(fx, fy, fz);
+    muzzle.quaternion.copy(getCamQuad());
+    scene.add(muzzle);
+
+    // ── 2. Thick beam trail ──
+    const dist = Math.sqrt((tx - fx) ** 2 + (ty - fy) ** 2 + (tz - fz) ** 2);
+    const tGeo = pooledPlane(0.2, dist);
+    const tMat = getPooledMaterial({
+        map: sparkTex,
+        color: beamColor,
+        transparent: true,
+        opacity: 0.95,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+    });
+    const trail = new THREE.Mesh(tGeo, tMat);
+    trail.position.set((fx + tx) * 0.5, (fy + ty) * 0.5, (fz + tz) * 0.5);
+    trail.quaternion.copy(getCamQuad());
+    scene.add(trail);
+
+    // ── 3. Explosion at target (matching Archer quality) ──
+    const end = new THREE.Vector3(tx, ty, tz);
+    spawnExplosion(scene, end, flashColor, 25, 0.18);
+
+    // ── 4. Expanding hit ring ──
+    const ringGeo = pooledRing(0.2, 0.5, 16);
+    const ringMat = getPooledMaterial({
+        color: sparkColor,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0.9,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+    });
+    const ring = new THREE.Mesh(ringGeo, ringMat);
+    ring.rotation.x = -Math.PI / 2;
+    ring.position.set(tx, ty + 0.04, tz);
+    scene.add(ring);
+
+    // ── 5. Hit sparks (instanced for performance) ──
+    const pGeo = pooledPlane(0.2, 0.2);
+    const pMat = getPooledMaterial({
+        map: starTex,
+        color: sparkColor,
+        transparent: true,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+    });
+    const PARTICLE = Math.round(15 * fxQualityScale());
+    const instMesh = new THREE.InstancedMesh(pGeo, pMat, PARTICLE);
+    instMesh.frustumCulled = false;
+    scene.add(instMesh);
+
+    const pVels: THREE.Vector3[] = [];
+    const pOffsets: THREE.Vector3[] = [];
+    for (let i = 0; i < PARTICLE; i++) {
+        pOffsets.push(new THREE.Vector3(tx, ty + 0.3, tz));
+        const a = Math.random() * Math.PI * 2;
+        const speed = 1.5 + Math.random() * 4.0;
+        pVels.push(
+            new THREE.Vector3(
+                Math.cos(a) * speed,
+                2.0 + Math.random() * 3.5,
+                Math.sin(a) * speed,
+            ),
+        );
+    }
+
+    let age = 0;
+    const duration = 0.5;
+    activeFX.push({
+        update(delta) {
+            age += delta;
+            const t = Math.min(1, age / duration);
+            if (t >= 1) {
+                scene.remove(muzzle);
+                releasePooledMaterial(mMat);
+                scene.remove(trail);
+                releasePooledMaterial(tMat);
+                scene.remove(ring);
+                releasePooledMaterial(ringMat);
+                scene.remove(instMesh);
+                releasePooledMaterial(pMat);
+                instMesh.dispose();
+                return false;
+            }
+            const fade = 1 - t;
+            const et = easeOutCubic(t);
+
+            // Muzzle flash quickly fades
+            mMat.opacity = fade * fade;
+            muzzle.scale.setScalar(1.0 + et * 0.5);
+
+            // Beam fades
+            tMat.opacity = 0.95 * fade;
+
+            // Ring expands & fades
+            const rs = 1 + t * 8;
+            ring.scale.set(rs, rs, 1);
+            ringMat.opacity = 0.9 * fade;
+
+            // Hit sparks
+            const cq = camera.quaternion;
+            for (let i = 0; i < PARTICLE; i++) {
+                pOffsets[i].addScaledVector(pVels[i], delta);
+                pVels[i].y -= 9.8 * delta;
+
+                _tempObj.position.copy(pOffsets[i]);
+                _tempObj.quaternion.copy(cq);
+                _tempObj.scale.setScalar(1.0 - et * 0.5);
+                _tempObj.updateMatrix();
+                instMesh.setMatrixAt(i, _tempObj.matrix);
+            }
+            instMesh.instanceMatrix.needsUpdate = true;
+            pMat.opacity = 1.0 * fade;
+
+            return true;
+        },
+    });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SMOKE BOMB — thick smoke ring + expanding clouds + particles
+// ═══════════════════════════════════════════════════════════════
+export function spawnSmokeBombFX(
+    scene: THREE.Scene,
+    x: number,
+    y: number,
+    z: number,
+    _team?: number,
+): void {
+    if (!canSpawnFX()) return;
+
+    const isBlue = _team === 1;
+    const smokeColor = isBlue ? 0x334455 : 0x555555;
+    const ringColor = isBlue ? 0x556688 : 0x777777;
+    const sparkColor = isBlue ? 0x88aacc : 0x888888;
+
+    // ── 1. Thick expanding smoke ring ──
+    const ringGeo = pooledRing(0.3, 0.8, 16);
+    const ringMat = getPooledMaterial({
+        color: ringColor,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0.85,
+        depthWrite: false,
+    });
+    const ring = new THREE.Mesh(ringGeo, ringMat);
+    ring.rotation.x = -Math.PI / 2;
+    ring.position.set(x, y + 0.05, z);
+    scene.add(ring);
+
+    // ── 2. Inner flash core ──
+    const flashGeo = pooledPlane(1.0, 1.0);
+    const flashMat = getPooledMaterial({
+        map: lightTex,
+        color: 0xcccccc,
+        transparent: true,
+        opacity: 0.6,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+    });
+    const flash = new THREE.Mesh(flashGeo, flashMat);
+    flash.position.set(x, y + 0.1, z);
+    flash.quaternion.copy(getCamQuad());
+    scene.add(flash);
+
+    // ── 3. Smoke puffs (using instanced mesh) ──
+    const PUFFS = Math.round(14 * fxQualityScale());
+    const pGeo = pooledPlane(0.7, 0.7);
+    const pMat = getPooledMaterial({
+        map: smokeTex,
+        color: smokeColor,
+        transparent: true,
+        opacity: 0.8,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+    });
+    const instMesh = new THREE.InstancedMesh(pGeo, pMat, PUFFS);
+    instMesh.frustumCulled = false;
+    scene.add(instMesh);
+
+    const pVels: THREE.Vector3[] = [];
+    const pOffsets: THREE.Vector3[] = [];
+    const pScales: number[] = [];
+    for (let i = 0; i < PUFFS; i++) {
+        const a = (i / PUFFS) * Math.PI * 2;
+        const r = 0.3 + Math.random() * 0.5;
+        pOffsets.push(
+            new THREE.Vector3(
+                x + Math.cos(a) * r,
+                y + 0.15,
+                z + Math.sin(a) * r,
+            ),
+        );
+        const speed = 1.5 + Math.random() * 2.0;
+        pVels.push(
+            new THREE.Vector3(
+                Math.cos(a) * speed,
+                1.0 + Math.random() * 2.0,
+                Math.sin(a) * speed,
+            ),
+        );
+        pScales.push(0.4 + Math.random() * 0.6);
+    }
+
+    // ── 4. Sparkles ──
+    const SPS = Math.round(8 * fxQualityScale());
+    const spGeo = pooledPlane(0.15, 0.15);
+    const spMat = getPooledMaterial({
+        map: starTex,
+        color: sparkColor,
+        transparent: true,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+    });
+    const spMesh = new THREE.InstancedMesh(spGeo, spMat, SPS);
+    spMesh.frustumCulled = false;
+    scene.add(spMesh);
+
+    const spVels: THREE.Vector3[] = [];
+    const spOffsets: THREE.Vector3[] = [];
+    for (let i = 0; i < SPS; i++) {
+        spOffsets.push(new THREE.Vector3(x, y + 0.3, z));
+        const a = Math.random() * Math.PI * 2;
+        const speed = 0.5 + Math.random() * 1.5;
+        spVels.push(
+            new THREE.Vector3(
+                Math.cos(a) * speed,
+                0.5 + Math.random() * 1.2,
+                Math.sin(a) * speed,
+            ),
+        );
+    }
+
+    let age = 0;
+    const duration = 0.85;
+    activeFX.push({
+        update(delta) {
+            age += delta;
+            const t = Math.min(1, age / duration);
+            if (t >= 1) {
+                scene.remove(ring);
+                scene.remove(flash);
+                scene.remove(instMesh);
+                scene.remove(spMesh);
+                releasePooledMaterial(ringMat);
+                releasePooledMaterial(flashMat);
+                releasePooledMaterial(pMat);
+                releasePooledMaterial(spMat);
+                instMesh.dispose();
+                spMesh.dispose();
+                return false;
+            }
+            const et = easeOutCubic(t);
+            const fade = 1 - et;
+
+            // Ring expands & fades
+            ring.scale.setScalar(1 + t * 6);
+            ringMat.opacity = 0.85 * fade;
+
+            // Flash core quickly fades
+            flash.scale.setScalar(1 + t * 3);
+            flashMat.opacity = 0.6 * fade;
+
+            // Smoke puffs rise & swell
+            const cq = camera.quaternion;
+            for (let i = 0; i < PUFFS; i++) {
+                pOffsets[i].addScaledVector(pVels[i], delta);
+                _tempObj.position.copy(pOffsets[i]);
+                _tempObj.quaternion.copy(cq);
+                _tempObj.scale.setScalar(pScales[i] + t * 2.5);
+                _tempObj.updateMatrix();
+                instMesh.setMatrixAt(i, _tempObj.matrix);
+            }
+            instMesh.instanceMatrix.needsUpdate = true;
+            pMat.opacity = 0.8 * fade;
+
+            // Sparkles
+            for (let i = 0; i < SPS; i++) {
+                spOffsets[i].addScaledVector(spVels[i], delta);
+                _tempObj.position.copy(spOffsets[i]);
+                _tempObj.quaternion.copy(cq);
+                _tempObj.scale.setScalar(1.0 - et * 0.6);
+                _tempObj.updateMatrix();
+                spMesh.setMatrixAt(i, _tempObj.matrix);
+            }
+            spMesh.instanceMatrix.needsUpdate = true;
+            spMat.opacity = 0.85 * fade;
+
+            return true;
+        },
+    });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// FAN FIRE — cone burst of bullet trails with ground impacts
+// ═══════════════════════════════════════════════════════════════
+export function spawnFanFireFX(
+    scene: THREE.Scene,
+    x: number,
+    z: number,
+    groundY: number,
+    radius: number,
+    _team?: number,
+): void {
+    if (!canSpawnFX()) return;
+
+    const isBlue = _team === 1;
+    const trailColor = isBlue ? 0x44ccff : 0xffcc00;
+    const hitColor = isBlue ? 0x88ddff : 0xffee66;
+    const sparkColor = isBlue ? 0xaaddff : 0xffdd88;
+
+    // ── 1. Ground rune ring (like Arrow Volley) ──
+    const runeGeo = new THREE.PlaneGeometry(radius * 2.4, radius * 2.4);
+    const runeMat = new THREE.MeshBasicMaterial({
+        map: magicTex,
+        color: trailColor,
+        transparent: true,
+        opacity: 0.65,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+    });
+    const rune = new THREE.Mesh(runeGeo, runeMat);
+    rune.rotation.x = -Math.PI / 2;
+    rune.position.set(x, groundY + 0.03, z);
+    scene.add(rune);
+
+    // ── 2. Cone wave ring (expanding) ──
+    const ringGeo = pooledRing(0.1, 0.4, 16);
+    const ringMat = getPooledMaterial({
+        color: trailColor,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0.9,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+    });
+    const ring = new THREE.Mesh(ringGeo, ringMat);
+    ring.rotation.x = -Math.PI / 2;
+    ring.position.set(x, groundY + 0.05, z);
+    scene.add(ring);
+
+    // ── 3. Bullet trails (instanced) ──
+    const BULLETS = Math.round(12 * fxQualityScale());
+    const trailGeo = pooledPlane(0.08, 0.5);
+    const trailMat = getPooledMaterial({
+        map: sparkTex,
+        color: trailColor,
+        transparent: true,
+        opacity: 0.95,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+    });
+    const trailMesh = new THREE.InstancedMesh(trailGeo, trailMat, BULLETS);
+    trailMesh.frustumCulled = false;
+    scene.add(trailMesh);
+
+    const trailTargets: number[] = [];
+    for (let i = 0; i < BULLETS; i++) {
+        const a = Math.random() * Math.PI * 2;
+        const r = Math.random() * radius;
+        trailTargets.push(x + Math.cos(a) * r, z + Math.sin(a) * r);
+    }
+
+    // ── 4. Hit impact sparks (instanced) ──
+    const HITS = Math.round(10 * fxQualityScale());
+    const hitGeo = pooledPlane(0.2, 0.2);
+    const hitMat = getPooledMaterial({
+        map: starTex,
+        color: hitColor,
+        transparent: true,
+        opacity: 0.85,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+    });
+    const hitMesh = new THREE.InstancedMesh(hitGeo, hitMat, HITS);
+    hitMesh.frustumCulled = false;
+    scene.add(hitMesh);
+
+    const hitOffsets: THREE.Vector3[] = [];
+    const hitScales: number[] = [];
+    for (let i = 0; i < HITS; i++) {
+        const a = Math.random() * Math.PI * 2;
+        const r = Math.random() * radius;
+        hitOffsets.push(
+            new THREE.Vector3(
+                x + Math.cos(a) * r,
+                groundY + 0.15,
+                z + Math.sin(a) * r,
+            ),
+        );
+        hitScales.push(0.3 + Math.random() * 0.4);
+    }
+
+    // ── 5. High-impact sparks ──
+    const SPS = Math.round(12 * fxQualityScale());
+    const spGeo = pooledPlane(0.12, 0.12);
+    const spMat = getPooledMaterial({
+        map: starTex,
+        color: sparkColor,
+        transparent: true,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+    });
+    const spMesh = new THREE.InstancedMesh(spGeo, spMat, SPS);
+    spMesh.frustumCulled = false;
+    scene.add(spMesh);
+
+    const spVels: THREE.Vector3[] = [];
+    const spOffsets: THREE.Vector3[] = [];
+    for (let i = 0; i < SPS; i++) {
+        const a = Math.random() * Math.PI * 2;
+        const r = Math.random() * radius * 0.8;
+        spOffsets.push(
+            new THREE.Vector3(
+                x + Math.cos(a) * r,
+                groundY + 0.2,
+                z + Math.sin(a) * r,
+            ),
+        );
+        spVels.push(
+            new THREE.Vector3(
+                (Math.random() - 0.5) * 1.5,
+                1.5 + Math.random() * 2.5,
+                (Math.random() - 0.5) * 1.5,
+            ),
+        );
+    }
+
+    let age = 0;
+    const duration = 0.55;
+    activeFX.push({
+        update(delta) {
+            age += delta;
+            const t = Math.min(1, age / duration);
+            if (t >= 1) {
+                scene.remove(rune);
+                scene.remove(ring);
+                scene.remove(trailMesh);
+                scene.remove(hitMesh);
+                scene.remove(spMesh);
+                runeGeo.dispose();
+                runeMat.dispose();
+                releasePooledMaterial(ringMat);
+                releasePooledMaterial(trailMat);
+                releasePooledMaterial(hitMat);
+                releasePooledMaterial(spMat);
+                trailMesh.dispose();
+                hitMesh.dispose();
+                spMesh.dispose();
+                return false;
+            }
+            const et = easeOutCubic(t);
+            const fade = 1 - et;
+
+            // Rune rotates & fades
+            rune.rotation.z += 0.04;
+            runeMat.opacity = 0.65 * fade;
+
+            // Ring expands
+            ring.scale.setScalar(1 + t * 10);
+            ring.rotation.z += 0.05;
+            ringMat.opacity = 0.9 * fade;
+
+            const cq = camera.quaternion;
+
+            // Bullet trails (fly outward)
+            for (let i = 0; i < BULLETS; i++) {
+                const bx = trailTargets[i * 2];
+                const bz = trailTargets[i * 2 + 1];
+                const sx = x + (bx - x) * et;
+                const sz = z + (bz - z) * et;
+                _tempObj.position.set(
+                    (x + sx) * 0.5,
+                    groundY + 0.6,
+                    (z + sz) * 0.5,
+                );
+                _tempObj.quaternion.copy(cq);
+                _tempObj.scale.set(1.0 - et * 0.7, 1, 1);
+                _tempObj.updateMatrix();
+                trailMesh.setMatrixAt(i, _tempObj.matrix);
+            }
+            trailMesh.instanceMatrix.needsUpdate = true;
+            trailMat.opacity = 0.95 * fade;
+
+            // Hit impact rings
+            for (let i = 0; i < HITS; i++) {
+                _tempObj.position.copy(hitOffsets[i]);
+                _tempObj.quaternion.copy(cq);
+                _tempObj.scale.setScalar(hitScales[i] + t * 0.8);
+                _tempObj.updateMatrix();
+                hitMesh.setMatrixAt(i, _tempObj.matrix);
+            }
+            hitMesh.instanceMatrix.needsUpdate = true;
+            hitMat.opacity = 0.85 * fade;
+
+            // Sparks
+            for (let i = 0; i < SPS; i++) {
+                spOffsets[i].addScaledVector(spVels[i], delta);
+                spVels[i].y -= 6 * delta;
+                _tempObj.position.copy(spOffsets[i]);
+                _tempObj.quaternion.copy(cq);
+                _tempObj.scale.setScalar(1.0 - et);
+                _tempObj.updateMatrix();
+                spMesh.setMatrixAt(i, _tempObj.matrix);
+            }
+            spMesh.instanceMatrix.needsUpdate = true;
+            spMat.opacity = 1.0 * fade;
+
+            return true;
+        },
+    });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SHADOW STEP — dark puffs along teleport path
+// ═══════════════════════════════════════════════════════════════
+export function spawnShadowStepFX(
+    scene: THREE.Scene,
+    fx: number,
+    fy: number,
+    fz: number,
+    tx: number,
+    ty: number,
+    tz: number,
+    _team?: number,
+): void {
+    if (!canSpawnFX()) return;
+
+    for (let i = 0; i < 5; i++) {
+        const t0 = i / 4;
+        const sx = fx + (tx - fx) * t0;
+        const sy = fy + (ty - fy) * t0;
+        const sz = fz + (tz - fz) * t0;
+
+        const geo = pooledPlane(0.35, 0.35);
+        const mat = getPooledMaterial({
+            map: smokeTex,
+            color: 0x1a1a3a,
+            transparent: true,
+            opacity: 0.8,
+            blending: THREE.NormalBlending,
+            depthWrite: false,
+            side: THREE.DoubleSide,
+        });
+        const puff = new THREE.Mesh(geo, mat);
+        puff.position.set(sx, sy, sz);
+        puff.quaternion.copy(getCamQuad());
+        puff.scale.setScalar(0.4);
+        scene.add(puff);
+
+        let age = 0;
+        const duration = 0.25 + t0 * 0.2;
+        activeFX.push({
+            update(delta) {
+                age += delta;
+                const t = Math.min(1, age / duration);
+                if (t >= 1) {
+                    scene.remove(puff);
+                    releasePooledMaterial(mat);
+                    return false;
+                }
+                puff.scale.setScalar(0.4 + t * 0.8);
+                mat.opacity = 0.8 * (1 - t);
+                return true;
+            },
+        });
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// BACKSTAB — red slash arcs at target position
+// ═══════════════════════════════════════════════════════════════
+export function spawnBackstabFX(
+    scene: THREE.Scene,
+    _fx: number,
+    _fy: number,
+    _fz: number,
+    tx: number,
+    ty: number,
+    tz: number,
+    _team?: number,
+): void {
+    if (!canSpawnFX()) return;
+
+    const slashCount = 3;
+    for (let i = 0; i < slashCount; i++) {
+        const geo = pooledPlane(0.45, 0.45);
+        const mat = getPooledMaterial({
+            map: sparkTex,
+            color: 0xff2222,
+            transparent: true,
+            opacity: 0.9,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false,
+            side: THREE.DoubleSide,
+        });
+        const slash = new THREE.Mesh(geo, mat);
+        slash.position.set(tx, ty + 0.8, tz);
+        slash.quaternion.copy(getCamQuad());
+        slash.rotateZ((i / slashCount) * Math.PI * 0.6 - 0.3);
+        scene.add(slash);
+
+        let age = 0;
+        const duration = 0.3;
+        activeFX.push({
+            update(delta) {
+                age += delta;
+                const t = Math.min(1, age / duration);
+                if (t >= 1) {
+                    scene.remove(slash);
+                    releasePooledMaterial(mat);
+                    return false;
+                }
+                slash.scale.setScalar(0.5 + t * 0.4);
+                mat.opacity = 0.9 * (1 - t);
+                return true;
+            },
+        });
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// POISON BLADE — green rising bubbles at target
+// ═══════════════════════════════════════════════════════════════
+export function spawnPoisonBladeFX(
+    scene: THREE.Scene,
+    tx: number,
+    ty: number,
+    tz: number,
+): void {
+    if (!canSpawnFX()) return;
+
+    const bubbleCount = Math.floor(5 * fxQualityScale());
+
+    for (let i = 0; i < bubbleCount; i++) {
+        const geo = pooledPlane(0.15, 0.15);
+        const mat = getPooledMaterial({
+            map: circleTex,
+            color: 0x22cc22,
+            transparent: true,
+            opacity: 0.6,
+            blending: THREE.NormalBlending,
+            depthWrite: false,
+            side: THREE.DoubleSide,
+        });
+        const bubble = new THREE.Mesh(geo, mat);
+        bubble.position.set(
+            tx + (Math.random() - 0.5) * 0.8,
+            ty + 0.6,
+            tz + (Math.random() - 0.5) * 0.8,
+        );
+        bubble.quaternion.copy(getCamQuad());
+        const vy = 0.3 + Math.random() * 0.5;
+        scene.add(bubble);
+
+        let age = 0;
+        const duration = 0.6 + Math.random() * 0.3;
+        activeFX.push({
+            update(delta) {
+                age += delta;
+                const t = Math.min(1, age / duration);
+                if (t >= 1) {
+                    scene.remove(bubble);
+                    releasePooledMaterial(mat);
+                    return false;
+                }
+                bubble.position.y += vy * delta;
+                bubble.scale.setScalar(1.0 + t * 0.5);
+                mat.opacity = 0.6 * (1 - t);
+                return true;
+            },
+        });
+    }
 }

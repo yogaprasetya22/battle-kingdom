@@ -2,7 +2,7 @@
  * Battle Worker — berjalan di thread terpisah
  * Membaca & menulis SharedArrayBuffer yang berisi state semua unit
  *
- * ponytail: tidak ada class, tidak ada event system. Just a loop.
+ * ponytail: tidak ada class, tidak ada event system. Just a loop..plan/unit-archety...plan/unit-archetypes.mdplan/unit-archetypes.mdplan/unit-archetypes.mdpes.md
  */
 
 import {
@@ -27,6 +27,8 @@ import {
     TYPE_ARCHER,
     TYPE_MAGE,
     TYPE_HEALER,
+    TYPE_GUNSLINGER,
+    TYPE_ASSASSIN,
     TEAM_A,
     TEAM_B,
     TEAM_SIZE,
@@ -46,6 +48,8 @@ import {
     ARCHER_SKILLS,
     MAGE_SKILLS,
     HEALER_SKILLS,
+    GUNSLINGER_SKILLS,
+    ASSASSIN_SKILLS,
     SPAWN_INITIAL,
     SPAWN_PER_WAVE,
     SPAWN_WAVE_INTERVAL,
@@ -62,6 +66,7 @@ import {
 
 let buf: SharedArrayBuffer | null = null;
 let data: Float32Array | null = null;
+let int32Data: Int32Array | null = null;
 let battleTicks = 0;
 
 let startIndex = 0;
@@ -80,6 +85,10 @@ const gridNext = new Int16Array(UNIT_COUNT);
 const tempCandidatesIdx = new Int32Array(64);
 const tempCandidatesDist = new Float32Array(64);
 const hitFlags = new Uint8Array(UNIT_COUNT);
+
+// ponytail: single pre-allocated buffer for Float32<->Int32 conversion in Atomics CAS
+const _casF32 = new Float32Array(1);
+const _casI32 = new Int32Array(_casF32.buffer);
 
 function buildGrid(d: Float32Array) {
     gridHead.fill(-1);
@@ -111,9 +120,9 @@ function initUnits(d: Float32Array, matchup: string = "mix") {
         const row = Math.floor(localIdx / 10);
         const col = localIdx % 10;
 
-        // Tentukan kategori unit berdasarkan matchup
-        let unitType = localIdx % 3; // 0=Tank, 1=Archer, 2=Mage by default
-        const healerCount = Math.max(1, Math.round(TEAM_SIZE * 0.02)); // 2% Healers
+        // Tentukan kategori unit berdasarkan matchup: 6 tipe (0-5: Tank,Archer,Mage,Healer,Gunslinger,Assassin)
+        let unitType = localIdx % 6;
+        const healerCount = Math.max(1, Math.round(TEAM_SIZE * 0.02)); // 2% Healers/Acolyte
         if (localIdx < healerCount) {
             unitType = TYPE_HEALER;
         }
@@ -129,6 +138,10 @@ function initUnits(d: Float32Array, matchup: string = "mix") {
             unitType = TYPE_ARCHER;
         } else if (matchup === "only_tank") {
             unitType = TYPE_TANK;
+        } else if (matchup === "only_gunslinger") {
+            unitType = TYPE_GUNSLINGER;
+        } else if (matchup === "only_assassin") {
+            unitType = TYPE_ASSASSIN;
         }
         d[base + IDX_TYPE] = unitType;
 
@@ -197,7 +210,13 @@ function findNearestEnemy(d: Float32Array, i: number): number {
         if (r < 0 || r >= gridRows) continue;
         for (let c = myCol - 2; c <= myCol + 2; c++) {
             if (c < 0 || c >= gridCols) continue;
-            if (r >= myRow - 1 && r <= myRow + 1 && c >= myCol - 1 && c <= myCol + 1) continue;
+            if (
+                r >= myRow - 1 &&
+                r <= myRow + 1 &&
+                c >= myCol - 1 &&
+                c <= myCol + 1
+            )
+                continue;
 
             const cellIdx = r * gridCols + c;
             let curr = gridHead[cellIdx];
@@ -221,7 +240,7 @@ function findNearestEnemy(d: Float32Array, i: number): number {
 
     // 3. Fallback: Scan full slice
     const jStart = myTeam === TEAM_A ? TEAM_SIZE : 0;
-    const jEnd   = myTeam === TEAM_A ? UNIT_COUNT : TEAM_SIZE;
+    const jEnd = myTeam === TEAM_A ? UNIT_COUNT : TEAM_SIZE;
 
     for (let j = jStart; j < jEnd; j++) {
         const jBase = j * STRIDE;
@@ -260,7 +279,10 @@ function findLowestHpAlly(d: Float32Array, i: number): number {
             while (curr !== -1) {
                 if (curr !== i) {
                     const jBase = curr * STRIDE;
-                    if (d[jBase + IDX_HP] > 0 && d[jBase + IDX_TEAM] === myTeam) {
+                    if (
+                        d[jBase + IDX_HP] > 0 &&
+                        d[jBase + IDX_TEAM] === myTeam
+                    ) {
                         const maxHp = d[jBase + IDX_MAX_HP];
                         const hpPercent = d[jBase + IDX_HP] / maxHp;
 
@@ -279,7 +301,7 @@ function findLowestHpAlly(d: Float32Array, i: number): number {
 
     // Fallback: Scan allies (same team slice)
     const jStart = myTeam === TEAM_A ? 0 : TEAM_SIZE;
-    const jEnd   = myTeam === TEAM_A ? TEAM_SIZE : UNIT_COUNT;
+    const jEnd = myTeam === TEAM_A ? TEAM_SIZE : UNIT_COUNT;
 
     for (let j = jStart; j < jEnd; j++) {
         if (j === i) continue;
@@ -298,6 +320,58 @@ function findLowestHpAlly(d: Float32Array, i: number): number {
     return target;
 }
 
+// --- Find lowest HP enemy (Assassin targeting) using Spatial Grid ---
+function findLowestHpEnemy(d: Float32Array, i: number): number {
+    const base = i * STRIDE;
+    const myTeam = d[base + IDX_TEAM];
+    const myX = d[base + IDX_X];
+    const myZ = d[base + IDX_Z];
+
+    const myCol = Math.floor((myX - BOUND_X_MIN) / cellSize);
+    const myRow = Math.floor((myZ - BOUND_Z_MIN) / cellSize);
+
+    let lowestHp = Infinity;
+    let target = -1;
+
+    // Scan enemies in 3x3 cells
+    for (let r = myRow - 1; r <= myRow + 1; r++) {
+        if (r < 0 || r >= gridRows) continue;
+        for (let c = myCol - 1; c <= myCol + 1; c++) {
+            if (c < 0 || c >= gridCols) continue;
+            const cellIdx = r * gridCols + c;
+            let curr = gridHead[cellIdx];
+            while (curr !== -1) {
+                const jBase = curr * STRIDE;
+                if (d[jBase + IDX_HP] > 0 && d[jBase + IDX_TEAM] !== myTeam) {
+                    const hp = d[jBase + IDX_HP];
+                    if (hp < lowestHp) {
+                        lowestHp = hp;
+                        target = curr;
+                    }
+                }
+                curr = gridNext[curr];
+            }
+        }
+    }
+
+    if (target !== -1) return target;
+
+    // Fallback: Scan enemies (opposite team slice)
+    const jStart = myTeam === TEAM_A ? TEAM_SIZE : 0;
+    const jEnd = myTeam === TEAM_A ? UNIT_COUNT : TEAM_SIZE;
+
+    for (let j = jStart; j < jEnd; j++) {
+        const jBase = j * STRIDE;
+        const hp = d[jBase + IDX_HP];
+        if (hp <= 0) continue;
+        if (hp < lowestHp) {
+            lowestHp = hp;
+            target = j;
+        }
+    }
+    return target;
+}
+
 // --- Hitung damage masuk setelah dikurangi Armor dan Buff ---
 const statsDamageDealt = new Float32Array(UNIT_COUNT);
 const statsDamageTaken = new Float32Array(UNIT_COUNT);
@@ -305,7 +379,12 @@ const statsKills = new Int32Array(UNIT_COUNT);
 const statsHealDone = new Float32Array(UNIT_COUNT);
 
 // Thread-safe applyDamage using Atomics on Casted Float32Array
-function applyDamage(d: Float32Array, targetIdx: number, rawDamage: number, attackerIdx?: number) {
+function applyDamage(
+    d: Float32Array,
+    targetIdx: number,
+    rawDamage: number,
+    attackerIdx?: number,
+) {
     const tBase = targetIdx * STRIDE;
 
     // Cek imunitas — jika sedang imun, abaikan seluruh damage
@@ -324,25 +403,26 @@ function applyDamage(d: Float32Array, targetIdx: number, rawDamage: number, atta
 
     const finalDamage = Math.max(1, Math.round(rawDamage * damageMultiplier));
 
-    const int32 = new Int32Array(d.buffer);
+    const int32 = int32Data!;
     const hpIndex = tBase + IDX_HP;
-
-    // Helper buffers for conversion
-    const f32Buf = new Float32Array(1);
-    const i32Buf = new Int32Array(f32Buf.buffer);
 
     let currentBits = Atomics.load(int32, hpIndex);
     let oldHp = 0;
     let newHp = 0;
     while (true) {
-        i32Buf[0] = currentBits;
-        oldHp = f32Buf[0];
+        _casI32[0] = currentBits;
+        oldHp = _casF32[0];
         if (oldHp <= 0) return; // already dead
 
         newHp = Math.max(0, oldHp - finalDamage);
-        f32Buf[0] = newHp;
-        const nextBits = i32Buf[0];
-        const oldBits = Atomics.compareExchange(int32, hpIndex, currentBits, nextBits);
+        _casF32[0] = newHp;
+        const nextBits = _casI32[0];
+        const oldBits = Atomics.compareExchange(
+            int32,
+            hpIndex,
+            currentBits,
+            nextBits,
+        );
         if (oldBits === currentBits) {
             break;
         }
@@ -365,27 +445,34 @@ function applyDamage(d: Float32Array, targetIdx: number, rawDamage: number, atta
 }
 
 // Thread-safe applyHeal using Atomics on Casted Float32Array
-function applyHeal(d: Float32Array, targetIdx: number, healAmount: number, healerIdx?: number) {
+function applyHeal(
+    d: Float32Array,
+    targetIdx: number,
+    healAmount: number,
+    healerIdx?: number,
+) {
     const tBase = targetIdx * STRIDE;
-    const int32 = new Int32Array(d.buffer);
+    const int32 = int32Data!;
     const hpIndex = tBase + IDX_HP;
-
-    const f32Buf = new Float32Array(1);
-    const i32Buf = new Int32Array(f32Buf.buffer);
 
     let currentBits = Atomics.load(int32, hpIndex);
     let oldHp = 0;
     let newHp = 0;
     while (true) {
-        i32Buf[0] = currentBits;
-        oldHp = f32Buf[0];
+        _casI32[0] = currentBits;
+        oldHp = _casF32[0];
         if (oldHp <= 0) return; // already dead
 
         const maxHp = d[tBase + IDX_MAX_HP];
         newHp = Math.min(maxHp, oldHp + healAmount);
-        f32Buf[0] = newHp;
-        const nextBits = i32Buf[0];
-        const oldBits = Atomics.compareExchange(int32, hpIndex, currentBits, nextBits);
+        _casF32[0] = newHp;
+        const nextBits = _casI32[0];
+        const oldBits = Atomics.compareExchange(
+            int32,
+            hpIndex,
+            currentBits,
+            nextBits,
+        );
         if (oldBits === currentBits) {
             break;
         }
@@ -407,8 +494,20 @@ interface DelayedDamage {
 }
 const delayedDamages: DelayedDamage[] = [];
 
-function queueDamage(targetIdx: number, damage: number, delayTicks: number, attackerIdx?: number, effectTicks?: number) {
-    delayedDamages.push({ targetIdx, attackerIdx, damage, ticksLeft: delayTicks, effectTicks });
+function queueDamage(
+    targetIdx: number,
+    damage: number,
+    delayTicks: number,
+    attackerIdx?: number,
+    effectTicks?: number,
+) {
+    delayedDamages.push({
+        targetIdx,
+        attackerIdx,
+        damage,
+        ticksLeft: delayTicks,
+        effectTicks,
+    });
 }
 
 const animLockTicks = new Int32Array(UNIT_COUNT);
@@ -428,12 +527,10 @@ function tick(d: Float32Array) {
             applyDamage(d, dd.targetIdx, dd.damage, dd.attackerIdx);
             if (dd.effectTicks) {
                 const tBase = dd.targetIdx * STRIDE;
-                const int32 = new Int32Array(d.buffer);
+                const int32 = int32Data!;
                 const hpIndex = tBase + IDX_HP;
-                const f32Buf = new Float32Array(1);
-                const i32Buf = new Int32Array(f32Buf.buffer);
-                i32Buf[0] = Atomics.load(int32, hpIndex);
-                if (f32Buf[0] > 0) {
+                _casI32[0] = Atomics.load(int32, hpIndex);
+                if (_casF32[0] > 0) {
                     d[tBase + IDX_EFFECT_STATE] = dd.effectTicks;
                     if (dd.effectTicks > 0) {
                         d[tBase + IDX_ANIM] = 0; // force idle
@@ -473,7 +570,11 @@ function tick(d: Float32Array) {
     // Spawn Team B units in range
     const maxSpawnB = Math.min(TEAM_SIZE, unitsToSpawn);
     const bStartIdx = TEAM_SIZE;
-    for (let i = Math.max(startIndex, bStartIdx); i < Math.min(endIndex, bStartIdx + maxSpawnB); i++) {
+    for (
+        let i = Math.max(startIndex, bStartIdx);
+        i < Math.min(endIndex, bStartIdx + maxSpawnB);
+        i++
+    ) {
         const base = i * STRIDE;
         if (d[base + IDX_HP] === -999) {
             d[base + IDX_HP] = d[base + IDX_MAX_HP];
@@ -503,9 +604,21 @@ function tick(d: Float32Array) {
         // Tick down imunitas
         if (d[base + IDX_IMMUNE_CD] > 0) d[base + IDX_IMMUNE_CD]--;
 
-        // --- EFFECT STATE (Stun / Buff Cooldown) ---
+        // --- EFFECT STATE (Stun=1..999 / Stealth=1000..1999 / Poison=2000..2999 / Buff<0) ---
         const effect = d[base + IDX_EFFECT_STATE];
-        if (effect > 0) {
+        if (effect >= 2000) {
+            // Poison DoT — take damage each tick, can still act
+            d[base + IDX_EFFECT_STATE]--;
+            applyDamage(d, i, 6); // poison tick damage
+            if (d[base + IDX_EFFECT_STATE] < 2000)
+                d[base + IDX_EFFECT_STATE] = 0;
+        } else if (effect >= 1000) {
+            // Stealthed — can act, enemies can't target
+            d[base + IDX_EFFECT_STATE]--;
+            if (d[base + IDX_EFFECT_STATE] < 1000)
+                d[base + IDX_EFFECT_STATE] = 0;
+        } else if (effect > 0) {
+            // Stunned — skip turn
             d[base + IDX_EFFECT_STATE]--;
             d[base + IDX_ANIM] = 0; // idle/stunned
             animLockTicks[i] = 0;
@@ -535,10 +648,83 @@ function tick(d: Float32Array) {
                 if (target === -1) {
                     target = findNearestEnemy(d, i);
                 }
+            } else if (uType === TYPE_ASSASSIN) {
+                target = findLowestHpEnemy(d, i);
+                if (target === -1) {
+                    target = findNearestEnemy(d, i);
+                }
             } else {
                 target = findNearestEnemy(d, i);
             }
             d[base + IDX_TARGET] = target;
+        }
+
+        // --- SELF-BUFF SKILLS (no target needed) ---
+        // ponytail: fire before target check so units without enemy can still self-buff
+        let skillActivated = false;
+
+        if (uType === TYPE_TANK && d[base + IDX_SKILL1_CD] === 0) {
+            d[base + IDX_IMMUNE_CD] = TANK_SKILLS.bulwarkStance.immuneTicks;
+            d[base + IDX_SKILL1_CD] = TANK_SKILLS.bulwarkStance.cooldown;
+            skillActivated = true;
+            self.postMessage({
+                type: "skillFX",
+                skill: "ironFortitude",
+                team: d[base + IDX_TEAM],
+                x: d[base + IDX_X],
+                y: d[base + IDX_Y],
+                z: d[base + IDX_Z],
+            });
+        } else if (uType === TYPE_HEALER && d[base + IDX_SKILL3_CD] === 0) {
+            d[base + IDX_ANIM] = 2;
+            animLockTicks[i] = 20;
+            const sanctuaryTeam = d[base + IDX_TEAM];
+            const rangeSq =
+                HEALER_SKILLS.holySanctuary.radius *
+                HEALER_SKILLS.holySanctuary.radius;
+            let healCount = 0;
+            const hCol = Math.floor((d[base + IDX_X] - BOUND_X_MIN) / cellSize);
+            const hRow = Math.floor((d[base + IDX_Z] - BOUND_Z_MIN) / cellSize);
+            for (let r = hRow - 1; r <= hRow + 1; r++) {
+                if (r < 0 || r >= gridRows) continue;
+                for (let c = hCol - 1; c <= hCol + 1; c++) {
+                    if (c < 0 || c >= gridCols) continue;
+                    const cellIdx = r * gridCols + c;
+                    let curr = gridHead[cellIdx];
+                    while (curr !== -1) {
+                        const jBase = curr * STRIDE;
+                        if (
+                            d[jBase + IDX_HP] > 0 &&
+                            d[jBase + IDX_TEAM] === sanctuaryTeam
+                        ) {
+                            const jdx = d[jBase + IDX_X] - d[base + IDX_X];
+                            const jdz = d[jBase + IDX_Z] - d[base + IDX_Z];
+                            if (jdx * jdx + jdz * jdz <= rangeSq) {
+                                applyHeal(
+                                    d,
+                                    curr,
+                                    HEALER_SKILLS.holySanctuary.healAmount,
+                                    i,
+                                );
+                                healCount++;
+                                if (healCount >= 5) break;
+                            }
+                        }
+                        curr = gridNext[curr];
+                    }
+                    if (healCount >= 5) break;
+                }
+                if (healCount >= 5) break;
+            }
+            d[base + IDX_SKILL3_CD] = HEALER_SKILLS.holySanctuary.cooldown;
+            skillActivated = true;
+            self.postMessage({
+                type: "skillFX",
+                skill: "holySanctuary",
+                x: d[base + IDX_X],
+                y: d[base + IDX_Y],
+                z: d[base + IDX_Z],
+            });
         }
 
         if (target === -1) {
@@ -559,24 +745,10 @@ function tick(d: Float32Array) {
         const dz = d[tBase + IDX_Z] - d[base + IDX_Z];
         const dist = Math.sqrt(dx * dx + dz * dz) || 0.001;
 
-        // --- SKILL SYSTEM (Unique skills per class) ---
-        let skillActivated = false;
+        // --- TARGETED SKILLS (require enemy in range) ---
 
         if (uType === TYPE_TANK) {
-            if (d[base + IDX_SKILL1_CD] === 0 && dist <= 6.0) {
-                d[base + IDX_IMMUNE_CD] = TANK_SKILLS.bulwarkStance.immuneTicks;
-                d[base + IDX_SKILL1_CD] = TANK_SKILLS.bulwarkStance.cooldown;
-                skillActivated = true;
-                self.postMessage({
-                    type: "skillFX",
-                    skill: "ironFortitude",
-                    team: d[base + IDX_TEAM],
-                    x: d[base + IDX_X],
-                    y: d[base + IDX_Y],
-                    z: d[base + IDX_Z],
-                });
-            }
-            else if (
+            if (
                 d[base + IDX_SKILL2_CD] === 0 &&
                 dist <= TANK_SKILLS.taunt.range
             ) {
@@ -594,8 +766,7 @@ function tick(d: Float32Array) {
                     ty: d[tBase + IDX_Y],
                     tz: d[tBase + IDX_Z],
                 });
-            }
-            else if (
+            } else if (
                 d[base + IDX_SKILL3_CD] === 0 &&
                 dist <= TANK_SKILLS.shieldBash.range
             ) {
@@ -637,8 +808,7 @@ function tick(d: Float32Array) {
                     ty: d[tBase + IDX_Y] + 0.8,
                     tz: d[tBase + IDX_Z],
                 });
-            }
-            else if (
+            } else if (
                 d[base + IDX_SKILL2_CD] === 0 &&
                 dist <= ARCHER_SKILLS.evasiveLeap.range
             ) {
@@ -664,8 +834,7 @@ function tick(d: Float32Array) {
                     ty: toY,
                     tz: d[base + IDX_Z],
                 });
-            }
-            else if (d[base + IDX_SKILL3_CD] === 0 && dist <= myRange) {
+            } else if (d[base + IDX_SKILL3_CD] === 0 && dist <= myRange) {
                 d[base + IDX_ANIM] = 2; // play attack animation
                 animLockTicks[i] = 20; // lock animation
                 const myX = d[base + IDX_X];
@@ -678,7 +847,9 @@ function tick(d: Float32Array) {
                 // Query 3x3 cells around target instead of full scan
                 const tCol = Math.floor((targetX - BOUND_X_MIN) / cellSize);
                 const tRow = Math.floor((targetZ - BOUND_Z_MIN) / cellSize);
-                const radiusSq = ARCHER_SKILLS.arrowVolley.radius * ARCHER_SKILLS.arrowVolley.radius;
+                const radiusSq =
+                    ARCHER_SKILLS.arrowVolley.radius *
+                    ARCHER_SKILLS.arrowVolley.radius;
 
                 for (let r = tRow - 1; r <= tRow + 1; r++) {
                     if (r < 0 || r >= gridRows) continue;
@@ -688,12 +859,20 @@ function tick(d: Float32Array) {
                         let curr = gridHead[cellIdx];
                         while (curr !== -1) {
                             const jBase = curr * STRIDE;
-                            if (d[jBase + IDX_HP] > 0 && d[jBase + IDX_TEAM] !== myTeam) {
+                            if (
+                                d[jBase + IDX_HP] > 0 &&
+                                d[jBase + IDX_TEAM] !== myTeam
+                            ) {
                                 const jdx = d[jBase + IDX_X] - targetX;
                                 const jdz = d[jBase + IDX_Z] - targetZ;
                                 const jdist = jdx * jdx + jdz * jdz;
                                 if (jdist <= radiusSq) {
-                                    queueDamage(curr, ARCHER_SKILLS.arrowVolley.damage, 25, i);
+                                    queueDamage(
+                                        curr,
+                                        ARCHER_SKILLS.arrowVolley.damage,
+                                        25,
+                                        i,
+                                    );
                                 }
                             }
                             curr = gridNext[curr];
@@ -721,7 +900,8 @@ function tick(d: Float32Array) {
                 animLockTicks[i] = 20; // lock animation
                 const novaX = d[tBase + IDX_X];
                 const novaZ = d[tBase + IDX_Z];
-                const novaRadiusSq = MAGE_SKILLS.frostNova.radius * MAGE_SKILLS.frostNova.radius;
+                const novaRadiusSq =
+                    MAGE_SKILLS.frostNova.radius * MAGE_SKILLS.frostNova.radius;
                 const myTeamNova = d[base + IDX_TEAM];
 
                 // Query 3x3 cells around target using pre-allocated structures
@@ -737,7 +917,10 @@ function tick(d: Float32Array) {
                         let curr = gridHead[cellIdx];
                         while (curr !== -1) {
                             const jBase = curr * STRIDE;
-                            if (d[jBase + IDX_HP] > 0 && d[jBase + IDX_TEAM] !== myTeamNova) {
+                            if (
+                                d[jBase + IDX_HP] > 0 &&
+                                d[jBase + IDX_TEAM] !== myTeamNova
+                            ) {
                                 const jdx = d[jBase + IDX_X] - novaX;
                                 const jdz = d[jBase + IDX_Z] - novaZ;
                                 const distSq = jdx * jdx + jdz * jdz;
@@ -757,7 +940,9 @@ function tick(d: Float32Array) {
                 for (let c = 0; c < limit; c++) {
                     let minIdx = c;
                     for (let k = c + 1; k < candCount; k++) {
-                        if (tempCandidatesDist[k] < tempCandidatesDist[minIdx]) {
+                        if (
+                            tempCandidatesDist[k] < tempCandidatesDist[minIdx]
+                        ) {
                             minIdx = k;
                         }
                     }
@@ -771,7 +956,13 @@ function tick(d: Float32Array) {
                 }
 
                 for (let c = 0; c < limit; c++) {
-                    queueDamage(tempCandidatesIdx[c], MAGE_SKILLS.frostNova.damage, 12, i, MAGE_SKILLS.frostNova.stunTicks);
+                    queueDamage(
+                        tempCandidatesIdx[c],
+                        MAGE_SKILLS.frostNova.damage,
+                        12,
+                        i,
+                        MAGE_SKILLS.frostNova.stunTicks,
+                    );
                 }
                 d[base + IDX_SKILL1_CD] = MAGE_SKILLS.frostNova.cooldown;
                 skillActivated = true;
@@ -799,7 +990,12 @@ function tick(d: Float32Array) {
                     d[tBase + IDX_Z],
                 ];
 
-                queueDamage(target, MAGE_SKILLS.chainLightning.damagePrimary, 12, i);
+                queueDamage(
+                    target,
+                    MAGE_SKILLS.chainLightning.damagePrimary,
+                    12,
+                    i,
+                );
                 chainCount++;
 
                 let lastX = d[tBase + IDX_X];
@@ -828,11 +1024,18 @@ function tick(d: Float32Array) {
                             let curr = gridHead[cellIdx];
                             while (curr !== -1) {
                                 const jBase = curr * STRIDE;
-                                if (d[jBase + IDX_HP] > 0 && d[jBase + IDX_TEAM] !== myTeam && hitFlags[curr] === 0) {
+                                if (
+                                    d[jBase + IDX_HP] > 0 &&
+                                    d[jBase + IDX_TEAM] !== myTeam &&
+                                    hitFlags[curr] === 0
+                                ) {
                                     const jdx = d[jBase + IDX_X] - lastX;
                                     const jdz = d[jBase + IDX_Z] - lastZ;
                                     const jdist = jdx * jdx + jdz * jdz;
-                                    if (jdist < nextMinDist && jdist <= chainRadiusSq) {
+                                    if (
+                                        jdist < nextMinDist &&
+                                        jdist <= chainRadiusSq
+                                    ) {
                                         nextMinDist = jdist;
                                         nextTarget = curr;
                                     }
@@ -847,7 +1050,7 @@ function tick(d: Float32Array) {
                             nextTarget,
                             MAGE_SKILLS.chainLightning.damageSecondary,
                             12 + chainCount * 8,
-                            i
+                            i,
                         );
                         hitFlags[nextTarget] = 1;
                         const nextBase = nextTarget * STRIDE;
@@ -874,7 +1077,8 @@ function tick(d: Float32Array) {
                 animLockTicks[i] = 20; // lock animation
                 const fbX = d[tBase + IDX_X];
                 const fbZ = d[tBase + IDX_Z];
-                const fbRadiusSq = MAGE_SKILLS.fireball.radius * MAGE_SKILLS.fireball.radius;
+                const fbRadiusSq =
+                    MAGE_SKILLS.fireball.radius * MAGE_SKILLS.fireball.radius;
                 const myTeamFb = d[base + IDX_TEAM];
 
                 queueDamage(target, MAGE_SKILLS.fireball.damageDirect, 28, i);
@@ -892,11 +1096,17 @@ function tick(d: Float32Array) {
                         while (curr !== -1) {
                             if (curr !== target) {
                                 const jBase = curr * STRIDE;
-                                if (d[jBase + IDX_HP] > 0 && d[jBase + IDX_TEAM] !== myTeamFb) {
+                                if (
+                                    d[jBase + IDX_HP] > 0 &&
+                                    d[jBase + IDX_TEAM] !== myTeamFb
+                                ) {
                                     const jdx = d[jBase + IDX_X] - fbX;
                                     const jdz = d[jBase + IDX_Z] - fbZ;
                                     const distSq = jdx * jdx + jdz * jdz;
-                                    if (distSq <= fbRadiusSq && candCount < 64) {
+                                    if (
+                                        distSq <= fbRadiusSq &&
+                                        candCount < 64
+                                    ) {
                                         tempCandidatesIdx[candCount] = curr;
                                         tempCandidatesDist[candCount] = distSq;
                                         candCount++;
@@ -913,7 +1123,9 @@ function tick(d: Float32Array) {
                 for (let c = 0; c < fbLimit; c++) {
                     let minIdx = c;
                     for (let k = c + 1; k < candCount; k++) {
-                        if (tempCandidatesDist[k] < tempCandidatesDist[minIdx]) {
+                        if (
+                            tempCandidatesDist[k] < tempCandidatesDist[minIdx]
+                        ) {
                             minIdx = k;
                         }
                     }
@@ -927,7 +1139,12 @@ function tick(d: Float32Array) {
                 }
 
                 for (let c = 0; c < fbLimit; c++) {
-                    queueDamage(tempCandidatesIdx[c], MAGE_SKILLS.fireball.damageSplash, 28, i);
+                    queueDamage(
+                        tempCandidatesIdx[c],
+                        MAGE_SKILLS.fireball.damageSplash,
+                        28,
+                        i,
+                    );
                 }
                 d[base + IDX_SKILL3_CD] = MAGE_SKILLS.fireball.cooldown;
                 skillActivated = true;
@@ -942,6 +1159,183 @@ function tick(d: Float32Array) {
                     tz: fbZ,
                 });
             }
+        } else if (uType === TYPE_GUNSLINGER) {
+            // Skill 1: High Noon — single target nuke
+            if (d[base + IDX_SKILL1_CD] === 0 && dist <= myRange) {
+                d[base + IDX_ANIM] = 2;
+                animLockTicks[i] = 20;
+                queueDamage(target, GUNSLINGER_SKILLS.highNoon.damage, 12, i);
+                d[base + IDX_SKILL1_CD] = GUNSLINGER_SKILLS.highNoon.cooldown;
+                skillActivated = true;
+                self.postMessage({
+                    type: "skillFX",
+                    skill: "highNoon",
+                    team: d[base + IDX_TEAM],
+                    fx: d[base + IDX_X],
+                    fy: d[base + IDX_Y] + 0.8,
+                    fz: d[base + IDX_Z],
+                    tx: d[tBase + IDX_X],
+                    ty: d[tBase + IDX_Y] + 0.8,
+                    tz: d[tBase + IDX_Z],
+                });
+            }
+            // Skill 2: Smoke Bomb — targeted stealth + damage reduction
+            else if (d[base + IDX_SKILL2_CD] === 0 && dist <= myRange) {
+                d[base + IDX_ANIM] = 2;
+                animLockTicks[i] = 15;
+                d[base + IDX_EFFECT_STATE] =
+                    1000 + GUNSLINGER_SKILLS.smokeBomb.stealthTicks;
+                d[base + IDX_SKILL2_CD] = GUNSLINGER_SKILLS.smokeBomb.cooldown;
+                skillActivated = true;
+                self.postMessage({
+                    type: "skillFX",
+                    skill: "smokeBomb",
+                    team: d[base + IDX_TEAM],
+                    x: d[base + IDX_X],
+                    y: d[base + IDX_Y] + 0.5,
+                    z: d[base + IDX_Z],
+                });
+            }
+            // Skill 3: Fan Fire — AoE cone, 3 hits per enemy
+            else if (d[base + IDX_SKILL3_CD] === 0 && dist <= myRange) {
+                d[base + IDX_ANIM] = 2;
+                animLockTicks[i] = 20;
+                const myTeam = d[base + IDX_TEAM];
+                const targetX = d[tBase + IDX_X];
+                const targetZ = d[tBase + IDX_Z];
+                const radiusSq =
+                    GUNSLINGER_SKILLS.fanFire.radius *
+                    GUNSLINGER_SKILLS.fanFire.radius;
+
+                const tCol = Math.floor((targetX - BOUND_X_MIN) / cellSize);
+                const tRow = Math.floor((targetZ - BOUND_Z_MIN) / cellSize);
+
+                for (let r = tRow - 1; r <= tRow + 1; r++) {
+                    if (r < 0 || r >= gridRows) continue;
+                    for (let c = tCol - 1; c <= tCol + 1; c++) {
+                        if (c < 0 || c >= gridCols) continue;
+                        const cellIdx = r * gridCols + c;
+                        let curr = gridHead[cellIdx];
+                        while (curr !== -1) {
+                            const jBase = curr * STRIDE;
+                            if (
+                                d[jBase + IDX_HP] > 0 &&
+                                d[jBase + IDX_TEAM] !== myTeam
+                            ) {
+                                const jdx = d[jBase + IDX_X] - targetX;
+                                const jdz = d[jBase + IDX_Z] - targetZ;
+                                const jdist = jdx * jdx + jdz * jdz;
+                                if (jdist <= radiusSq) {
+                                    for (
+                                        let h = 0;
+                                        h < GUNSLINGER_SKILLS.fanFire.hits;
+                                        h++
+                                    ) {
+                                        queueDamage(
+                                            curr,
+                                            GUNSLINGER_SKILLS.fanFire.damage,
+                                            15 + h * 8,
+                                            i,
+                                        );
+                                    }
+                                }
+                            }
+                            curr = gridNext[curr];
+                        }
+                    }
+                }
+                d[base + IDX_SKILL3_CD] = GUNSLINGER_SKILLS.fanFire.cooldown;
+                skillActivated = true;
+                self.postMessage({
+                    type: "skillFX",
+                    skill: "fanFire",
+                    team: d[base + IDX_TEAM],
+                    x: targetX,
+                    z: targetZ,
+                });
+            }
+        } else if (uType === TYPE_ASSASSIN) {
+            // Skill 1: Shadow Step — teleport behind target
+            if (d[base + IDX_SKILL1_CD] === 0 && dist <= 8.0) {
+                d[base + IDX_ANIM] = 1;
+                animLockTicks[i] = 10;
+                const behindX =
+                    d[tBase + IDX_X] -
+                    (dx / dist) * ASSASSIN_SKILLS.shadowStep.teleportRange;
+                const behindZ =
+                    d[tBase + IDX_Z] -
+                    (dz / dist) * ASSASSIN_SKILLS.shadowStep.teleportRange;
+                const fromX = d[base + IDX_X];
+                const fromY = d[base + IDX_Y];
+                const fromZ = d[base + IDX_Z];
+                d[base + IDX_X] = behindX;
+                d[base + IDX_Z] = behindZ;
+                d[base + IDX_Y] = getTerrainHeight(behindX, behindZ);
+                d[base + IDX_SKILL1_CD] = ASSASSIN_SKILLS.shadowStep.cooldown;
+                skillActivated = true;
+                self.postMessage({
+                    type: "skillFX",
+                    skill: "shadowStep",
+                    fx: fromX,
+                    fy: fromY,
+                    fz: fromZ,
+                    tx: behindX,
+                    ty: d[base + IDX_Y],
+                    tz: behindZ,
+                });
+            }
+            // Skill 2: Backstab — bonus damage if behind target
+            else if (d[base + IDX_SKILL2_CD] === 0 && dist <= myRange) {
+                d[base + IDX_ANIM] = 2;
+                animLockTicks[i] = 20;
+                // Check if attacking from behind (dot product of facing directions)
+                // Simplified: if assassin is close enough, considered behind target
+                const isBackstab = dist < 2.0;
+                const dmg = isBackstab
+                    ? ASSASSIN_SKILLS.backstab.damageBack
+                    : ASSASSIN_SKILLS.backstab.damageFront;
+                queueDamage(target, dmg, 10, i);
+                d[base + IDX_SKILL2_CD] = ASSASSIN_SKILLS.backstab.cooldown;
+                skillActivated = true;
+                self.postMessage({
+                    type: "skillFX",
+                    skill: "backstab",
+                    team: d[base + IDX_TEAM],
+                    fx: d[base + IDX_X],
+                    fy: d[base + IDX_Y] + 0.8,
+                    fz: d[base + IDX_Z],
+                    tx: d[tBase + IDX_X],
+                    ty: d[tBase + IDX_Y] + 0.8,
+                    tz: d[tBase + IDX_Z],
+                });
+            }
+            // Skill 3: Poison Blade — DoT + initial damage
+            else if (d[base + IDX_SKILL3_CD] === 0 && dist <= myRange) {
+                d[base + IDX_ANIM] = 2;
+                animLockTicks[i] = 20;
+                queueDamage(
+                    target,
+                    ASSASSIN_SKILLS.poisonBlade.damagePerTick,
+                    10,
+                    i,
+                );
+                // Apply poison effect: base 2000 + duration ticks
+                d[tBase + IDX_EFFECT_STATE] =
+                    2000 + ASSASSIN_SKILLS.poisonBlade.durationTicks;
+                d[base + IDX_SKILL3_CD] = ASSASSIN_SKILLS.poisonBlade.cooldown;
+                skillActivated = true;
+                self.postMessage({
+                    type: "skillFX",
+                    skill: "poisonBlade",
+                    team: d[base + IDX_TEAM],
+                    fx: d[base + IDX_X],
+                    fy: d[base + IDX_Y] + 0.8,
+                    fz: d[base + IDX_Z],
+                    tx: d[tBase + IDX_X],
+                    ty: d[tBase + IDX_Y] + 0.8,
+                    tz: d[tBase + IDX_Z],
+                });
+            }
         } else if (uType === TYPE_HEALER) {
             const isTargetAlly = d[tBase + IDX_TEAM] === d[base + IDX_TEAM];
 
@@ -950,9 +1344,15 @@ function tick(d: Float32Array) {
                     d[base + IDX_ANIM] = 2;
                     animLockTicks[i] = 20;
 
-                    applyHeal(d, target, HEALER_SKILLS.rejuvenation.healAmount, i);
+                    applyHeal(
+                        d,
+                        target,
+                        HEALER_SKILLS.rejuvenation.healAmount,
+                        i,
+                    );
 
-                    d[base + IDX_SKILL1_CD] = HEALER_SKILLS.rejuvenation.cooldown;
+                    d[base + IDX_SKILL1_CD] =
+                        HEALER_SKILLS.rejuvenation.cooldown;
                     skillActivated = true;
 
                     self.postMessage({
@@ -965,14 +1365,15 @@ function tick(d: Float32Array) {
                         ty: d[tBase + IDX_Y] + 0.8,
                         tz: d[tBase + IDX_Z],
                     });
-                }
-                else if (d[base + IDX_SKILL2_CD] === 0 && dist <= myRange) {
+                } else if (d[base + IDX_SKILL2_CD] === 0 && dist <= myRange) {
                     d[base + IDX_ANIM] = 2;
                     animLockTicks[i] = 20;
 
-                    d[tBase + IDX_EFFECT_STATE] = -HEALER_SKILLS.divineShield.durationTicks;
+                    d[tBase + IDX_EFFECT_STATE] =
+                        -HEALER_SKILLS.divineShield.durationTicks;
 
-                    d[base + IDX_SKILL2_CD] = HEALER_SKILLS.divineShield.cooldown;
+                    d[base + IDX_SKILL2_CD] =
+                        HEALER_SKILLS.divineShield.cooldown;
                     skillActivated = true;
 
                     self.postMessage({
@@ -986,55 +1387,7 @@ function tick(d: Float32Array) {
                         tz: d[tBase + IDX_Z],
                     });
                 }
-                else if (d[base + IDX_SKILL3_CD] === 0) {
-                    d[base + IDX_ANIM] = 2;
-                    animLockTicks[i] = 20;
-
-                    const myTeam = d[base + IDX_TEAM];
-                    const rangeSq = HEALER_SKILLS.holySanctuary.radius * HEALER_SKILLS.holySanctuary.radius;
-                    let healCount = 0;
-
-                    // Query 3x3 cells around healer
-                    const hCol = Math.floor((d[base + IDX_X] - BOUND_X_MIN) / cellSize);
-                    const hRow = Math.floor((d[base + IDX_Z] - BOUND_Z_MIN) / cellSize);
-
-                    for (let r = hRow - 1; r <= hRow + 1; r++) {
-                        if (r < 0 || r >= gridRows) continue;
-                        for (let c = hCol - 1; c <= hCol + 1; c++) {
-                            if (c < 0 || c >= gridCols) continue;
-                            const cellIdx = r * gridCols + c;
-                            let curr = gridHead[cellIdx];
-                            while (curr !== -1) {
-                                const jBase = curr * STRIDE;
-                                if (d[jBase + IDX_HP] > 0 && d[jBase + IDX_TEAM] === myTeam) {
-                                    const jdx = d[jBase + IDX_X] - d[base + IDX_X];
-                                    const jdz = d[jBase + IDX_Z] - d[base + IDX_Z];
-                                    const jdistSq = jdx * jdx + jdz * jdz;
-
-                                    if (jdistSq <= rangeSq) {
-                                        applyHeal(d, curr, HEALER_SKILLS.holySanctuary.healAmount, i);
-                                        healCount++;
-                                        if (healCount >= 5) break;
-                                    }
-                                }
-                                curr = gridNext[curr];
-                            }
-                            if (healCount >= 5) break;
-                        }
-                        if (healCount >= 5) break;
-                    }
-
-                    d[base + IDX_SKILL3_CD] = HEALER_SKILLS.holySanctuary.cooldown;
-                    skillActivated = true;
-
-                    self.postMessage({
-                        type: "skillFX",
-                        skill: "holySanctuary",
-                        x: d[base + IDX_X],
-                        y: d[base + IDX_Y],
-                        z: d[base + IDX_Z],
-                    });
-                }
+                // Skill 3: Holy Sanctuary — now fires from self-buff block above
             }
         }
 
@@ -1044,8 +1397,12 @@ function tick(d: Float32Array) {
             let sepZ = 0;
 
             // Separation query 3x3 cells (since separation radius is 0.95 and cellSize is 6.0)
-            const myCol = Math.floor((d[base + IDX_X] - BOUND_X_MIN) / cellSize);
-            const myRow = Math.floor((d[base + IDX_Z] - BOUND_Z_MIN) / cellSize);
+            const myCol = Math.floor(
+                (d[base + IDX_X] - BOUND_X_MIN) / cellSize,
+            );
+            const myRow = Math.floor(
+                (d[base + IDX_Z] - BOUND_Z_MIN) / cellSize,
+            );
 
             for (let r = myRow - 1; r <= myRow + 1; r++) {
                 if (r < 0 || r >= gridRows) continue;
@@ -1065,14 +1422,22 @@ function tick(d: Float32Array) {
                                 const distSq = dxj * dxj + dzj * dzj;
 
                                 if (
-                                    distSq < SEPARATION_RADIUS * SEPARATION_RADIUS &&
+                                    distSq <
+                                        SEPARATION_RADIUS * SEPARATION_RADIUS &&
                                     distSq > 0.0001
                                 ) {
                                     const distj = Math.sqrt(distSq);
                                     const force =
-                                        (SEPARATION_RADIUS - distj) / SEPARATION_RADIUS;
-                                    sepX += (dxj / distj) * force * SEPARATION_STRENGTH;
-                                    sepZ += (dzj / distj) * force * SEPARATION_STRENGTH;
+                                        (SEPARATION_RADIUS - distj) /
+                                        SEPARATION_RADIUS;
+                                    sepX +=
+                                        (dxj / distj) *
+                                        force *
+                                        SEPARATION_STRENGTH;
+                                    sepZ +=
+                                        (dzj / distj) *
+                                        force *
+                                        SEPARATION_STRENGTH;
                                 }
                             }
                         }
@@ -1141,7 +1506,16 @@ function tick(d: Float32Array) {
                     if (d[base + IDX_ATTACK_CD] === 0) {
                         d[base + IDX_ANIM] = 2; // animasi serang
                         animLockTicks[i] = 20; // lock animation
-                        const attackDelay = uType === 0 ? 18 : (uType === 1 ? 15 : 22);
+                        const attackDelay =
+                            uType === TYPE_TANK
+                                ? 18
+                                : uType === TYPE_ARCHER
+                                  ? 15
+                                  : uType === TYPE_ASSASSIN
+                                    ? 8
+                                    : uType === TYPE_GUNSLINGER
+                                      ? 12
+                                      : 22;
                         queueDamage(target, baseDamage, attackDelay, i);
                         d[base + IDX_ATTACK_CD] = attackInterval; // set cooldown normal attack
                         self.postMessage({
@@ -1188,17 +1562,57 @@ function tick(d: Float32Array) {
 function getStats(d: Float32Array) {
     const stats = {
         teamA: {
-            tankDealt: 0, tankTaken: 0, tankKills: 0, tankHealed: 0,
-            archerDealt: 0, archerTaken: 0, archerKills: 0, archerHealed: 0,
-            mageDealt: 0, mageTaken: 0, mageKills: 0, mageHealed: 0,
-            healerDealt: 0, healerTaken: 0, healerKills: 0, healerHealed: 0
+            tankDealt: 0,
+            tankTaken: 0,
+            tankKills: 0,
+            tankHealed: 0,
+            archerDealt: 0,
+            archerTaken: 0,
+            archerKills: 0,
+            archerHealed: 0,
+            mageDealt: 0,
+            mageTaken: 0,
+            mageKills: 0,
+            mageHealed: 0,
+            healerDealt: 0,
+            healerTaken: 0,
+            healerKills: 0,
+            healerHealed: 0,
+            gunslingerDealt: 0,
+            gunslingerTaken: 0,
+            gunslingerKills: 0,
+            gunslingerHealed: 0,
+            assassinDealt: 0,
+            assassinTaken: 0,
+            assassinKills: 0,
+            assassinHealed: 0,
         },
         teamB: {
-            tankDealt: 0, tankTaken: 0, tankKills: 0, tankHealed: 0,
-            archerDealt: 0, archerTaken: 0, archerKills: 0, archerHealed: 0,
-            mageDealt: 0, mageTaken: 0, mageKills: 0, mageHealed: 0,
-            healerDealt: 0, healerTaken: 0, healerKills: 0, healerHealed: 0
-        }
+            tankDealt: 0,
+            tankTaken: 0,
+            tankKills: 0,
+            tankHealed: 0,
+            archerDealt: 0,
+            archerTaken: 0,
+            archerKills: 0,
+            archerHealed: 0,
+            mageDealt: 0,
+            mageTaken: 0,
+            mageKills: 0,
+            mageHealed: 0,
+            healerDealt: 0,
+            healerTaken: 0,
+            healerKills: 0,
+            healerHealed: 0,
+            gunslingerDealt: 0,
+            gunslingerTaken: 0,
+            gunslingerKills: 0,
+            gunslingerHealed: 0,
+            assassinDealt: 0,
+            assassinTaken: 0,
+            assassinKills: 0,
+            assassinHealed: 0,
+        },
     };
 
     for (let i = startIndex; i < endIndex; i++) {
@@ -1233,6 +1647,16 @@ function getStats(d: Float32Array) {
             teamStats.healerTaken += taken;
             teamStats.healerKills += kills;
             teamStats.healerHealed += healed;
+        } else if (uType === TYPE_GUNSLINGER) {
+            teamStats.gunslingerDealt += dealt;
+            teamStats.gunslingerTaken += taken;
+            teamStats.gunslingerKills += kills;
+            teamStats.gunslingerHealed += healed;
+        } else if (uType === TYPE_ASSASSIN) {
+            teamStats.assassinDealt += dealt;
+            teamStats.assassinTaken += taken;
+            teamStats.assassinKills += kills;
+            teamStats.assassinHealed += healed;
         }
     }
     return stats;
@@ -1245,6 +1669,7 @@ self.onmessage = (e: MessageEvent) => {
     if (type === "init") {
         buf = e.data.buffer as SharedArrayBuffer;
         data = new Float32Array(buf);
+        int32Data = new Int32Array(buf);
         battleTicks = 0;
         startIndex = e.data.startIndex ?? 0;
         endIndex = e.data.endIndex ?? UNIT_COUNT;
@@ -1260,7 +1685,31 @@ self.onmessage = (e: MessageEvent) => {
     if (type === "tick") {
         if (data) {
             tick(data);
-            self.postMessage({ type: "tick_done" });
+            // Compute partial alive counts for this worker's range
+            let aliveA = 0,
+                aliveB = 0,
+                aliveOrUnspawnedA = 0,
+                aliveOrUnspawnedB = 0;
+            for (let i = startIndex; i < endIndex; i++) {
+                const base = i * STRIDE;
+                const hp = data[base + IDX_HP];
+                if (hp > 0 || hp === -999) {
+                    if (data[base + IDX_TEAM] === TEAM_A) {
+                        aliveOrUnspawnedA++;
+                        if (hp > 0) aliveA++;
+                    } else {
+                        aliveOrUnspawnedB++;
+                        if (hp > 0) aliveB++;
+                    }
+                }
+            }
+            self.postMessage({
+                type: "tick_done",
+                aliveA,
+                aliveB,
+                aliveOrUnspawnedA,
+                aliveOrUnspawnedB,
+            });
         }
     }
 

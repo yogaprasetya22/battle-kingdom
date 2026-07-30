@@ -36,10 +36,11 @@ export class World {
     this.leaves       = new Leaves(scene);
   }
 
-  update(delta: number) {
+  update(delta: number, camPos: THREE.Vector3) {
     this.elapsed += delta;
     this.uniforms.uTime.value = this.elapsed;
     this.windLines.update(delta, this.elapsed);
+    this.waterSurface?.update(camPos);
     // this.leaves.update(delta, this.elapsed);
   }
 }

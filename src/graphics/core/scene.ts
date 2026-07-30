@@ -4,7 +4,7 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 // @ts-ignore
 import { MeshoptDecoder } from "three/examples/jsm/libs/meshopt_decoder.module.js";
 
-// Loader Manager & Hooks
+// Loader Manager for GLB only (exclude MP3s from progress tracking)
 export const loadingManager = new THREE.LoadingManager();
 
 loadingManager.onStart = (url) => {
@@ -66,15 +66,18 @@ loadingManager.onError = (url) => {
     }
 };
 
-
+// GLTFLoader uses LoadingManager (only GLB files tracked)
 export const gltfLoader = new GLTFLoader(loadingManager);
 gltfLoader.setMeshoptDecoder(MeshoptDecoder);
 // ponytail: no DRACOLoader — gltfpack output uses Meshopt, not Draco. Saves ~500KB wasm.
 
-
 // Canvas & WebGLRenderer
 export const canvas = document.getElementById("canvas") as HTMLCanvasElement;
-export const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: "high-performance" });
+export const renderer = new THREE.WebGLRenderer({
+    canvas,
+    antialias: false,
+    powerPreference: "high-performance",
+});
 renderer.setPixelRatio(1.0); // ponytail: cap to 1.0 to resolve camera drag lag on integrated GPUs
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = false;
@@ -104,6 +107,22 @@ controls.dampingFactor = 0.05;
 controls.maxPolarAngle = Math.PI / 2.1;
 controls.minDistance = 5;
 controls.maxDistance = 55;
+
+// ponytail: Throttle high-polling-rate gaming mouse events (e.g. 1000Hz+) to max 100Hz
+// This blocks excessive events in the capture phase before they reach OrbitControls, preventing main thread lag.
+let lastPointerMoveTime = 0;
+canvas.addEventListener(
+    "pointermove",
+    (e) => {
+        const now = performance.now();
+        if (now - lastPointerMoveTime < 10) {
+            e.stopImmediatePropagation();
+        } else {
+            lastPointerMoveTime = now;
+        }
+    },
+    { capture: true },
+);
 
 // Lights
 export const hemiLight = new THREE.HemisphereLight(0xffffff, 0xc2e2b5, 2.2);
