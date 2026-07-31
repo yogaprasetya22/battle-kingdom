@@ -40,13 +40,16 @@ export function createUnitVisual(
             unit = new MageVisual(sourceGLTF, teamMat);
             break;
         case 3:
-            unit = new HealerVisual(sourceGLTF, teamMat);
+            // Healer disabled — fallback ke Knight
+            unit = new KnightVisual(sourceGLTF, teamMat);
             break;
         case 4:
-            unit = new GunslingerVisual(sourceGLTF, teamMat);
+            // Gunslinger disabled — fallback ke Knight
+            unit = new KnightVisual(sourceGLTF, teamMat);
             break;
         case 5:
-            unit = new AssassinVisual(sourceGLTF, teamMat);
+            // Assassin disabled — fallback ke Knight
+            unit = new KnightVisual(sourceGLTF, teamMat);
             break;
         // ponytail: tipe 6-7 belum dibuat class mandiri, fallback ke Knight dulu
         case 6:

@@ -145,9 +145,17 @@ function initUnits(d: Float32Array, matchup: string = "mix") {
         } else if (matchup === "only_tank") {
             unitType = TYPE_TANK;
         } else if (matchup === "only_gunslinger") {
-            unitType = TYPE_GUNSLINGER;
+            // Gunslinger disabled — use Tank instead
+            unitType = TYPE_TANK;
         } else if (matchup === "only_assassin") {
-            unitType = TYPE_ASSASSIN;
+            // Assassin disabled — use Tank instead
+            unitType = TYPE_TANK;
+        }
+        
+        // Force unit type whitelist: only TANK (0), ARCHER (1), MAGE (2) deployed
+        // Gunslinger (4), Assassin (5), Healer (3) → remap to Tank
+        if (unitType === 3 || unitType === 4 || unitType === 5) {
+            unitType = TYPE_TANK;
         }
         d[base + IDX_TYPE] = unitType;
 
