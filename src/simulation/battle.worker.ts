@@ -74,6 +74,7 @@ let endIndex = UNIT_COUNT;
 
 // Option 1: Per-Worker State Tracking — store workerId as module-level variable
 let workerId = -1;
+let customClasses: number[] = [0, 1, 2, 3, 4, 5];
 
 // --- Spatial Hash Grid Configuration ---
 const cellSize = 6.0;
@@ -129,7 +130,9 @@ function initUnits(d: Float32Array, matchup: string = "mix") {
         if (localIdx < healerCount) {
             unitType = TYPE_HEALER;
         }
-        if (matchup === "mage_vs_tank") {
+        if (matchup === "custom") {
+            unitType = customClasses[localIdx % customClasses.length];
+        } else if (matchup === "mage_vs_tank") {
             unitType = team === TEAM_A ? TYPE_MAGE : TYPE_TANK;
         } else if (matchup === "archer_vs_tank") {
             unitType = team === TEAM_A ? TYPE_ARCHER : TYPE_TANK;
@@ -192,7 +195,8 @@ function findNearestEnemy(d: Float32Array, i: number): number {
             let curr = gridHead[cellIdx];
             while (curr !== -1) {
                 const jBase = curr * STRIDE;
-                if (d[jBase + IDX_HP] > 0 && d[jBase + IDX_TEAM] !== myTeam) {
+                const isStealthed = d[jBase + IDX_EFFECT_STATE] >= 1000 && d[jBase + IDX_EFFECT_STATE] < 2000;
+                if (d[jBase + IDX_HP] > 0 && d[jBase + IDX_TEAM] !== myTeam && !isStealthed) {
                     const dx = d[jBase + IDX_X] - myX;
                     const dz = d[jBase + IDX_Z] - myZ;
                     const dist = dx * dx + dz * dz;
@@ -225,7 +229,8 @@ function findNearestEnemy(d: Float32Array, i: number): number {
             let curr = gridHead[cellIdx];
             while (curr !== -1) {
                 const jBase = curr * STRIDE;
-                if (d[jBase + IDX_HP] > 0 && d[jBase + IDX_TEAM] !== myTeam) {
+                const isStealthed = d[jBase + IDX_EFFECT_STATE] >= 1000 && d[jBase + IDX_EFFECT_STATE] < 2000;
+                if (d[jBase + IDX_HP] > 0 && d[jBase + IDX_TEAM] !== myTeam && !isStealthed) {
                     const dx = d[jBase + IDX_X] - myX;
                     const dz = d[jBase + IDX_Z] - myZ;
                     const dist = dx * dx + dz * dz;
@@ -248,6 +253,8 @@ function findNearestEnemy(d: Float32Array, i: number): number {
     for (let j = jStart; j < jEnd; j++) {
         const jBase = j * STRIDE;
         if (d[jBase + IDX_HP] <= 0) continue;
+        const isStealthed = d[jBase + IDX_EFFECT_STATE] >= 1000 && d[jBase + IDX_EFFECT_STATE] < 2000;
+        if (isStealthed) continue;
         const dx = d[jBase + IDX_X] - myX;
         const dz = d[jBase + IDX_Z] - myZ;
         const dist = dx * dx + dz * dz;
@@ -346,10 +353,14 @@ function findLowestHpEnemy(d: Float32Array, i: number): number {
             while (curr !== -1) {
                 const jBase = curr * STRIDE;
                 if (d[jBase + IDX_HP] > 0 && d[jBase + IDX_TEAM] !== myTeam) {
-                    const hp = d[jBase + IDX_HP];
-                    if (hp < lowestHp) {
-                        lowestHp = hp;
-                        target = curr;
+                    const enemyType = d[jBase + IDX_TYPE];
+                    const isStealthed = d[jBase + IDX_EFFECT_STATE] >= 1000 && d[jBase + IDX_EFFECT_STATE] < 2000;
+                    if (enemyType !== TYPE_TANK && enemyType !== TYPE_ASSASSIN && !isStealthed) {
+                        const hp = d[jBase + IDX_HP];
+                        if (hp < lowestHp) {
+                            lowestHp = hp;
+                            target = curr;
+                        }
                     }
                 }
                 curr = gridNext[curr];
@@ -367,9 +378,14 @@ function findLowestHpEnemy(d: Float32Array, i: number): number {
         const jBase = j * STRIDE;
         const hp = d[jBase + IDX_HP];
         if (hp <= 0) continue;
-        if (hp < lowestHp) {
-            lowestHp = hp;
-            target = j;
+        const enemyType = d[jBase + IDX_TYPE];
+        const isStealthed = d[jBase + IDX_EFFECT_STATE] >= 1000 && d[jBase + IDX_EFFECT_STATE] < 2000;
+        if (isStealthed) continue;
+        if (enemyType !== TYPE_TANK && enemyType !== TYPE_ASSASSIN) {
+            if (hp < lowestHp) {
+                lowestHp = hp;
+                target = j;
+            }
         }
     }
     return target;
@@ -638,14 +654,25 @@ function tick(d: Float32Array) {
 
         const uType = d[base + IDX_TYPE];
         const cachedTarget = d[base + IDX_TARGET];
-        let target: number;
-        if (
-            cachedTarget >= 0 &&
-            battleTicks % 4 !== (i & 3) &&
-            d[cachedTarget * STRIDE + IDX_HP] > 0
-        ) {
-            target = cachedTarget; // keep existing target
-        } else {
+        let target = cachedTarget;
+
+        // Check if current target is invalid (dead, none, or stealthed)
+        let isTargetInvalid = cachedTarget === -1 || d[cachedTarget * STRIDE + IDX_HP] <= 0;
+        if (!isTargetInvalid && cachedTarget >= 0) {
+            const tEffect = d[cachedTarget * STRIDE + IDX_EFFECT_STATE];
+            if (tEffect >= 1000 && tEffect < 2000) {
+                isTargetInvalid = true; // Target went into stealth!
+            }
+        }
+        
+        // If target is invalid, throttle search to once every 8 ticks. If valid, re-evaluate target every 4 ticks.
+        const searchInterval = isTargetInvalid ? 8 : 4;
+        const shouldSearch = (battleTicks + i) % searchInterval === 0;
+
+        if (isTargetInvalid && !shouldSearch) {
+            target = -1;
+            d[base + IDX_TARGET] = -1;
+        } else if (isTargetInvalid || shouldSearch) {
             if (uType === TYPE_HEALER) {
                 target = findLowestHpAlly(d, i);
                 if (target === -1) {
@@ -1294,9 +1321,14 @@ function tick(d: Float32Array) {
                 // Check if attacking from behind (dot product of facing directions)
                 // Simplified: if assassin is close enough, considered behind target
                 const isBackstab = dist < 2.0;
-                const dmg = isBackstab
+                let dmg = isBackstab
                     ? ASSASSIN_SKILLS.backstab.damageBack
                     : ASSASSIN_SKILLS.backstab.damageFront;
+                const isAttackerStealthed = d[base + IDX_EFFECT_STATE] >= 1000 && d[base + IDX_EFFECT_STATE] < 2000;
+                if (isAttackerStealthed) {
+                    dmg = 999; // CRIT EXECUTE DAMAGE
+                    d[base + IDX_EFFECT_STATE] = 0; // break stealth
+                }
                 queueDamage(target, dmg, 10, i);
                 d[base + IDX_SKILL2_CD] = ASSASSIN_SKILLS.backstab.cooldown;
                 skillActivated = true;
@@ -1316,9 +1348,15 @@ function tick(d: Float32Array) {
             else if (d[base + IDX_SKILL3_CD] === 0 && dist <= myRange) {
                 d[base + IDX_ANIM] = 2;
                 animLockTicks[i] = 20;
+                let dmg = ASSASSIN_SKILLS.poisonBlade.damagePerTick;
+                const isAttackerStealthed = d[base + IDX_EFFECT_STATE] >= 1000 && d[base + IDX_EFFECT_STATE] < 2000;
+                if (isAttackerStealthed) {
+                    dmg = 999; // CRIT EXECUTE DAMAGE
+                    d[base + IDX_EFFECT_STATE] = 0; // break stealth
+                }
                 queueDamage(
                     target,
-                    ASSASSIN_SKILLS.poisonBlade.damagePerTick,
+                    dmg,
                     10,
                     i,
                 );
@@ -1519,7 +1557,14 @@ function tick(d: Float32Array) {
                                     : uType === TYPE_GUNSLINGER
                                       ? 12
                                       : 22;
-                        queueDamage(target, baseDamage, attackDelay, i);
+                        
+                        let dmg = baseDamage;
+                        const isAttackerStealthed = d[base + IDX_EFFECT_STATE] >= 1000 && d[base + IDX_EFFECT_STATE] < 2000;
+                        if (uType === TYPE_ASSASSIN && isAttackerStealthed) {
+                            dmg = 999; // CRIT EXECUTE DAMAGE
+                            d[base + IDX_EFFECT_STATE] = 0; // break stealth
+                        }
+                        queueDamage(target, dmg, attackDelay, i);
                         d[base + IDX_ATTACK_CD] = attackInterval; // set cooldown normal attack
                         self.postMessage({
                             type: "skillFX",
@@ -1545,6 +1590,11 @@ function tick(d: Float32Array) {
                     const nz = dz / dist;
                     d[base + IDX_X] += nx * mySpeed;
                     d[base + IDX_Z] += nz * mySpeed;
+
+                    // Assassin stealth when running to target
+                    if (uType === TYPE_ASSASSIN && d[base + IDX_EFFECT_STATE] < 1000) {
+                        d[base + IDX_EFFECT_STATE] = 1000 + 150; // Stealth for 150 ticks
+                    }
                 }
             }
 
@@ -1670,6 +1720,9 @@ self.onmessage = (e: MessageEvent) => {
     const { type } = e.data;
 
     if (type === "init") {
+        if (e.data.customClasses) {
+            customClasses = e.data.customClasses;
+        }
         buf = e.data.buffer as SharedArrayBuffer;
         data = new Float32Array(buf);
         int32Data = new Int32Array(buf);
@@ -1729,6 +1782,9 @@ self.onmessage = (e: MessageEvent) => {
     }
 
     if (type === "reset") {
+        if (e.data.customClasses) {
+            customClasses = e.data.customClasses;
+        }
         battleTicks = 0;
         delayedDamages.length = 0;
         animLockTicks.fill(0);

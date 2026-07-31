@@ -455,6 +455,17 @@ for (let i = 0; i < NUM_WORKERS; i++) {
     };
 }
 
+function getCustomClasses(): number[] {
+    const badges = document.querySelectorAll(".class-badge");
+    const activeTypes: number[] = [];
+    badges.forEach((b: any) => {
+        if (b.classList.contains("active")) {
+            activeTypes.push(parseInt(b.dataset.type || "0"));
+        }
+    });
+    return activeTypes.length > 0 ? activeTypes : [0, 1, 2, 3, 4, 5];
+}
+
 function resetWorkers() {
     isRunning = false;
     pendingTick = false;
@@ -464,8 +475,14 @@ function resetWorkers() {
     workerTickStates.clear();
     if (workerTicks) workerTicks.textContent = "0";
     resetUnitsVisual();
+    
+    const customClasses = getCustomClasses();
     for (let i = 0; i < NUM_WORKERS; i++) {
-        workers[i].postMessage({ type: "reset", matchup: selectMatchup.value });
+        workers[i].postMessage({
+            type: "reset",
+            matchup: selectMatchup.value,
+            customClasses,
+        });
     }
 }
 
@@ -514,6 +531,11 @@ selectModel.addEventListener("change", () => {
 });
 
 selectMatchup.addEventListener("change", () => {
+    const customPanel = document.getElementById("custom-classes-panel");
+    if (customPanel) {
+        customPanel.style.display = selectMatchup.value === "custom" ? "flex" : "none";
+    }
+
     disableControls();
     overlay.style.display = "none";
     resetWorkers();
@@ -670,6 +692,7 @@ startRenderLoop();
 // Kirim buffer ke worker dengan workerId untuk per-worker tracking
 // Distribute units evenly across ALL workers (not by team)
 const unitsPerWorker = Math.ceil(UNIT_COUNT / NUM_WORKERS);
+const customClasses = getCustomClasses();
 for (let i = 0; i < NUM_WORKERS; i++) {
     const startIndex = i * unitsPerWorker;
     const endIndex = Math.min((i + 1) * unitsPerWorker, UNIT_COUNT);
@@ -679,6 +702,7 @@ for (let i = 0; i < NUM_WORKERS; i++) {
         workerId: i,
         buffer: sharedBuffer,
         matchup: selectMatchup.value,
+        customClasses,
         startIndex,
         endIndex,
     });
@@ -696,3 +720,19 @@ for (let i = 0; i < NUM_WORKERS; i++) {
 
 // Load model awal secara dinamis
 changeModel("Knight", selectMatchup.value);
+
+// Click handler untuk class-badge kustom
+document.querySelectorAll(".class-badge").forEach((badge) => {
+    badge.addEventListener("click", () => {
+        // Toggle status aktif
+        badge.classList.toggle("active");
+
+        // Set ulang dan buat kembali model serta worker
+        disableControls();
+        overlay.style.display = "none";
+        resetWorkers();
+        changeModel(selectModel.value, selectMatchup.value, () => {
+            enableControls();
+        });
+    });
+});

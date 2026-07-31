@@ -346,6 +346,21 @@ export function changeModel(
                         assassin: gltfAssassin,
                     };
 
+                    const customPanel = document.getElementById(
+                        "custom-classes-panel",
+                    );
+                    const activeBadges = customPanel
+                        ? customPanel.querySelectorAll(".class-badge.active")
+                        : [];
+                    const customTypes: number[] = [];
+                    activeBadges.forEach((b: any) =>
+                        customTypes.push(parseInt(b.dataset.type || "0")),
+                    );
+                    const enabledTypes =
+                        customTypes.length > 0
+                            ? customTypes
+                            : [0, 1, 2, 3, 4, 5];
+
                     for (let i = 0; i < UNIT_COUNT; i++) {
                         const team = i < TEAM_SIZE ? TEAM_A : 1;
                         const localIdx = i < TEAM_SIZE ? i : i - TEAM_SIZE;
@@ -357,7 +372,10 @@ export function changeModel(
                         if (localIdx < healerCount) {
                             uType = 3;
                         }
-                        if (matchup === "mage_vs_tank") {
+                        if (matchup === "custom") {
+                            uType =
+                                enabledTypes[localIdx % enabledTypes.length];
+                        } else if (matchup === "mage_vs_tank") {
                             uType = team === TEAM_A ? 2 : 0;
                         } else if (matchup === "archer_vs_tank") {
                             uType = team === TEAM_A ? 1 : 0;
@@ -460,9 +478,11 @@ const _lookTarget = new THREE.Vector3();
 const _q1 = new THREE.Quaternion();
 let animFrameCount = 0;
 
-
-
 const LERP_SPEED = 12;
+
+// ── Animation batch optimization ──
+let animFrameBatch: number[] = []; // track units yang perlu mixer update
+const MAX_MIXER_UPDATES_PER_FRAME = 20; // batch limit untuk prevent frame drops
 
 const _frustum = new THREE.Frustum();
 const _projScreen = new THREE.Matrix4();
@@ -500,6 +520,9 @@ export function updateFrame(data: Float32Array, delta: number) {
     _forward.set(0, 0, 1).applyQuaternion(camera.quaternion);
     animFrameCount++;
 
+    // Reset mixer batch queue setiap frame
+    animFrameBatch.length = 0;
+
     _projScreen.multiplyMatrices(
         camera.projectionMatrix,
         camera.matrixWorldInverse,
@@ -516,6 +539,7 @@ export function updateFrame(data: Float32Array, delta: number) {
         const state = data[base + IDX_ANIM];
         const uType = data[base + IDX_TYPE];
         const effect = data[base + IDX_EFFECT_STATE];
+        const isStealthed = effect >= 1000 && effect < 2000;
 
         const unit = units[i];
         if (!unit) continue;
@@ -542,6 +566,32 @@ export function updateFrame(data: Float32Array, delta: number) {
             continue;
         }
 
+        // Handle death state and early continue for fully dead units
+        if (hp <= 0 && unit.deathTime) {
+            const elapsed = performance.now() - unit.deathTime;
+            if (elapsed > 2000) {
+                if (unit.root.visible || (unit as any)._wasAlive) {
+                    unit.root.position.set(x, -999, z);
+                    unit.root.scale.setScalar(0.0001);
+                    unit.root.visible = false;
+                    (unit as any)._wasAlive = false;
+
+                    hpBarsBg.setMatrixAt(i, _deadMatrix);
+                    hpBarsFg.setMatrixAt(i, _deadMatrix);
+                    cdRings.setMatrixAt(i, _deadMatrix);
+                    immuneRings.setMatrixAt(i, _deadMatrix);
+                    if (nameBarsA && nameBarsB) {
+                        if (i < TEAM_SIZE) {
+                            nameBarsA.setMatrixAt(i, _deadMatrix);
+                        } else {
+                            nameBarsB.setMatrixAt(i - TEAM_SIZE, _deadMatrix);
+                        }
+                    }
+                }
+                continue; // CRITICAL OPTIMIZATION: skip updating fully dead units
+            }
+        }
+
         const scale = getUnitScale(uType);
 
         // ponytail: compute distSq once, used for LOD + mixer throttle
@@ -558,7 +608,7 @@ export function updateFrame(data: Float32Array, delta: number) {
         } else {
             _unitSphere.center.set(x, y, z);
             const inView = _frustum.intersectsSphere(_unitSphere);
-            unit.root.visible = inView;
+            unit.root.visible = inView && !isStealthed;
 
             const showMesh = distSq < UNIT_LOD_DIST_SQ;
 
@@ -632,166 +682,224 @@ export function updateFrame(data: Float32Array, delta: number) {
                 unit.root.scale.setScalar(scale);
             }
 
-        if (hp <= 0) {
-            if (hp >= -10) {
-                if (unit.currentAnimState !== 3) {
-                    fadeToAnimation(unit, "death");
-                    unit.currentAnimState = 3;
-                    unit.deathTime = performance.now();
-                    soundFX.playDeath(x, y, z, camera.position);
+            if (hp <= 0) {
+                if (hp >= -10) {
+                    if (unit.currentAnimState !== 3) {
+                        fadeToAnimation(unit, "death");
+                        unit.currentAnimState = 3;
+                        unit.deathTime = performance.now();
+                        soundFX.playDeath(x, y, z, camera.position);
+                    }
                 }
-            }
-            _iceInstanced.setMatrixAt(i, _iceDead);
-            _iceInstanced.instanceMatrix.needsUpdate = true;
-            if (unit.currentEffectState > 0) {
-                spawnIceShatterFX(
-                    scene,
-                    unit.root.position.x,
-                    unit.root.position.y + 0.5,
-                    unit.root.position.z,
-                );
-                unit.currentEffectState = 0;
-            }
-        } else {
-            if (unit.currentEffectState !== effect) {
-                let activeMat = unit.team === TEAM_A ? teamMatA : teamMatB;
-                if (uType === 3)
-                    activeMat = unit.team === TEAM_A ? healerMatA : healerMatB;
-                if (effect > 0) {
-                    activeMat = stunMat;
+                _iceInstanced.setMatrixAt(i, _iceDead);
+                _iceInstanced.instanceMatrix.needsUpdate = true;
+                if (unit.currentEffectState > 0) {
+                    spawnIceShatterFX(
+                        scene,
+                        unit.root.position.x,
+                        unit.root.position.y + 0.5,
+                        unit.root.position.z,
+                    );
+                    unit.currentEffectState = 0;
+                }
+            } else {
+                if (unit.currentEffectState !== effect) {
+                    let activeMat = unit.team === TEAM_A ? teamMatA : teamMatB;
+                    if (uType === 3)
+                        activeMat =
+                            unit.team === TEAM_A ? healerMatA : healerMatB;
+                    if (effect > 0) {
+                        activeMat = stunMat;
+                        _iceMatrix.makeTranslation(x, y + 0.5, z);
+                        _iceInstanced.setMatrixAt(i, _iceMatrix);
+                        _iceInstanced.instanceMatrix.needsUpdate = true;
+                    } else {
+                        _iceInstanced.setMatrixAt(i, _iceDead);
+                        _iceInstanced.instanceMatrix.needsUpdate = true;
+                        if (effect < 0)
+                            activeMat =
+                                unit.team === TEAM_A ? buffMatA : buffMatB;
+                    }
+                    if (activeMat) {
+                        for (let m = 0; m < unit.meshes.length; m++) {
+                            unit.meshes[m].material = activeMat;
+                        }
+                    }
+                    unit.currentEffectState = effect;
+                } else if (effect > 0) {
                     _iceMatrix.makeTranslation(x, y + 0.5, z);
                     _iceInstanced.setMatrixAt(i, _iceMatrix);
                     _iceInstanced.instanceMatrix.needsUpdate = true;
-                } else {
-                    _iceInstanced.setMatrixAt(i, _iceDead);
-                    _iceInstanced.instanceMatrix.needsUpdate = true;
-                    if (effect < 0)
-                        activeMat = unit.team === TEAM_A ? buffMatA : buffMatB;
                 }
-                if (activeMat) {
-                    for (let m = 0; m < unit.meshes.length; m++) {
-                        unit.meshes[m].material = activeMat;
+
+                if (targetIdx !== -1) {
+                    const tBase = targetIdx * STRIDE;
+                    const tx = data[tBase + IDX_X];
+                    const tz = data[tBase + IDX_Z];
+                    _lookTarget.set(tx, y, tz);
+                    _q1.copy(unit.root.quaternion);
+                    unit.root.lookAt(_lookTarget);
+                    unit.root.quaternion.slerp(
+                        _q1,
+                        1 - Math.min(1, 10 * delta),
+                    );
+                }
+
+                if (unit.currentAnimState !== state) {
+                    if (state === 0) fadeToAnimation(unit, "idle");
+                    else if (state === 1) fadeToAnimation(unit, "run");
+                    else if (state === 2) fadeToAnimation(unit, "attack");
+                    unit.currentAnimState = state;
+                }
+            }
+
+            unit.accumulatedDelta += delta;
+
+            const isDying =
+                hp <= 0 &&
+                hp >= -10 &&
+                unit.deathTime &&
+                performance.now() - unit.deathTime < 2000;
+
+            // Adaptive animation LOD dengan smooth frame blending + batch prioritization
+            // Priority: close visible units > medium distance > far units (minimize frame drops)
+            let shouldUpdateMixer = false;
+            let updateDelta = delta;
+            let priority = 999; // lower = higher priority
+
+            if (distSq < 400) {
+                // Tier 1: Close — always update (60 FPS), highest priority
+                shouldUpdateMixer =
+                    inView && showMesh && (isDying || (hp > 0 && effect <= 0));
+                priority = 0;
+            } else if (distSq < 1600) {
+                // Tier 2: Medium — smart throttle dengan smooth blend (30 FPS visual)
+                priority = 1;
+                if ((animFrameCount + i) % 2 === 0) {
+                    shouldUpdateMixer =
+                        inView &&
+                        showMesh &&
+                        (isDying || (hp > 0 && effect <= 0));
+                    updateDelta = (unit.accumulatedDelta || 0) + delta;
+                }
+            } else if (distSq < 4900) {
+                // Tier 3: Far — selective update (15 FPS visual)
+                priority = 2;
+                if ((animFrameCount + i) % 4 === 0) {
+                    shouldUpdateMixer =
+                        inView &&
+                        showMesh &&
+                        (isDying || (hp > 0 && effect <= 0));
+                    updateDelta = (unit.accumulatedDelta || 0) + delta;
+                }
+            } else {
+                // Tier 4: Very far — minimal (7.5 FPS), lowest priority
+                priority = 3;
+                if ((animFrameCount + i) % 8 === 0) {
+                    shouldUpdateMixer =
+                        inView &&
+                        showMesh &&
+                        (isDying || (hp > 0 && effect <= 0));
+                    updateDelta = (unit.accumulatedDelta || 0) + delta;
+                }
+            }
+
+            // Queue mixer updates: prioritize closer units to prevent distant-unit lag
+            if (shouldUpdateMixer && hp !== -999 && hp > 0) {
+                if (
+                    animFrameBatch.length < MAX_MIXER_UPDATES_PER_FRAME ||
+                    priority < 2
+                ) {
+                    // Execute update immediately untuk tier 0-1, queue for tier 2+
+                    unit.mixer.update(updateDelta);
+                    unit.accumulatedDelta = 0;
+                    unit.lastMixerUpdateTime = performance.now();
+                } else {
+                    // Batch kelebihan updates untuk next frame
+                    unit.accumulatedDelta = Math.min(
+                        0.25,
+                        (unit.accumulatedDelta || 0) + delta,
+                    );
+                }
+            } else if (shouldUpdateMixer && isDying && hp !== -999) {
+                // Always update death animations immediately (critical for visual feedback)
+                unit.mixer.update(updateDelta);
+                unit.accumulatedDelta = 0;
+            } else if (!shouldUpdateMixer && hp > 0) {
+                // Accumulate delta untuk next update cycle (smooth interpolation)
+                unit.accumulatedDelta = Math.min(
+                    0.25,
+                    (unit.accumulatedDelta || 0) + delta,
+                );
+            } else {
+                unit.accumulatedDelta = 0;
+            }
+
+            // Billboard positions — height based on unit scale
+            // Use interpolated mesh coordinates to avoid jitter from raw simulation ticks
+            const billY = unit.root.position.y + scale * 1.9 + 0.3;
+            const meshX = unit.root.position.x;
+            const meshZ = unit.root.position.z;
+
+            // Distance and frustum culling: only calculate and show billboards if unit is alive, close enough, and visible
+            // Pre-cull expensive lookAt() calculations for far/off-screen units
+            const tooFar = distSq > 6400;
+            const showBillboard = hp > 0 && !tooFar && inView && !isStealthed;
+
+            if (showBillboard) {
+                const maxHp = data[base + IDX_MAX_HP];
+                const hpRatio = maxHp > 0 ? hp / maxHp : 0;
+
+                // HP bar background
+                dummy.position.set(meshX, billY, meshZ);
+                dummy.scale.set(1, 1, 1);
+                dummy.lookAt(camera.position);
+                dummy.updateMatrix();
+                hpBarsBg.setMatrixAt(i, dummy.matrix);
+
+                // HP bar foreground
+                const clampedScaleX = Math.max(0.01, hpRatio);
+                dummy.position.set(
+                    meshX - (1 - clampedScaleX) * 0.5,
+                    billY,
+                    meshZ,
+                );
+                dummy.scale.set(clampedScaleX, 1, 1);
+                dummy.lookAt(camera.position);
+                dummy.updateMatrix();
+                hpBarsFg.setMatrixAt(i, dummy.matrix);
+
+                // Name label — above HP bar
+                dummy.position.set(meshX, billY + 0.35, meshZ);
+                dummy.scale.set(1, 1, 1);
+                dummy.lookAt(camera.position);
+                dummy.updateMatrix();
+                if (nameBarsA && nameBarsB) {
+                    if (i < TEAM_SIZE) {
+                        nameBarsA.setMatrixAt(i, dummy.matrix);
+                    } else {
+                        nameBarsB.setMatrixAt(i - TEAM_SIZE, dummy.matrix);
                     }
                 }
-                unit.currentEffectState = effect;
-            } else if (effect > 0) {
-                _iceMatrix.makeTranslation(x, y + 0.5, z);
-                _iceInstanced.setMatrixAt(i, _iceMatrix);
-                _iceInstanced.instanceMatrix.needsUpdate = true;
-            }
 
-            if (targetIdx !== -1) {
-                const tBase = targetIdx * STRIDE;
-                const tx = data[tBase + IDX_X];
-                const tz = data[tBase + IDX_Z];
-                _lookTarget.set(tx, y, tz);
-                _q1.copy(unit.root.quaternion);
-                unit.root.lookAt(_lookTarget);
-                unit.root.quaternion.slerp(_q1, 1 - Math.min(1, 10 * delta));
-            }
-
-            if (unit.currentAnimState !== state) {
-                if (state === 0) fadeToAnimation(unit, "idle");
-                else if (state === 1) fadeToAnimation(unit, "run");
-                else if (state === 2) fadeToAnimation(unit, "attack");
-                unit.currentAnimState = state;
-            }
-        }
-
-        unit.accumulatedDelta += delta;
-
-        const isDying =
-            hp <= 0 &&
-            hp >= -10 &&
-            unit.deathTime &&
-            performance.now() - unit.deathTime < 2000;
-
-        // Multi-tiered skeletal animation throttling (LOD) based on distance
-        let _mixerThrottle = false;
-        if (distSq < 900) {
-            _mixerThrottle = true; // 60 FPS
-        } else if (distSq < 2025) {
-            _mixerThrottle = ((animFrameCount + i) % 2) === 0; // 30 FPS
-        } else if (distSq < 3600) {
-            _mixerThrottle = ((animFrameCount + i) % 4) === 0; // 15 FPS
-        } else {
-            _mixerThrottle = ((animFrameCount + i) % 8) === 0; // 7.5 FPS
-        }
-
-        // Only update skeletal mixer if unit is visible in frustum and throttle allows it
-        const shouldUpdateMixer = inView && (
-            isDying || 
-            (hp > 0 && _mixerThrottle && effect <= 0)
-        );
-
-        if (shouldUpdateMixer) {
-            unit.mixer.update(unit.accumulatedDelta);
-            unit.accumulatedDelta = 0;
-        } else {
-            // Accumulate delta but cap it to prevent sudden massive jumps when returning to view
-            unit.accumulatedDelta = Math.min(0.1, unit.accumulatedDelta + delta);
-        }
-
-        // Billboard positions — height based on unit scale
-        // Use interpolated mesh coordinates to avoid jitter from raw simulation ticks
-        const billY = unit.root.position.y + scale * 1.9 + 0.3;
-        const meshX = unit.root.position.x;
-        const meshZ = unit.root.position.z;
-        
-        // Distance and frustum culling: only calculate and show billboards if unit is alive, close enough, and visible
-        const tooFar = distSq > 6400;
-        const showBillboard = hp > 0 && !tooFar && inView;
-
-        if (showBillboard) {
-            const maxHp = data[base + IDX_MAX_HP];
-            const hpRatio = maxHp > 0 ? hp / maxHp : 0;
-            
-            // HP bar background
-            dummy.position.set(meshX, billY, meshZ);
-            dummy.scale.set(1, 1, 1);
-            dummy.lookAt(camera.position);
-            dummy.updateMatrix();
-            hpBarsBg.setMatrixAt(i, dummy.matrix);
-
-            // HP bar foreground
-            const clampedScaleX = Math.max(0.01, hpRatio);
-            dummy.position.set(meshX - (1 - clampedScaleX) * 0.5, billY, meshZ);
-            dummy.scale.set(clampedScaleX, 1, 1);
-            dummy.lookAt(camera.position);
-            dummy.updateMatrix();
-            hpBarsFg.setMatrixAt(i, dummy.matrix);
-
-            // Name label — above HP bar
-            dummy.position.set(meshX, billY + 0.35, meshZ);
-            dummy.scale.set(1, 1, 1);
-            dummy.lookAt(camera.position);
-            dummy.updateMatrix();
-            if (nameBarsA && nameBarsB) {
-                if (i < TEAM_SIZE) {
-                    nameBarsA.setMatrixAt(i, dummy.matrix);
-                } else {
-                    nameBarsB.setMatrixAt(i - TEAM_SIZE, dummy.matrix);
-                }
-            }
-
-            cdRings.setMatrixAt(i, _deadMatrix);
-            immuneRings.setMatrixAt(i, _deadMatrix);
-        } else {
-            // Dead, too far, or not in frustum — hide immediately without math computations
-            hpBarsBg.setMatrixAt(i, _deadMatrix);
-            hpBarsFg.setMatrixAt(i, _deadMatrix);
-            cdRings.setMatrixAt(i, _deadMatrix);
-            immuneRings.setMatrixAt(i, _deadMatrix);
-            if (nameBarsA && nameBarsB) {
-                if (i < TEAM_SIZE) {
-                    nameBarsA.setMatrixAt(i, _deadMatrix);
-                } else {
-                    nameBarsB.setMatrixAt(i - TEAM_SIZE, _deadMatrix);
+                cdRings.setMatrixAt(i, _deadMatrix);
+                immuneRings.setMatrixAt(i, _deadMatrix);
+            } else {
+                // Dead, too far, or not in frustum — hide immediately without math computations
+                hpBarsBg.setMatrixAt(i, _deadMatrix);
+                hpBarsFg.setMatrixAt(i, _deadMatrix);
+                cdRings.setMatrixAt(i, _deadMatrix);
+                immuneRings.setMatrixAt(i, _deadMatrix);
+                if (nameBarsA && nameBarsB) {
+                    if (i < TEAM_SIZE) {
+                        nameBarsA.setMatrixAt(i, _deadMatrix);
+                    } else {
+                        nameBarsB.setMatrixAt(i - TEAM_SIZE, _deadMatrix);
+                    }
                 }
             }
         }
     }
-}
 
     if (needsMatrixUpload) {
         hpBarsBg.instanceMatrix.needsUpdate = true;
@@ -812,6 +920,20 @@ export function resetUnitsVisual() {
         unit.accumulatedDelta = 0;
         unit.deathTime = undefined;
         _iceInstanced.setMatrixAt(i, _iceDead);
+
+        // Hide billboards on reset
+        hpBarsBg.setMatrixAt(i, _deadMatrix);
+        hpBarsFg.setMatrixAt(i, _deadMatrix);
+        cdRings.setMatrixAt(i, _deadMatrix);
+        immuneRings.setMatrixAt(i, _deadMatrix);
+        if (nameBarsA && nameBarsB) {
+            if (i < TEAM_SIZE) {
+                nameBarsA.setMatrixAt(i, _deadMatrix);
+            } else {
+                nameBarsB.setMatrixAt(i - TEAM_SIZE, _deadMatrix);
+            }
+        }
+
         const uType = sharedData ? sharedData[i * STRIDE + IDX_TYPE] : 0;
         let defaultMat = unit.team === TEAM_A ? teamMatA! : teamMatB!;
         if (uType === 3) {
@@ -827,5 +949,14 @@ export function resetUnitsVisual() {
             unit.actions.idle.play();
         }
     });
+
     _iceInstanced.instanceMatrix.needsUpdate = true;
+    hpBarsBg.instanceMatrix.needsUpdate = true;
+    hpBarsFg.instanceMatrix.needsUpdate = true;
+    cdRings.instanceMatrix.needsUpdate = true;
+    immuneRings.instanceMatrix.needsUpdate = true;
+    if (nameBarsA && nameBarsB) {
+        nameBarsA.instanceMatrix.needsUpdate = true;
+        nameBarsB.instanceMatrix.needsUpdate = true;
+    }
 }

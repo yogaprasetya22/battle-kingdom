@@ -16,4 +16,6 @@ export interface UnitVisual {
     team: number;
     deathTime?: number;
     accumulatedDelta: number;
+    lastMixerUpdateTime?: number; // track last actual mixer update untuk smooth interpolation
+    animationFrameSkipCount?: number; // count skipped frames for blending calculation
 }
