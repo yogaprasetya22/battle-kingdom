@@ -78,8 +78,8 @@ let globalTickId = 0;
 // Per-worker state tracking: indexed by workerId (0, 1, 2, 3, ...)
 const workerTickStates: Map<number, WorkerTickState> = new Map();
 
-// Diagnostics for Option 1 synchronization (enable in dev/debug mode)
-const diagnostics = new WorkerDiagnostics(import.meta.env.DEV);
+// Diagnostics for Option 1 synchronization (disabled by default, enable with workerDiagnostics.enable())
+const diagnostics = new WorkerDiagnostics(false);
 
 const aggregatedStats = {
     teamA: {

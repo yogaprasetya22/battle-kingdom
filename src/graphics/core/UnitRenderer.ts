@@ -706,19 +706,30 @@ export function updateFrame(data: Float32Array, delta: number) {
             unit.deathTime &&
             performance.now() - unit.deathTime < 2000;
 
-        // ponytail: throttle skeletal animation — 30fps for units beyond 45m
-        // use (animFrameCount + i) so half the far units update each frame, distributed evenly
-        const _mixerThrottle =
-            ((animFrameCount + i) & 1) === 0 || distSq < 2025;
+        // Multi-tiered skeletal animation throttling (LOD) based on distance
+        let _mixerThrottle = false;
+        if (distSq < 900) {
+            _mixerThrottle = true; // 60 FPS
+        } else if (distSq < 2025) {
+            _mixerThrottle = ((animFrameCount + i) % 2) === 0; // 30 FPS
+        } else if (distSq < 3600) {
+            _mixerThrottle = ((animFrameCount + i) % 4) === 0; // 15 FPS
+        } else {
+            _mixerThrottle = ((animFrameCount + i) % 8) === 0; // 7.5 FPS
+        }
 
-        if (isDying) {
+        // Only update skeletal mixer if unit is visible in frustum and throttle allows it
+        const shouldUpdateMixer = inView && (
+            isDying || 
+            (hp > 0 && _mixerThrottle && effect <= 0)
+        );
+
+        if (shouldUpdateMixer) {
             unit.mixer.update(unit.accumulatedDelta);
             unit.accumulatedDelta = 0;
-        } else if (hp > 0 && _mixerThrottle) {
-            if (effect <= 0) {
-                unit.mixer.update(unit.accumulatedDelta);
-            }
-            unit.accumulatedDelta = 0;
+        } else {
+            // Accumulate delta but cap it to prevent sudden massive jumps when returning to view
+            unit.accumulatedDelta = Math.min(0.1, unit.accumulatedDelta + delta);
         }
 
         // Billboard positions — height based on unit scale
@@ -727,9 +738,11 @@ export function updateFrame(data: Float32Array, delta: number) {
         const meshX = unit.root.position.x;
         const meshZ = unit.root.position.z;
         
-        // Distance culling: hide billboard beyond 80 world units
+        // Distance and frustum culling: only calculate and show billboards if unit is alive, close enough, and visible
         const tooFar = distSq > 6400;
-        if (hp > 0 && !tooFar) {
+        const showBillboard = hp > 0 && !tooFar && inView;
+
+        if (showBillboard) {
             const maxHp = data[base + IDX_MAX_HP];
             const hpRatio = maxHp > 0 ? hp / maxHp : 0;
             
@@ -764,22 +777,21 @@ export function updateFrame(data: Float32Array, delta: number) {
             cdRings.setMatrixAt(i, _deadMatrix);
             immuneRings.setMatrixAt(i, _deadMatrix);
         } else {
-                // Dead or too far — hide
-                hpBarsBg.setMatrixAt(i, _deadMatrix);
-                hpBarsFg.setMatrixAt(i, _deadMatrix);
-                cdRings.setMatrixAt(i, _deadMatrix);
-                immuneRings.setMatrixAt(i, _deadMatrix);
-                if (nameBarsA && nameBarsB) {
-                    if (i < TEAM_SIZE) {
-                        nameBarsA.setMatrixAt(i, _deadMatrix);
-                    } else {
-                        nameBarsB.setMatrixAt(i - TEAM_SIZE, _deadMatrix);
-                    }
+            // Dead, too far, or not in frustum — hide immediately without math computations
+            hpBarsBg.setMatrixAt(i, _deadMatrix);
+            hpBarsFg.setMatrixAt(i, _deadMatrix);
+            cdRings.setMatrixAt(i, _deadMatrix);
+            immuneRings.setMatrixAt(i, _deadMatrix);
+            if (nameBarsA && nameBarsB) {
+                if (i < TEAM_SIZE) {
+                    nameBarsA.setMatrixAt(i, _deadMatrix);
+                } else {
+                    nameBarsB.setMatrixAt(i - TEAM_SIZE, _deadMatrix);
                 }
             }
         }
     }
-
+}
 
     if (needsMatrixUpload) {
         hpBarsBg.instanceMatrix.needsUpdate = true;
