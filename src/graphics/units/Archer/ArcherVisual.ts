@@ -89,12 +89,6 @@ export class ArcherVisual implements IUnitVisual {
         (this.actions as any).attack = this.mixer.clipAction(attackClip);
         (this.actions as any).death = this.mixer.clipAction(deathClip);
 
-        // Normalize animation playback speed — prevent fast/slow motion at different distances
-        this.actions.idle.timeScale = 1.0;
-        this.actions.run.timeScale = 0.95; // Slight slowdown for running to match movement speed
-        this.actions.attack.timeScale = 1.0;
-        this.actions.death.timeScale = 1.0;
-
         this.actions.death.setLoop(THREE.LoopOnce, 1);
         this.actions.death.clampWhenFinished = true;
 

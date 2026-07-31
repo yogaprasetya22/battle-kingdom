@@ -761,76 +761,16 @@ export function updateFrame(data: Float32Array, delta: number) {
                 unit.deathTime &&
                 performance.now() - unit.deathTime < 2000;
 
-            // Adaptive animation LOD dengan smooth frame blending + batch prioritization
-            // Priority: close visible units > medium distance > far units (minimize frame drops)
-            let shouldUpdateMixer = false;
-            let updateDelta = delta;
-            let priority = 999; // lower = higher priority
+            // ★ DISABLE LOD THROTTLE: Always update animation mixer
+            // Animation speed tetap normal di semua jarak (60 FPS playback everywhere)
+            // Trade-off: terima FPS drop acceptable untuk konsistensi animation
+            
+            const shouldUpdateMixer = inView && showMesh && (isDying || (hp > 0 && effect <= 0));
 
-            if (distSq < 400) {
-                // Tier 1: Close — always update (60 FPS), highest priority
-                shouldUpdateMixer =
-                    inView && showMesh && (isDying || (hp > 0 && effect <= 0));
-                priority = 0;
-            } else if (distSq < 1600) {
-                // Tier 2: Medium — smart throttle dengan smooth blend (30 FPS visual)
-                priority = 1;
-                if ((animFrameCount + i) % 2 === 0) {
-                    shouldUpdateMixer =
-                        inView &&
-                        showMesh &&
-                        (isDying || (hp > 0 && effect <= 0));
-                    updateDelta = (unit.accumulatedDelta || 0) + delta;
-                }
-            } else if (distSq < 4900) {
-                // Tier 3: Far — selective update (15 FPS visual)
-                priority = 2;
-                if ((animFrameCount + i) % 4 === 0) {
-                    shouldUpdateMixer =
-                        inView &&
-                        showMesh &&
-                        (isDying || (hp > 0 && effect <= 0));
-                    updateDelta = (unit.accumulatedDelta || 0) + delta;
-                }
-            } else {
-                // Tier 4: Very far — minimal (7.5 FPS), lowest priority
-                priority = 3;
-                if ((animFrameCount + i) % 8 === 0) {
-                    shouldUpdateMixer =
-                        inView &&
-                        showMesh &&
-                        (isDying || (hp > 0 && effect <= 0));
-                    updateDelta = (unit.accumulatedDelta || 0) + delta;
-                }
-            }
-
-            // Queue mixer updates: prioritize closer units to prevent distant-unit lag
-            if (shouldUpdateMixer && hp !== -999 && hp > 0) {
-                if (
-                    animFrameBatch.length < MAX_MIXER_UPDATES_PER_FRAME ||
-                    priority < 2
-                ) {
-                    // Execute update immediately untuk tier 0-1, queue for tier 2+
-                    unit.mixer.update(updateDelta);
-                    unit.accumulatedDelta = 0;
-                    unit.lastMixerUpdateTime = performance.now();
-                } else {
-                    // Batch kelebihan updates untuk next frame
-                    unit.accumulatedDelta = Math.min(
-                        0.25,
-                        (unit.accumulatedDelta || 0) + delta,
-                    );
-                }
-            } else if (shouldUpdateMixer && isDying && hp !== -999) {
-                // Always update death animations immediately (critical for visual feedback)
-                unit.mixer.update(updateDelta);
+            if (shouldUpdateMixer) {
+                // Always update dengan current frame delta (no throttling, no accumulation)
+                unit.mixer.update(delta);
                 unit.accumulatedDelta = 0;
-            } else if (!shouldUpdateMixer && hp > 0) {
-                // Accumulate delta untuk next update cycle (smooth interpolation)
-                unit.accumulatedDelta = Math.min(
-                    0.25,
-                    (unit.accumulatedDelta || 0) + delta,
-                );
             } else {
                 unit.accumulatedDelta = 0;
             }
