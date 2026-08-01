@@ -267,7 +267,7 @@ export function spawnExplosion(
     if (!canSpawnFX()) return;
 
     const geo = pooledPlane(size, size);
-    const mat = new THREE.MeshBasicMaterial({
+    const mat = getPooledMaterial({
         map: sparkTex,
         color,
         transparent: true,
@@ -308,7 +308,7 @@ export function spawnExplosion(
             if (t >= 1) {
                 scene.remove(instancedMesh);
                 instancedMesh.dispose();
-                mat.dispose();
+                releasePooledMaterial(mat);
                 return false;
             }
             const et = easeOutCubic(t);
@@ -330,4 +330,19 @@ export function spawnExplosion(
             return true;
         },
     });
+}
+
+/**
+ * Forcefully updates all active FX with a huge delta to trigger their cleanup routines,
+ * and clears the active FX list. Prevents orphaned visual effects from leaking.
+ */
+export function clearAllFX(scene: THREE.Scene) {
+    for (let i = activeFX.length - 1; i >= 0; i--) {
+        try {
+            activeFX[i].update(9999);
+        } catch (e) {
+            console.error("Error clearing FX:", e);
+        }
+    }
+    activeFX.length = 0;
 }

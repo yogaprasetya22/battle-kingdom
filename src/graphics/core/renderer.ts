@@ -15,15 +15,40 @@ import {
     gltfLoader,
     sun,
     ambient,
+    fxGroup,
 } from "./scene";
 import { soundFX } from "./SoundFX";
 import { World } from "../scenery/World";
 import {
     setSharedData as setUnitSharedData,
     updateFrame,
+    changeModel,
+    resetUnitsVisual as resetUnitVisualsRaw,
 } from "./UnitRenderer";
+import { clearAllFX } from "../effects/FXCore";
 
-export { changeModel, resetUnitsVisual } from "./UnitRenderer";
+export { changeModel };
+export function resetUnitsVisual() {
+    resetUnitVisualsRaw();
+    clearAllFX(scene);
+    
+    // Clear all skill meshes from fxGroup to ensure nothing stays stuck
+    while (fxGroup.children.length > 0) {
+        const child = fxGroup.children[0];
+        fxGroup.remove(child);
+        if ((child as any).dispose) {
+            (child as any).dispose();
+        }
+        if ((child as any).geometry) (child as any).geometry.dispose();
+        if ((child as any).material) {
+            if (Array.isArray((child as any).material)) {
+                (child as any).material.forEach((m: any) => m.dispose());
+            } else {
+                (child as any).material.dispose();
+            }
+        }
+    }
+}
 
 import {
     spawnLightningFX,
@@ -69,6 +94,7 @@ dayCycleManager.setAmbientLight(ambient);
 
 export function spawnSkillFX(event: { skill: string; [key: string]: any }) {
     if (!canSpawnFX()) return;
+    const scene = fxGroup as unknown as THREE.Scene; // Shadow global scene with fxGroup casted to THREE.Scene
     if (event.skill === "arrowVolley") {
         const groundY = getTerrainHeight(event.x, event.z);
         const sx = event.fx ?? event.x;
@@ -279,8 +305,10 @@ export function startRenderLoop() {
         world.update(delta, camera.position);
         effectUniforms.uTime.value += delta;
 
-        // Update day cycle every frame
-        dayCycleManager.update();
+        // Throttled: update day cycle once every 15 frames to save CPU and prevent WebGL state changes
+        if (frameCount % 15 === 0) {
+            dayCycleManager.update();
+        }
 
         updateFX(delta);
         windEffect.update(delta);

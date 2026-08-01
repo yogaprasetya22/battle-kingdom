@@ -181,6 +181,12 @@ export function spawnArrowVolleyFX(
     radius: number = 4.0,
     team?: number,
 ): void {
+    const qScale = fxQualityScale();
+    if (qScale < 0.5) {
+        // Simplified volley: spawn simple particle explosion to prevent lag
+        spawnExplosion(scene, new THREE.Vector3(centerX, groundY, centerZ), team === 1 ? 0x00aaff : 0xff4433, 15, 0.25);
+        return;
+    }
     const isBlue = team === 1;
     const colorCircle = isBlue ? 0x00aaff : 0xff4433;
     const colorRune = isBlue ? 0x88ccff : 0xffaa44;
@@ -366,6 +372,12 @@ export function spawnArrowVolleyFX(
 // 4. Meteor Explosion — scorch, shockwave, smoke, embers, screen flash
 // ═══════════════════════════════════════════════════════════════
 function spawnMeteorExplosion(scene: THREE.Scene, pos: THREE.Vector3) {
+    const qScale = fxQualityScale();
+    if (qScale < 0.5) {
+        // Simplified explosion: spawn simple particle explosion to prevent lag
+        spawnExplosion(scene, pos, 0xff5500, 15, 0.4);
+        return;
+    }
     // Scorch mark
     const scorchGeo = new THREE.PlaneGeometry(3.2, 3.2);
     const scorchMat = new THREE.MeshBasicMaterial({
@@ -2063,6 +2075,12 @@ export function spawnHolySanctuaryFX(
     scene: THREE.Scene,
     center: THREE.Vector3,
 ) {
+    const qScale = fxQualityScale();
+    if (qScale < 0.5) {
+        // Simplified sanctuary: spawn simple green particle explosion to prevent lag
+        spawnExplosion(scene, center, 0x00ffaa, 12, 0.25);
+        return;
+    }
     // 1. Glowing ground ring
     const geoRing = new THREE.RingGeometry(0.1, 5.0, 32);
     const matRing = new THREE.MeshBasicMaterial({

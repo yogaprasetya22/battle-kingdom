@@ -1495,53 +1495,67 @@ function tick(d: Float32Array) {
             let sepX = 0;
             let sepZ = 0;
 
-            // Separation query 3x3 cells (since separation radius is 0.95 and cellSize is 6.0)
-            const myCol = Math.floor(
-                (d[base + IDX_X] - BOUND_X_MIN) / cellSize,
-            );
-            const myRow = Math.floor(
-                (d[base + IDX_Z] - BOUND_Z_MIN) / cellSize,
-            );
+            const isMoving = d[base + IDX_ANIM] === 1;
+            // Temporal throttling: only calculate separation once every 2 ticks for moving units, and once every 4 ticks for stationary units
+            const shouldCalcSeparation = isMoving ? ((battleTicks + i) % 2 === 0) : ((battleTicks + i) % 4 === 0);
 
-            for (let r = myRow - 1; r <= myRow + 1; r++) {
-                if (r < 0 || r >= gridRows) continue;
-                for (let c = myCol - 1; c <= myCol + 1; c++) {
-                    if (c < 0 || c >= gridCols) continue;
-                    const cellIdx = r * gridCols + c;
-                    let curr = gridHead[cellIdx];
-                    while (curr !== -1) {
-                        if (curr !== i) {
-                            const jBase = curr * STRIDE;
-                            const jHp = d[jBase + IDX_HP];
-                            if (jHp > 0) {
-                                const jx = d[jBase + IDX_X];
-                                const jz = d[jBase + IDX_Z];
-                                const dxj = d[base + IDX_X] - jx;
-                                const dzj = d[base + IDX_Z] - jz;
-                                const distSq = dxj * dxj + dzj * dzj;
+            if (shouldCalcSeparation) {
+                // Separation query 3x3 cells (since separation radius is 0.95 and cellSize is 6.0)
+                const myCol = Math.floor(
+                    (d[base + IDX_X] - BOUND_X_MIN) / cellSize,
+                );
+                const myRow = Math.floor(
+                    (d[base + IDX_Z] - BOUND_Z_MIN) / cellSize,
+                );
 
-                                if (
-                                    distSq <
-                                        SEPARATION_RADIUS * SEPARATION_RADIUS &&
-                                    distSq > 0.0001
-                                ) {
-                                    const distj = Math.sqrt(distSq);
-                                    const force =
-                                        (SEPARATION_RADIUS - distj) /
-                                        SEPARATION_RADIUS;
-                                    sepX +=
-                                        (dxj / distj) *
-                                        force *
-                                        SEPARATION_STRENGTH;
-                                    sepZ +=
-                                        (dzj / distj) *
-                                        force *
-                                        SEPARATION_STRENGTH;
+                let sepCount = 0;
+                const maxSepChecks = 8; // Early break after 8 close neighbors
+
+                for (let r = myRow - 1; r <= myRow + 1; r++) {
+                    if (r < 0 || r >= gridRows) continue;
+                    for (let c = myCol - 1; c <= myCol + 1; c++) {
+                        if (c < 0 || c >= gridCols) continue;
+                        const cellIdx = r * gridCols + c;
+                        let curr = gridHead[cellIdx];
+                        while (curr !== -1) {
+                            if (curr !== i) {
+                                const jBase = curr * STRIDE;
+                                const jHp = d[jBase + IDX_HP];
+                                if (jHp > 0) {
+                                    const jx = d[jBase + IDX_X];
+                                    const jz = d[jBase + IDX_Z];
+                                    const dxj = d[base + IDX_X] - jx;
+                                    const dzj = d[base + IDX_Z] - jz;
+                                    const distSq = dxj * dxj + dzj * dzj;
+
+                                    if (
+                                        distSq <
+                                            SEPARATION_RADIUS * SEPARATION_RADIUS &&
+                                        distSq > 0.0001
+                                    ) {
+                                        const distj = Math.sqrt(distSq);
+                                        const force =
+                                            (SEPARATION_RADIUS - distj) /
+                                            SEPARATION_RADIUS;
+                                        sepX +=
+                                            (dxj / distj) *
+                                            force *
+                                            SEPARATION_STRENGTH;
+                                        sepZ +=
+                                            (dzj / distj) *
+                                            force *
+                                            SEPARATION_STRENGTH;
+
+                                        sepCount++;
+                                        if (sepCount >= maxSepChecks) break;
+                                    }
                                 }
                             }
+                            curr = gridNext[curr];
                         }
-                        curr = gridNext[curr];
+                        if (sepCount >= maxSepChecks) break;
                     }
+                    if (sepCount >= maxSepChecks) break;
                 }
             }
 
@@ -1773,6 +1787,22 @@ function getStats(d: Float32Array) {
     return stats;
 }
 
+// Intercept self.postMessage to batch skillFX events
+let isInsideTick = false;
+const fxQueue: any[] = [];
+const originalPostMessage = self.postMessage.bind(self);
+self.postMessage = function (message: any, transfer?: any) {
+    if (isInsideTick && message && message.type === "skillFX") {
+        fxQueue.push(message);
+        return;
+    }
+    if (transfer) {
+        originalPostMessage(message, transfer);
+    } else {
+        originalPostMessage(message);
+    }
+} as any;
+
 // --- Message handler ---
 self.onmessage = (e: MessageEvent) => {
     const { type } = e.data;
@@ -1803,7 +1833,13 @@ self.onmessage = (e: MessageEvent) => {
 
     if (type === "tick") {
         if (data) {
+            isInsideTick = true;
+            fxQueue.length = 0;
             tick(data);
+            isInsideTick = false;
+            if (fxQueue.length > 0) {
+                originalPostMessage({ type: "skillFXBatch", fxList: fxQueue });
+            }
             // Compute partial alive counts for this worker's range
             let aliveA = 0,
                 aliveB = 0,

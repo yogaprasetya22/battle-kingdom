@@ -85,6 +85,9 @@ renderer.outputColorSpace = THREE.SRGBColorSpace;
 
 // Scene & Fog
 export const scene = new THREE.Scene();
+export const fxGroup = new THREE.Group();
+fxGroup.name = "fxGroup";
+scene.add(fxGroup);
 scene.background = new THREE.Color(0xbde4ff);
 scene.fog = new THREE.Fog(0xbde4ff, 70, 180);
 

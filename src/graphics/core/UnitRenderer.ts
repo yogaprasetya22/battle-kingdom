@@ -23,7 +23,7 @@ import {
 
 import type { UnitVisual } from "./types";
 import type { IUnitVisual } from "../units/base/IUnitVisual";
-import { scene, camera, gltfLoader } from "./scene";
+import { scene, camera, gltfLoader, fxGroup } from "./scene";
 import { isRunning } from "../../main";
 import { soundFX } from "./SoundFX";
 import {
@@ -650,7 +650,7 @@ export function updateFrame(data: Float32Array, delta: number) {
             // ASSASSIN OPTIMIZATION: Hide dual daggers at distance (distSq > 1225 = 35 units)
             // Saves skeleton animation overhead for off-screen assassins
             const weaponLodDist = uType === 5 ? 1225 : UNIT_LOD_DIST_SQ; // Type 5 = Assassin
-            const showWeapons = distSq < weaponLodDist;
+            const showWeapons = hp > 0 && distSq < weaponLodDist;
 
             if (unit.weapons && unit.weapons.length > 0) {
                 for (let w = 0; w < unit.weapons.length; w++) {
@@ -736,7 +736,7 @@ export function updateFrame(data: Float32Array, delta: number) {
                 _iceInstanced.instanceMatrix.needsUpdate = true;
                 if (unit.currentEffectState > 0) {
                     spawnIceShatterFX(
-                        scene,
+                        fxGroup as unknown as THREE.Scene,
                         unit.root.position.x,
                         unit.root.position.y + 0.5,
                         unit.root.position.z,
@@ -802,12 +802,10 @@ export function updateFrame(data: Float32Array, delta: number) {
                 unit.deathTime &&
                 performance.now() - unit.deathTime < 2000;
 
-            // ★ DISABLE LOD THROTTLE: Always update animation mixer
-            // Animation speed tetap normal di semua jarak (60 FPS playback everywhere)
-            // Trade-off: terima FPS drop acceptable untuk konsistensi animation
-            // ASSASSIN OPTIMIZATION: Skip mixer update if weapons hidden (distance > 35 units)
-            // This prevents expensive skeletal animation calcs for off-screen dual-dagger assassins
-
+            // ★ ADAPTIVE ANIMATION LOD THROTTLE: Throttles animation updates based on distance
+            // Animation speed tetap normal karena menggunakan accumulated delta saat update.
+            // Membatasi update mixer per frame untuk kestabilan FPS (60 FPS playback untuk unit sangat dekat,
+            // 30 FPS untuk unit sedang, 15 FPS/7.5 FPS untuk unit jauh, skip untuk unit out of view/hidden).
             const assassinTooFar = uType === 5 && distSq > 1225;
             const shouldUpdateMixer =
                 inView &&
@@ -816,9 +814,23 @@ export function updateFrame(data: Float32Array, delta: number) {
                 !assassinTooFar;
 
             if (shouldUpdateMixer) {
-                // Always update dengan current frame delta (no throttling, no accumulation)
-                unit.mixer.update(delta);
-                unit.accumulatedDelta = 0;
+                // Tentukan rate update berdasarkan jarak (LOD) agar gerakan tetap terlihat mulus
+                let updateRate = 1;
+                if (distSq > 4225) {        // > 65m: update setiap 5 frame
+                    updateRate = 5;
+                } else if (distSq > 1225) { // > 35m: update setiap 3 frame
+                    updateRate = 3;
+                } else if (distSq > 225) {  // > 15m: update setiap 2 frame
+                    updateRate = 2;
+                } // < 15m: update setiap frame
+
+                // Jadwalkan update merata antar frame menggunakan index unit
+                const isScheduled = (animFrameCount + i) % updateRate === 0;
+
+                if (isScheduled) {
+                    unit.mixer.update(unit.accumulatedDelta);
+                    unit.accumulatedDelta = 0;
+                }
             } else {
                 unit.accumulatedDelta = 0;
             }
@@ -838,10 +850,13 @@ export function updateFrame(data: Float32Array, delta: number) {
                 const maxHp = data[base + IDX_MAX_HP];
                 const hpRatio = maxHp > 0 ? hp / maxHp : 0;
 
+                // All billboards share the same orientation as the camera.
+                // Copying the camera quaternion directly avoids hundreds of expensive lookAt() matrix calculations per frame.
+                dummy.quaternion.copy(camera.quaternion);
+
                 // HP bar background
                 dummy.position.set(meshX, billY, meshZ);
                 dummy.scale.set(1, 1, 1);
-                dummy.lookAt(camera.position);
                 dummy.updateMatrix();
                 hpBarsBg.setMatrixAt(i, dummy.matrix);
 
@@ -853,14 +868,12 @@ export function updateFrame(data: Float32Array, delta: number) {
                     meshZ,
                 );
                 dummy.scale.set(clampedScaleX, 1, 1);
-                dummy.lookAt(camera.position);
                 dummy.updateMatrix();
                 hpBarsFg.setMatrixAt(i, dummy.matrix);
 
                 // Name label — above HP bar
                 dummy.position.set(meshX, billY + 0.35, meshZ);
                 dummy.scale.set(1, 1, 1);
-                dummy.lookAt(camera.position);
                 dummy.updateMatrix();
                 if (nameBarsA && nameBarsB) {
                     if (i < TEAM_SIZE) {

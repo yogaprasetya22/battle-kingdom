@@ -5,7 +5,7 @@
  * ponytail: no framework, no DI, no event bus. Direct function calls.
  */
 
-import { BUFFER_BYTES, UNIT_COUNT } from "./simulation/constants";
+import { BUFFER_BYTES, UNIT_COUNT, STRIDE, IDX_HP } from "./simulation/constants";
 import {
     setSharedData,
     startRenderLoop,
@@ -21,6 +21,11 @@ import { WorkerDiagnostics } from "./simulation/WorkerDiagnostics";
 // ---- Shared Buffer (bridge antara main thread & worker) ----
 const sharedBuffer = new SharedArrayBuffer(BUFFER_BYTES);
 const sharedData = new Float32Array(sharedBuffer);
+
+// Initialize all units to -999 (inactive) on the main thread immediately to prevent initial rendering glitch
+for (let i = 0; i < UNIT_COUNT; i++) {
+    sharedData[i * STRIDE + IDX_HP] = -999;
+}
 
 // ---- Web Workers ----
 const NUM_WORKERS = 2;
@@ -474,6 +479,13 @@ for (let i = 0; i < NUM_WORKERS; i++) {
 
         if (type === "skillFX") {
             spawnSkillFX(e.data);
+        }
+
+        if (type === "skillFXBatch") {
+            const list = e.data.fxList;
+            for (let k = 0; k < list.length; k++) {
+                spawnSkillFX(list[k]);
+            }
         }
     };
 }
