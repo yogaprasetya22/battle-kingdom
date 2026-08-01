@@ -364,33 +364,63 @@ export function changeModel(
                     for (let i = 0; i < UNIT_COUNT; i++) {
                         const team = i < TEAM_SIZE ? TEAM_A : 1;
                         const localIdx = i < TEAM_SIZE ? i : i - TEAM_SIZE;
-                        let uType = localIdx % 6;
-                        const healerCount = Math.max(
-                            1,
-                            Math.round(TEAM_SIZE * 0.02),
-                        );
-                        if (localIdx < healerCount) {
-                            uType = 3;
-                        }
-                        if (matchup === "custom") {
-                            uType =
-                                enabledTypes[localIdx % enabledTypes.length];
-                        } else if (matchup === "mage_vs_tank") {
-                            uType = team === TEAM_A ? 2 : 0;
-                        } else if (matchup === "archer_vs_tank") {
-                            uType = team === TEAM_A ? 1 : 0;
-                        } else if (matchup === "mage_vs_archer") {
-                            uType = team === TEAM_A ? 2 : 1;
-                        } else if (matchup === "only_mage") {
-                            uType = 2;
-                        } else if (matchup === "only_archer") {
-                            uType = 1;
-                        } else if (matchup === "only_tank") {
-                            uType = 0;
-                        } else if (matchup === "only_gunslinger") {
-                            uType = 4;
-                        } else if (matchup === "only_assassin") {
-                            uType = 5;
+                        let uType = 0;
+
+                        if (matchup === "custom_composition") {
+                            const configAStr = localStorage.getItem("teamAConfig");
+                            const configBStr = localStorage.getItem("teamBConfig");
+                            const defComp = { tank: 15, archer: 20, mage: 20, healer: 5, gunslinger: 20, assassin: 20 };
+                            const confA = configAStr ? JSON.parse(configAStr) : defComp;
+                            const confB = configBStr ? JSON.parse(configBStr) : defComp;
+
+                            const typesA: number[] = [];
+                            const typesB: number[] = [];
+                            const fillTypes = (arr: number[], config: any) => {
+                                for (let j = 0; j < (config.tank ?? 0); j++) arr.push(0);
+                                for (let j = 0; j < (config.archer ?? 0); j++) arr.push(1);
+                                for (let j = 0; j < (config.mage ?? 0); j++) arr.push(2);
+                                for (let j = 0; j < (config.healer ?? 0); j++) arr.push(3);
+                                for (let j = 0; j < (config.gunslinger ?? 0); j++) arr.push(4);
+                                for (let j = 0; j < (config.assassin ?? 0); j++) arr.push(5);
+                            };
+                            fillTypes(typesA, confA);
+                            fillTypes(typesB, confB);
+
+                            const types = team === TEAM_A ? typesA : typesB;
+                            if (localIdx < types.length) {
+                                uType = types[localIdx];
+                            } else {
+                                uType = 0; // inactive fallback model setup (will be hidden by HP < -10)
+                            }
+                        } else {
+                            uType = localIdx % 6;
+                            const healerCount = Math.max(
+                                1,
+                                Math.round(TEAM_SIZE * 0.02),
+                            );
+                            if (localIdx < healerCount) {
+                                uType = 3;
+                            }
+                            if (matchup === "custom") {
+                                uType =
+                                    enabledTypes[localIdx % enabledTypes.length];
+                            } else if (matchup === "mage_vs_tank") {
+                                uType = team === TEAM_A ? 2 : 0;
+                            } else if (matchup === "archer_vs_tank") {
+                                uType = team === TEAM_A ? 1 : 0;
+                            } else if (matchup === "mage_vs_archer") {
+                                uType = team === TEAM_A ? 2 : 1;
+                            } else if (matchup === "only_mage") {
+                                uType = 2;
+                            } else if (matchup === "only_archer") {
+                                uType = 1;
+                            } else if (matchup === "only_tank") {
+                                uType = 0;
+                            } else if (matchup === "only_gunslinger") {
+                                uType = 4;
+                            } else if (matchup === "only_assassin") {
+                                uType = 5;
+                            }
                         }
 
                         // Pilih material berdasarkan tim & tipe
@@ -617,9 +647,20 @@ export function updateFrame(data: Float32Array, delta: number) {
             }
 
             // Fase 5: LOD culling for attached weapons
-            if (unit.weapons) {
+            // ASSASSIN OPTIMIZATION: Hide dual daggers at distance (distSq > 1225 = 35 units)
+            // Saves skeleton animation overhead for off-screen assassins
+            const weaponLodDist = uType === 5 ? 1225 : UNIT_LOD_DIST_SQ; // Type 5 = Assassin
+            const showWeapons = distSq < weaponLodDist;
+
+            if (unit.weapons && unit.weapons.length > 0) {
                 for (let w = 0; w < unit.weapons.length; w++) {
-                    unit.weapons[w].visible = showMesh;
+                    unit.weapons[w].visible = showMesh && showWeapons;
+                }
+            } else if (uType === 5 && inView && showMesh) {
+                // Lazy-load assassin weapons on first visibility
+                const assassinVisual = unit as any;
+                if (assassinVisual.getWeaponsForLOD) {
+                    assassinVisual.getWeaponsForLOD();
                 }
             }
 
@@ -764,8 +805,15 @@ export function updateFrame(data: Float32Array, delta: number) {
             // ★ DISABLE LOD THROTTLE: Always update animation mixer
             // Animation speed tetap normal di semua jarak (60 FPS playback everywhere)
             // Trade-off: terima FPS drop acceptable untuk konsistensi animation
-            
-            const shouldUpdateMixer = inView && showMesh && (isDying || (hp > 0 && effect <= 0));
+            // ASSASSIN OPTIMIZATION: Skip mixer update if weapons hidden (distance > 35 units)
+            // This prevents expensive skeletal animation calcs for off-screen dual-dagger assassins
+
+            const assassinTooFar = uType === 5 && distSq > 1225;
+            const shouldUpdateMixer =
+                inView &&
+                showMesh &&
+                (isDying || (hp > 0 && effect <= 0)) &&
+                !assassinTooFar;
 
             if (shouldUpdateMixer) {
                 // Always update dengan current frame delta (no throttling, no accumulation)

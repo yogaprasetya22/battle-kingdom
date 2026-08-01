@@ -70,33 +70,16 @@ export class KnightVisual implements IUnitVisual {
 
     /** Pasang pedang & perisai ke bone tangan */
     loadAssets(): void {
-        // Debug: cetak struktur bone yang tersedia
-        const bones: string[] = [];
-        this.root.traverse((obj: any) => {
-            if (obj instanceof THREE.Bone) {
-                bones.push(obj.name);
-            }
-        });
-        if (bones.length > 0) {
-            console.debug(
-                `[KnightVisual] Available bones: [${bones.join(", ")}]`,
-            );
-        }
+
 
         const sword = attachWeapon(this.root, "sword_1handed", "hand_r");
         if (sword) {
             this.weapons.push(sword);
-            console.info("[KnightVisual] Sword attached successfully");
-        } else {
-            console.warn("[KnightVisual] Failed to attach sword");
         }
 
         const shield = attachWeapon(this.root, "shield_round_color", "hand_l");
         if (shield) {
             this.weapons.push(shield);
-            console.info("[KnightVisual] Shield attached successfully");
-        } else {
-            console.warn("[KnightVisual] Failed to attach shield");
         }
     }
 

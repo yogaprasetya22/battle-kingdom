@@ -53,6 +53,27 @@ const selectModel = document.getElementById(
 const selectMatchup = document.getElementById(
     "select-matchup",
 ) as HTMLSelectElement;
+const btnSettings = document.getElementById("btn-settings") as HTMLButtonElement;
+
+interface TeamConfig {
+    tank: number;
+    archer: number;
+    mage: number;
+    healer: number;
+    gunslinger: number;
+    assassin: number;
+}
+let teamAConfig: TeamConfig = { tank: 15, archer: 20, mage: 20, healer: 5, gunslinger: 20, assassin: 20 };
+let teamBConfig: TeamConfig = { tank: 15, archer: 20, mage: 20, healer: 5, gunslinger: 20, assassin: 20 };
+
+const savedA = localStorage.getItem("teamAConfig");
+const savedB = localStorage.getItem("teamBConfig");
+if (savedA) {
+    try { teamAConfig = JSON.parse(savedA); } catch(e) {}
+}
+if (savedB) {
+    try { teamBConfig = JSON.parse(savedB); } catch(e) {}
+}
 
 // ---- Per-Worker State Tracking (Option 1: Synchronization Fix) ----
 interface WorkerTickState {
@@ -141,6 +162,7 @@ function enableControls() {
     btnReset.disabled = false;
     selectModel.disabled = false;
     selectMatchup.disabled = false;
+    btnSettings.disabled = false;
     if (btnViewer) btnViewer.disabled = false;
 }
 
@@ -149,6 +171,7 @@ function disableControls() {
     btnReset.disabled = true;
     selectModel.disabled = true;
     selectMatchup.disabled = true;
+    btnSettings.disabled = true;
 }
 
 const mergeStats = (ws: any) => {
@@ -482,6 +505,8 @@ function resetWorkers() {
             type: "reset",
             matchup: selectMatchup.value,
             customClasses,
+            teamAConfig,
+            teamBConfig,
         });
     }
 }
@@ -703,10 +728,155 @@ for (let i = 0; i < NUM_WORKERS; i++) {
         buffer: sharedBuffer,
         matchup: selectMatchup.value,
         customClasses,
+        teamAConfig,
+        teamBConfig,
         startIndex,
         endIndex,
     });
 }
+
+// ---- Settings UI Logic ----
+const settingsOverlay = document.getElementById("settings-overlay") as HTMLDivElement;
+const btnSettingsClose = document.getElementById("btn-settings-close") as HTMLButtonElement;
+const btnSettingsCancel = document.getElementById("btn-settings-cancel") as HTMLButtonElement;
+const btnSettingsSave = document.getElementById("btn-settings-save") as HTMLButtonElement;
+const settingsWarning = document.getElementById("settings-warning") as HTMLDivElement;
+
+const presetBalanced = document.getElementById("preset-balanced") as HTMLButtonElement;
+const presetMagic = document.getElementById("preset-magic") as HTMLButtonElement;
+const presetDefense = document.getElementById("preset-defense") as HTMLButtonElement;
+const presetStealth = document.getElementById("preset-stealth") as HTMLButtonElement;
+
+const classes = ["tank", "archer", "mage", "healer", "gunslinger", "assassin"];
+
+function loadConfigToUI() {
+    classes.forEach(cls => {
+        const sliderA = document.getElementById(`slider-a-${cls}`) as HTMLInputElement;
+        const chkA = document.getElementById(`chk-a-${cls}`) as HTMLInputElement;
+        const valA = document.getElementById(`val-a-${cls}`) as HTMLSpanElement;
+        const val = (teamAConfig as any)[cls] ?? 0;
+        
+        sliderA.value = val.toString();
+        chkA.checked = val > 0;
+        sliderA.disabled = !chkA.checked;
+        valA.textContent = val.toString();
+
+        const sliderB = document.getElementById(`slider-b-${cls}`) as HTMLInputElement;
+        const chkB = document.getElementById(`chk-b-${cls}`) as HTMLInputElement;
+        const valB = document.getElementById(`val-b-${cls}`) as HTMLSpanElement;
+        const val2 = (teamBConfig as any)[cls] ?? 0;
+
+        sliderB.value = val2.toString();
+        chkB.checked = val2 > 0;
+        sliderB.disabled = !chkB.checked;
+        valB.textContent = val2.toString();
+    });
+    updateTotals();
+}
+
+function updateTotals() {
+    let totalA = 0;
+    let totalB = 0;
+
+    classes.forEach(cls => {
+        const sliderA = document.getElementById(`slider-a-${cls}`) as HTMLInputElement;
+        const chkA = document.getElementById(`chk-a-${cls}`) as HTMLInputElement;
+        const valA = document.getElementById(`val-a-${cls}`) as HTMLSpanElement;
+        const countA = chkA.checked ? parseInt(sliderA.value) : 0;
+        totalA += countA;
+        valA.textContent = countA.toString();
+        sliderA.disabled = !chkA.checked;
+
+        const sliderB = document.getElementById(`slider-b-${cls}`) as HTMLInputElement;
+        const chkB = document.getElementById(`chk-b-${cls}`) as HTMLInputElement;
+        const valB = document.getElementById(`val-b-${cls}`) as HTMLSpanElement;
+        const countB = chkB.checked ? parseInt(sliderB.value) : 0;
+        totalB += countB;
+        valB.textContent = countB.toString();
+        sliderB.disabled = !chkB.checked;
+    });
+
+    const totalASpan = document.getElementById("total-a-units") as HTMLSpanElement;
+    const totalBSpan = document.getElementById("total-b-units") as HTMLSpanElement;
+    if (totalASpan) totalASpan.textContent = totalA.toString();
+    if (totalBSpan) totalBSpan.textContent = totalB.toString();
+
+    const invalid = totalA <= 0 || totalA > 100 || totalB <= 0 || totalB > 100;
+    if (invalid) {
+        settingsWarning.classList.remove("hidden");
+        btnSettingsSave.disabled = true;
+    } else {
+        settingsWarning.classList.add("hidden");
+        btnSettingsSave.disabled = false;
+    }
+}
+
+function applyPreset(presetA: number[], presetB: number[]) {
+    classes.forEach((cls, idx) => {
+        const sliderA = document.getElementById(`slider-a-${cls}`) as HTMLInputElement;
+        const chkA = document.getElementById(`chk-a-${cls}`) as HTMLInputElement;
+        sliderA.value = presetA[idx].toString();
+        chkA.checked = presetA[idx] > 0;
+
+        const sliderB = document.getElementById(`slider-b-${cls}`) as HTMLInputElement;
+        const chkB = document.getElementById(`chk-b-${cls}`) as HTMLInputElement;
+        sliderB.value = presetB[idx].toString();
+        chkB.checked = presetB[idx] > 0;
+    });
+    updateTotals();
+}
+
+presetBalanced.addEventListener("click", () => applyPreset([15, 20, 20, 5, 20, 20], [15, 20, 20, 5, 20, 20]));
+presetMagic.addEventListener("click", () => applyPreset([0, 0, 80, 20, 0, 0], [0, 0, 80, 20, 0, 0]));
+presetDefense.addEventListener("click", () => applyPreset([60, 30, 0, 10, 0, 0], [60, 30, 0, 10, 0, 0]));
+presetStealth.addEventListener("click", () => applyPreset([0, 20, 0, 0, 30, 50], [0, 20, 0, 0, 30, 50]));
+
+classes.forEach(cls => {
+    document.getElementById(`slider-a-${cls}`)?.addEventListener("input", updateTotals);
+    document.getElementById(`chk-a-${cls}`)?.addEventListener("change", updateTotals);
+    document.getElementById(`slider-b-${cls}`)?.addEventListener("input", updateTotals);
+    document.getElementById(`chk-b-${cls}`)?.addEventListener("change", updateTotals);
+});
+
+btnSettings.addEventListener("click", () => {
+    if (isRunning) {
+        isRunning = false;
+        resetWorkers();
+    }
+    loadConfigToUI();
+    settingsOverlay.style.display = "flex";
+});
+
+const closeSettings = () => {
+    settingsOverlay.style.display = "none";
+};
+btnSettingsClose.addEventListener("click", closeSettings);
+btnSettingsCancel.addEventListener("click", closeSettings);
+
+btnSettingsSave.addEventListener("click", () => {
+    classes.forEach(cls => {
+        const sliderA = document.getElementById(`slider-a-${cls}`) as HTMLInputElement;
+        const chkA = document.getElementById(`chk-a-${cls}`) as HTMLInputElement;
+        (teamAConfig as any)[cls] = chkA.checked ? parseInt(sliderA.value) : 0;
+
+        const sliderB = document.getElementById(`slider-b-${cls}`) as HTMLInputElement;
+        const chkB = document.getElementById(`chk-b-${cls}`) as HTMLInputElement;
+        (teamBConfig as any)[cls] = chkB.checked ? parseInt(sliderB.value) : 0;
+    });
+
+    localStorage.setItem("teamAConfig", JSON.stringify(teamAConfig));
+    localStorage.setItem("teamBConfig", JSON.stringify(teamBConfig));
+
+    closeSettings();
+    selectMatchup.value = "custom_composition";
+
+    disableControls();
+    overlay.style.display = "none";
+    resetWorkers();
+    changeModel(selectModel.value, selectMatchup.value, () => {
+        enableControls();
+    });
+});
 
 // Expose diagnostics to browser console for debugging
 (window as any).workerDiagnostics = {
@@ -719,7 +889,11 @@ for (let i = 0; i < NUM_WORKERS; i++) {
 };
 
 // Load model awal secara dinamis
-changeModel("Knight", selectMatchup.value);
+changeModel("Knight", selectMatchup.value, () => {
+    enableControls();
+}, () => {
+    enableControls();
+});
 
 // Click handler untuk class-badge kustom
 document.querySelectorAll(".class-badge").forEach((badge) => {

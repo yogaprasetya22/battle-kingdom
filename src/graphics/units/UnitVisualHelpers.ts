@@ -159,9 +159,9 @@ export function findBone(
             for (const bone of allBones) {
                 if (bone.name.toLowerCase().includes(fbPattern.toLowerCase())) {
                     found = bone;
-                    console.info(
-                        `[findBone] Fallback: "${pattern}" → found "${bone.name}"`,
-                    );
+                    // console.info(
+                    //     `[findBone] Fallback: "${pattern}" → found "${bone.name}"`,
+                    // );
                     break;
                 }
             }
@@ -169,12 +169,7 @@ export function findBone(
         }
     }
 
-    // Log debug info jika tidak ketemu
-    if (!found && allBones.length > 0) {
-        console.debug(
-            `[findBone] Pattern "${pattern}" not found. Available bones: [${allBones.map((b) => b.name).join(", ")}]`,
-        );
-    }
+
 
     return found;
 }

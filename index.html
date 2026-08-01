@@ -10,8 +10,8 @@
     content="Simulasi pertempuran massal 100 vs 100 unit menggunakan Pure Three.js dan Web Workers" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet" />
-  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet" crossorigin />
+  <script src="/tailwindcss.js"></script>
   <style>
     body {
       background-color: #020617;
@@ -32,13 +32,16 @@
       width: 6px;
       height: 6px;
     }
+
     ::-webkit-scrollbar-track {
       background: rgba(255, 255, 255, 0.03);
     }
+
     ::-webkit-scrollbar-thumb {
       background: rgba(255, 255, 255, 0.15);
       border-radius: 9999px;
     }
+
     ::-webkit-scrollbar-thumb:hover {
       background: rgba(255, 255, 255, 0.3);
     }
@@ -49,11 +52,9 @@
       top: 1.25rem;
       left: 50%;
       transform: translateX(-50%);
-      width: 92%;
-      max-width: 1100px;
       display: flex;
       align-items: center;
-      justify-content: space-between;
+      justify-content: center;
       padding: 0.65rem 1.75rem;
       pointer-events: none;
       z-index: 10;
@@ -109,13 +110,31 @@
     }
 
     @keyframes pulse-red {
-      0%, 100% { transform: scale(1); box-shadow: 0 0 8px rgba(239, 68, 68, 0.8); }
-      50% { transform: scale(1.25); box-shadow: 0 0 16px rgba(239, 68, 68, 1); }
+
+      0%,
+      100% {
+        transform: scale(1);
+        box-shadow: 0 0 8px rgba(239, 68, 68, 0.8);
+      }
+
+      50% {
+        transform: scale(1.25);
+        box-shadow: 0 0 16px rgba(239, 68, 68, 1);
+      }
     }
 
     @keyframes pulse-blue {
-      0%, 100% { transform: scale(1); box-shadow: 0 0 8px rgba(59, 130, 246, 0.8); }
-      50% { transform: scale(1.25); box-shadow: 0 0 16px rgba(59, 130, 246, 1); }
+
+      0%,
+      100% {
+        transform: scale(1);
+        box-shadow: 0 0 8px rgba(59, 130, 246, 0.8);
+      }
+
+      50% {
+        transform: scale(1.25);
+        box-shadow: 0 0 16px rgba(59, 130, 246, 1);
+      }
     }
 
     .team-badge.a .team-dot {
@@ -159,28 +178,30 @@
       transform: translateX(-50%);
       display: flex;
       align-items: center;
-      gap: 0.65rem;
+      gap: 1rem;
       z-index: 10;
-      background: rgba(15, 23, 42, 0.6);
+      background: rgba(15, 23, 42, 0.65);
       backdrop-filter: blur(20px);
       -webkit-backdrop-filter: blur(20px);
       border: 1px solid rgba(255, 255, 255, 0.08);
-      padding: 0.65rem 1.25rem;
+      padding: 0.85rem 2.25rem;
       border-radius: 9999px;
       box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
     }
 
-    button,
-    select {
+    #controls button,
+    #controls select {
       font-family: 'Inter', sans-serif;
       font-weight: 700;
       border-radius: 9999px;
       cursor: pointer;
       font-size: 0.85rem;
-      padding: 0.625rem 1.25rem;
+      padding: 0.625rem 1.5rem !important;
       transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
       border: 1px solid rgba(255, 255, 255, 0.08);
       outline: none;
+      white-space: nowrap;
+      flex-shrink: 0;
     }
 
     button:disabled,
@@ -236,6 +257,7 @@
     }
 
     #btn-viewer,
+    #btn-settings,
     #btn-reset {
       background-color: rgba(255, 255, 255, 0.05);
       border: 1px solid rgba(255, 255, 255, 0.08);
@@ -243,6 +265,7 @@
     }
 
     #btn-viewer:not(:disabled):hover,
+    #btn-settings:not(:disabled):hover,
     #btn-reset:not(:disabled):hover {
       background-color: rgba(255, 255, 255, 0.12);
       border-color: rgba(255, 255, 255, 0.2);
@@ -301,11 +324,25 @@
       color: rgba(255, 255, 255, 0.4);
     }
 
-    #stats-panel .text-yellow-400 { color: #f59e0b; }
-    #stats-panel .text-purple-400 { color: #c084fc; }
-    #stats-panel .text-cyan-400 { color: #22d3ee; }
-    #stats-panel .text-green-400 { color: #4ade80; }
-    #stats-panel .text-lime-400 { color: #a3e635; }
+    #stats-panel .text-yellow-400 {
+      color: #f59e0b;
+    }
+
+    #stats-panel .text-purple-400 {
+      color: #c084fc;
+    }
+
+    #stats-panel .text-cyan-400 {
+      color: #22d3ee;
+    }
+
+    #stats-panel .text-green-400 {
+      color: #4ade80;
+    }
+
+    #stats-panel .text-lime-400 {
+      color: #a3e635;
+    }
 
     /* Diagnostic Console Panel (Bottom Left) */
     #log-panel {
@@ -409,15 +446,18 @@
     }
 
     #stats-container {
-      width: 90%;
-      max-width: 600px;
-      max-height: 45vh;
-      background-color: rgba(15, 23, 42, 0.65);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      border-radius: 1rem;
-      padding: 1.5rem;
-      font-size: 0.85rem;
+      width: 95%;
+      max-width: 900px;
+      max-height: 60vh;
+      background-color: rgba(15, 23, 42, 0.75);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 1.25rem;
+      padding: 1.75rem;
+      font-size: 0.8rem;
       overflow-y: auto;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
     }
 
     .stats-team-section {
@@ -450,8 +490,28 @@
 
     .stats-grid {
       display: grid;
-      gap: 0.45rem;
-      font-size: 0.75rem;
+      grid-template-columns: 1fr 1fr 1fr 1fr 1fr;
+      gap: 0.5rem;
+      font-size: 0.72rem;
+      margin-bottom: 0.75rem;
+      padding: 0.5rem;
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .stats-header {
+      background: rgba(255, 255, 255, 0.05);
+      font-weight: 700;
+      color: rgba(255, 255, 255, 0.7);
+      border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+      padding: 0.4rem 0.5rem;
+      border-radius: 4px;
+      text-align: center;
+    }
+
+    .stats-header div {
+      text-align: center;
     }
 
     .stats-row {
@@ -465,7 +525,20 @@
 
     .stats-class {
       font-weight: 700;
-      color: rgba(255, 255, 255, 0.85);
+      color: rgba(255, 255, 255, 0.9);
+      grid-column: 1;
+      padding: 0.35rem 0.5rem;
+      text-align: left;
+    }
+
+    .stats-cell {
+      color: rgba(255, 255, 255, 0.7);
+      font-family: 'Courier New', monospace;
+      padding: 0.35rem 0.5rem;
+      text-align: center;
+      background: rgba(255, 255, 255, 0.02);
+      border-radius: 3px;
+      border: 1px solid rgba(255, 255, 255, 0.03);
     }
 
     .stats-value {
@@ -703,8 +776,13 @@
       transform: translateY(-50%) scale(1.08);
     }
 
-    #viewer-btn-prev { left: 1rem; }
-    #viewer-btn-next { right: 1rem; }
+    #viewer-btn-prev {
+      left: 1rem;
+    }
+
+    #viewer-btn-next {
+      right: 1rem;
+    }
 
     #viewer-bottom-panel {
       width: 100%;
@@ -816,8 +894,15 @@
     }
 
     @keyframes pulse-text {
-      0%, 100% { opacity: 0.4; }
-      50% { opacity: 0.85; }
+
+      0%,
+      100% {
+        opacity: 0.4;
+      }
+
+      50% {
+        opacity: 0.85;
+      }
     }
 
     /* Responsive adjustments */
@@ -825,6 +910,7 @@
       #hud {
         padding: 0.65rem 1.25rem;
       }
+
       .title-center {
         display: none;
       }
@@ -836,34 +922,41 @@
         border-radius: 1rem;
         padding: 0.5rem 1rem;
       }
+
       .team-badge {
         padding: 0.35rem 0.95rem;
         font-size: 0.85rem;
       }
+
       #stats-panel {
         display: none;
       }
+
       #controls {
         bottom: 1.25rem;
         border-radius: 1.5rem;
-        padding: 0.5rem 0.95rem;
-        gap: 0.45rem;
-        width: 92%;
+        padding: 0.75rem 1.75rem;
+        gap: 0.75rem;
+        width: 95%;
         justify-content: center;
       }
-      button,
-      select {
-        padding: 0.5rem 0.95rem;
+
+      #controls button,
+      #controls select {
+        padding: 0.55rem 1.25rem !important;
         font-size: 0.8rem;
       }
+
       #viewer-main {
         padding: 5rem 1.25rem 1.25rem;
         flex-direction: column;
       }
+
       #viewer-right-sidebar {
         width: 100%;
         max-height: 200px;
       }
+
       #viewer-canvas-container {
         padding: 0 2.5rem;
       }
@@ -877,13 +970,28 @@
         gap: 0.5rem;
         width: calc(100% - 2.5rem);
       }
-      button, select {
+
+      button,
+      select {
         width: 100%;
         text-align: center;
       }
-      #select-model, #select-matchup {
+
+      #select-model,
+      #select-matchup {
         background-position: right 1.25rem center;
       }
+    }
+
+    /* Fallback CSS for settings overlay */
+    #settings-overlay {
+      font-family: 'Inter', sans-serif;
+      color: #ffffff;
+    }
+    #settings-overlay > div {
+      background-color: #0b0f19 !important;
+      border: 1px solid rgba(255, 255, 255, 0.15) !important;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8) !important;
     }
   </style>
 </head>
@@ -951,6 +1059,7 @@
     <button id="btn-viewer" style="display: none;" disabled>📖 Katalog Karakter</button>
     <select id="select-matchup" disabled>
       <option value="mix" selected>Campuran (Semua Kelas)</option>
+      <option value="custom_composition">Kustom (Pengaturan UI)</option>
       <option value="mage_vs_tank">Mage vs Tank</option>
       <option value="archer_vs_tank">Archer vs Tank</option>
       <option value="mage_vs_archer">Mage vs Archer</option>
@@ -960,8 +1069,214 @@
       <option value="only_gunslinger">Hanya Gunslinger</option>
       <option value="only_assassin">Hanya Assassin</option>
     </select>
+    <button id="btn-settings" disabled>⚙️ Atur Tim</button>
     <button id="btn-start" disabled>⚔️ Mulai Pertempuran</button>
     <button id="btn-reset" disabled>↺ Reset</button>
+  </div>
+
+  <!-- Settings Overlay -->
+  <div id="settings-overlay" style="display: none;" class="fixed inset-0 bg-slate-950/85 backdrop-blur-xl flex-col items-center justify-center z-[100] p-4 md:p-6 overflow-y-auto">
+    <div class="bg-slate-900/90 border border-slate-700/50 rounded-3xl p-6 w-full max-w-4xl shadow-2xl flex flex-col gap-6 max-h-[90vh] overflow-y-auto text-white">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+        <div>
+          <h2 class="text-2xl font-black tracking-tight text-white">⚙️ Pengaturan Komposisi Pasukan</h2>
+          <p class="text-xs text-slate-400">Atur jumlah unit per kelas untuk setiap tim (Maks. 100 unit per tim)</p>
+        </div>
+        <button id="btn-settings-close" class="text-slate-400 hover:text-white transition-colors text-xl font-bold p-2">✕</button>
+      </div>
+
+      <!-- Presets -->
+      <div class="flex flex-col gap-2">
+        <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Pilih Preset Cepat:</span>
+        <div class="flex flex-wrap gap-2">
+          <button id="preset-balanced" class="bg-slate-800 hover:bg-slate-700 text-xs text-white font-bold py-2 px-4 rounded-full border border-slate-700/50 transition">⚖️ Campuran Seimbang</button>
+          <button id="preset-magic" class="bg-slate-800 hover:bg-slate-700 text-xs text-white font-bold py-2 px-4 rounded-full border border-slate-700/50 transition">🧙 Pasukan Sihir</button>
+          <button id="preset-defense" class="bg-slate-800 hover:bg-slate-700 text-xs text-white font-bold py-2 px-4 rounded-full border border-slate-700/50 transition">🛡️ Benteng Pertahanan</button>
+          <button id="preset-stealth" class="bg-slate-800 hover:bg-slate-700 text-xs text-white font-bold py-2 px-4 rounded-full border border-slate-700/50 transition">🗡️ Operasi Senyap</button>
+        </div>
+      </div>
+
+      <!-- Dual Column: Team A vs Team B -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- Team A Column -->
+        <div class="bg-red-950/20 border border-red-500/20 rounded-2xl p-5 flex flex-col gap-4">
+          <div class="flex items-center justify-between border-b border-red-500/20 pb-3">
+            <span class="text-lg font-black text-red-400">🔴 TIM A (Kiri)</span>
+            <span class="bg-red-500/10 text-red-300 border border-red-500/30 text-xs font-black px-3 py-1 rounded-full"><span id="total-a-units">0</span> / 100 Unit</span>
+          </div>
+
+          <!-- Class Controls A -->
+          <div class="flex flex-col gap-3">
+            <!-- Tank A -->
+            <div class="flex flex-col gap-1">
+              <div class="flex items-center justify-between">
+                <label class="text-sm font-bold text-slate-200 flex items-center gap-2">
+                  <input type="checkbox" id="chk-a-tank" class="rounded bg-slate-800 border-slate-700 text-red-500 focus:ring-red-500" checked>
+                  🛡️ Tank (Knight)
+                </label>
+                <span id="val-a-tank" class="text-xs font-bold text-red-400 bg-red-500/10 px-2 py-0.5 rounded border border-red-500/20">15</span>
+              </div>
+              <input type="range" id="slider-a-tank" min="0" max="100" value="15" class="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-red-500">
+            </div>
+
+            <!-- Archer A -->
+            <div class="flex flex-col gap-1">
+              <div class="flex items-center justify-between">
+                <label class="text-sm font-bold text-slate-200 flex items-center gap-2">
+                  <input type="checkbox" id="chk-a-archer" class="rounded bg-slate-800 border-slate-700 text-red-500 focus:ring-red-500" checked>
+                  🏹 Archer (Ranger)
+                </label>
+                <span id="val-a-archer" class="text-xs font-bold text-red-400 bg-red-500/10 px-2 py-0.5 rounded border border-red-500/20">20</span>
+              </div>
+              <input type="range" id="slider-a-archer" min="0" max="100" value="20" class="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-red-500">
+            </div>
+
+            <!-- Mage A -->
+            <div class="flex flex-col gap-1">
+              <div class="flex items-center justify-between">
+                <label class="text-sm font-bold text-slate-200 flex items-center gap-2">
+                  <input type="checkbox" id="chk-a-mage" class="rounded bg-slate-800 border-slate-700 text-red-500 focus:ring-red-500" checked>
+                  🧙 Mage
+                </label>
+                <span id="val-a-mage" class="text-xs font-bold text-red-400 bg-red-500/10 px-2 py-0.5 rounded border border-red-500/20">20</span>
+              </div>
+              <input type="range" id="slider-a-mage" min="0" max="100" value="20" class="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-red-500">
+            </div>
+
+            <!-- Healer A -->
+            <div class="flex flex-col gap-1">
+              <div class="flex items-center justify-between">
+                <label class="text-sm font-bold text-slate-200 flex items-center gap-2">
+                  <input type="checkbox" id="chk-a-healer" class="rounded bg-slate-800 border-slate-700 text-red-500 focus:ring-red-500" checked>
+                  💚 Healer (Acolyte)
+                </label>
+                <span id="val-a-healer" class="text-xs font-bold text-red-400 bg-red-500/10 px-2 py-0.5 rounded border border-red-500/20">5</span>
+              </div>
+              <input type="range" id="slider-a-healer" min="0" max="100" value="5" class="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-red-500">
+            </div>
+
+            <!-- Gunslinger A -->
+            <div class="flex flex-col gap-1">
+              <div class="flex items-center justify-between">
+                <label class="text-sm font-bold text-slate-200 flex items-center gap-2">
+                  <input type="checkbox" id="chk-a-gunslinger" class="rounded bg-slate-800 border-slate-700 text-red-500 focus:ring-red-500" checked>
+                  🔫 Gunslinger
+                </label>
+                <span id="val-a-gunslinger" class="text-xs font-bold text-red-400 bg-red-500/10 px-2 py-0.5 rounded border border-red-500/20">20</span>
+              </div>
+              <input type="range" id="slider-a-gunslinger" min="0" max="100" value="20" class="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-red-500">
+            </div>
+
+            <!-- Assassin A -->
+            <div class="flex flex-col gap-1">
+              <div class="flex items-center justify-between">
+                <label class="text-sm font-bold text-slate-200 flex items-center gap-2">
+                  <input type="checkbox" id="chk-a-assassin" class="rounded bg-slate-800 border-slate-700 text-red-500 focus:ring-red-500" checked>
+                  🗡️ Assassin
+                </label>
+                <span id="val-a-assassin" class="text-xs font-bold text-red-400 bg-red-500/10 px-2 py-0.5 rounded border border-red-500/20">20</span>
+              </div>
+              <input type="range" id="slider-a-assassin" min="0" max="100" value="20" class="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-red-500">
+            </div>
+          </div>
+        </div>
+
+        <!-- Team B Column -->
+        <div class="bg-blue-950/20 border border-blue-500/20 rounded-2xl p-5 flex flex-col gap-4">
+          <div class="flex items-center justify-between border-b border-blue-500/20 pb-3">
+            <span class="text-lg font-black text-blue-400">🔵 TIM B (Kanan)</span>
+            <span class="bg-blue-500/10 text-blue-300 border border-blue-500/30 text-xs font-black px-3 py-1 rounded-full"><span id="total-b-units">0</span> / 100 Unit</span>
+          </div>
+
+          <!-- Class Controls B -->
+          <div class="flex flex-col gap-3">
+            <!-- Tank B -->
+            <div class="flex flex-col gap-1">
+              <div class="flex items-center justify-between">
+                <label class="text-sm font-bold text-slate-200 flex items-center gap-2">
+                  <input type="checkbox" id="chk-b-tank" class="rounded bg-slate-800 border-slate-700 text-blue-500 focus:ring-blue-500" checked>
+                  🛡️ Tank (Knight)
+                </label>
+                <span id="val-b-tank" class="text-xs font-bold text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20">15</span>
+              </div>
+              <input type="range" id="slider-b-tank" min="0" max="100" value="15" class="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-500">
+            </div>
+
+            <!-- Archer B -->
+            <div class="flex flex-col gap-1">
+              <div class="flex items-center justify-between">
+                <label class="text-sm font-bold text-slate-200 flex items-center gap-2">
+                  <input type="checkbox" id="chk-b-archer" class="rounded bg-slate-800 border-slate-700 text-blue-500 focus:ring-blue-500" checked>
+                  🏹 Archer (Ranger)
+                </label>
+                <span id="val-b-archer" class="text-xs font-bold text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20">20</span>
+              </div>
+              <input type="range" id="slider-b-archer" min="0" max="100" value="20" class="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-500">
+            </div>
+
+            <!-- Mage B -->
+            <div class="flex flex-col gap-1">
+              <div class="flex items-center justify-between">
+                <label class="text-sm font-bold text-slate-200 flex items-center gap-2">
+                  <input type="checkbox" id="chk-b-mage" class="rounded bg-slate-800 border-slate-700 text-blue-500 focus:ring-blue-500" checked>
+                  🧙 Mage
+                </label>
+                <span id="val-b-mage" class="text-xs font-bold text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20">20</span>
+              </div>
+              <input type="range" id="slider-b-mage" min="0" max="100" value="20" class="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-500">
+            </div>
+
+            <!-- Healer B -->
+            <div class="flex flex-col gap-1">
+              <div class="flex items-center justify-between">
+                <label class="text-sm font-bold text-slate-200 flex items-center gap-2">
+                  <input type="checkbox" id="chk-b-healer" class="rounded bg-slate-800 border-slate-700 text-blue-500 focus:ring-blue-500" checked>
+                  💚 Healer (Acolyte)
+                </label>
+                <span id="val-b-healer" class="text-xs font-bold text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20">5</span>
+              </div>
+              <input type="range" id="slider-b-healer" min="0" max="100" value="5" class="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-500">
+            </div>
+
+            <!-- Gunslinger B -->
+            <div class="flex flex-col gap-1">
+              <div class="flex items-center justify-between">
+                <label class="text-sm font-bold text-slate-200 flex items-center gap-2">
+                  <input type="checkbox" id="chk-b-gunslinger" class="rounded bg-slate-800 border-slate-700 text-blue-500 focus:ring-blue-500" checked>
+                  🔫 Gunslinger
+                </label>
+                <span id="val-b-gunslinger" class="text-xs font-bold text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20">20</span>
+              </div>
+              <input type="range" id="slider-b-gunslinger" min="0" max="100" value="20" class="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-500">
+            </div>
+
+            <!-- Assassin B -->
+            <div class="flex flex-col gap-1">
+              <div class="flex items-center justify-between">
+                <label class="text-sm font-bold text-slate-200 flex items-center gap-2">
+                  <input type="checkbox" id="chk-b-assassin" class="rounded bg-slate-800 border-slate-700 text-blue-500 focus:ring-blue-500" checked>
+                  🗡️ Assassin
+                </label>
+                <span id="val-b-assassin" class="text-xs font-bold text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20">20</span>
+              </div>
+              <input type="range" id="slider-b-assassin" min="0" max="100" value="20" class="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-500">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Warning & Actions -->
+      <div class="flex flex-col gap-4 border-t border-slate-800 pt-4">
+        <div id="settings-warning" class="hidden bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-bold px-4 py-3 rounded-xl flex items-center gap-2">
+          ⚠️ Total unit untuk salah satu tim melebihi 100 atau kosong! Mohon sesuaikan kembali.
+        </div>
+
+        <div class="flex items-center justify-end gap-3">
+          <button id="btn-settings-cancel" class="bg-slate-800 hover:bg-slate-750 text-white font-bold py-2.5 px-6 rounded-full border border-slate-700/50 transition">Batal</button>
+          <button id="btn-settings-save" class="bg-gradient-to-r from-red-500 to-blue-500 hover:opacity-90 text-white font-bold py-2.5 px-8 rounded-full shadow-lg transition">Simpan & Terapkan</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- Winner Overlay -->

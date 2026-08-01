@@ -76,6 +76,18 @@ let endIndex = UNIT_COUNT;
 let workerId = -1;
 let customClasses: number[] = [0, 1, 2, 3, 4, 5];
 
+interface TeamComposition {
+    tank: number;
+    archer: number;
+    mage: number;
+    healer: number;
+    gunslinger: number;
+    assassin: number;
+}
+let currentMatchup = "mix";
+let teamAConfig: TeamComposition = { tank: 15, archer: 20, mage: 20, healer: 5, gunslinger: 20, assassin: 20 };
+let teamBConfig: TeamComposition = { tank: 15, archer: 20, mage: 20, healer: 5, gunslinger: 20, assassin: 20 };
+
 // --- Spatial Hash Grid Configuration ---
 const cellSize = 6.0;
 const gridCols = Math.ceil((BOUND_X_MAX - BOUND_X_MIN) / cellSize);
@@ -116,6 +128,21 @@ function buildGrid(d: Float32Array) {
 
 // --- Spawn ---
 function initUnits(d: Float32Array, matchup: string = "mix") {
+    currentMatchup = matchup;
+    
+    const typesA: number[] = [];
+    const typesB: number[] = [];
+    const fillTypes = (arr: number[], config: TeamComposition) => {
+        for (let j = 0; j < (config.tank ?? 0); j++) arr.push(TYPE_TANK);
+        for (let j = 0; j < (config.archer ?? 0); j++) arr.push(TYPE_ARCHER);
+        for (let j = 0; j < (config.mage ?? 0); j++) arr.push(TYPE_MAGE);
+        for (let j = 0; j < (config.healer ?? 0); j++) arr.push(TYPE_HEALER);
+        for (let j = 0; j < (config.gunslinger ?? 0); j++) arr.push(TYPE_GUNSLINGER);
+        for (let j = 0; j < (config.assassin ?? 0); j++) arr.push(TYPE_ASSASSIN);
+    };
+    fillTypes(typesA, teamAConfig);
+    fillTypes(typesB, teamBConfig);
+
     // Only initialize units assigned to this worker's range
     for (let i = startIndex; i < endIndex; i++) {
         const base = i * STRIDE;
@@ -124,31 +151,55 @@ function initUnits(d: Float32Array, matchup: string = "mix") {
         const row = Math.floor(localIdx / 10);
         const col = localIdx % 10;
 
-        // Tentukan kategori unit berdasarkan matchup: 6 tipe (0-5: Tank,Archer,Mage,Healer,Gunslinger,Assassin)
-        let unitType = localIdx % 6;
-        const healerCount = Math.max(1, Math.round(TEAM_SIZE * 0.02)); // 2% Healers/Acolyte
-        if (localIdx < healerCount) {
-            unitType = TYPE_HEALER;
+        let unitType = 0;
+        let isActive = true;
+
+        if (matchup === "custom_composition") {
+            const types = team === TEAM_A ? typesA : typesB;
+            if (localIdx < types.length) {
+                unitType = types[localIdx];
+            } else {
+                isActive = false;
+            }
+        } else {
+            // Tentukan kategori unit berdasarkan matchup: 6 tipe (0-5: Tank,Archer,Mage,Healer,Gunslinger,Assassin)
+            unitType = localIdx % 6;
+            const healerCount = Math.max(1, Math.round(TEAM_SIZE * 0.02)); // 2% Healers/Acolyte
+            if (localIdx < healerCount) {
+                unitType = TYPE_HEALER;
+            }
+            if (matchup === "custom") {
+                unitType = customClasses[localIdx % customClasses.length];
+            } else if (matchup === "mage_vs_tank") {
+                unitType = team === TEAM_A ? TYPE_MAGE : TYPE_TANK;
+            } else if (matchup === "archer_vs_tank") {
+                unitType = team === TEAM_A ? TYPE_ARCHER : TYPE_TANK;
+            } else if (matchup === "mage_vs_archer") {
+                unitType = team === TEAM_A ? TYPE_MAGE : TYPE_ARCHER;
+            } else if (matchup === "only_mage") {
+                unitType = TYPE_MAGE;
+            } else if (matchup === "only_archer") {
+                unitType = TYPE_ARCHER;
+            } else if (matchup === "only_tank") {
+                unitType = TYPE_TANK;
+            } else if (matchup === "only_gunslinger") {
+                unitType = TYPE_GUNSLINGER;
+            } else if (matchup === "only_assassin") {
+                unitType = TYPE_ASSASSIN;
+            }
         }
-        if (matchup === "custom") {
-            unitType = customClasses[localIdx % customClasses.length];
-        } else if (matchup === "mage_vs_tank") {
-            unitType = team === TEAM_A ? TYPE_MAGE : TYPE_TANK;
-        } else if (matchup === "archer_vs_tank") {
-            unitType = team === TEAM_A ? TYPE_ARCHER : TYPE_TANK;
-        } else if (matchup === "mage_vs_archer") {
-            unitType = team === TEAM_A ? TYPE_MAGE : TYPE_ARCHER;
-        } else if (matchup === "only_mage") {
-            unitType = TYPE_MAGE;
-        } else if (matchup === "only_archer") {
-            unitType = TYPE_ARCHER;
-        } else if (matchup === "only_tank") {
-            unitType = TYPE_TANK;
-        } else if (matchup === "only_gunslinger") {
-            unitType = TYPE_GUNSLINGER;
-        } else if (matchup === "only_assassin") {
-            unitType = TYPE_ASSASSIN;
+
+        if (!isActive) {
+            d[base + IDX_HP] = -1000; // inactive
+            d[base + IDX_MAX_HP] = 100;
+            d[base + IDX_TYPE] = 0;
+            d[base + IDX_TEAM] = team;
+            d[base + IDX_X] = -999;
+            d[base + IDX_Y] = -999;
+            d[base + IDX_Z] = -999;
+            continue;
         }
+
         d[base + IDX_TYPE] = unitType;
 
         const hp = HP_PER_TYPE[unitType] ?? 100;
@@ -567,12 +618,19 @@ function tick(d: Float32Array) {
         if (animLockTicks[i] > 0) animLockTicks[i]--;
     }
 
+    let activeCountA = TEAM_SIZE;
+    let activeCountB = TEAM_SIZE;
+    if (currentMatchup === "custom_composition") {
+        activeCountA = (teamAConfig.tank ?? 0) + (teamAConfig.archer ?? 0) + (teamAConfig.mage ?? 0) + (teamAConfig.healer ?? 0) + (teamAConfig.gunslinger ?? 0) + (teamAConfig.assassin ?? 0);
+        activeCountB = (teamBConfig.tank ?? 0) + (teamBConfig.archer ?? 0) + (teamBConfig.mage ?? 0) + (teamBConfig.healer ?? 0) + (teamBConfig.gunslinger ?? 0) + (teamBConfig.assassin ?? 0);
+    }
+
     const unitsToSpawn =
         SPAWN_INITIAL +
         Math.floor(battleTicks / SPAWN_WAVE_INTERVAL) * SPAWN_PER_WAVE;
 
     // Spawn Team A units in range
-    const maxSpawnA = Math.min(TEAM_SIZE, unitsToSpawn);
+    const maxSpawnA = Math.min(activeCountA, unitsToSpawn);
     for (let i = startIndex; i < Math.min(endIndex, maxSpawnA); i++) {
         const base = i * STRIDE;
         if (d[base + IDX_HP] === -999) {
@@ -587,7 +645,7 @@ function tick(d: Float32Array) {
     }
 
     // Spawn Team B units in range
-    const maxSpawnB = Math.min(TEAM_SIZE, unitsToSpawn);
+    const maxSpawnB = Math.min(activeCountB, unitsToSpawn);
     const bStartIdx = TEAM_SIZE;
     for (
         let i = Math.max(startIndex, bStartIdx);
@@ -1723,6 +1781,8 @@ self.onmessage = (e: MessageEvent) => {
         if (e.data.customClasses) {
             customClasses = e.data.customClasses;
         }
+        if (e.data.teamAConfig) teamAConfig = e.data.teamAConfig;
+        if (e.data.teamBConfig) teamBConfig = e.data.teamBConfig;
         buf = e.data.buffer as SharedArrayBuffer;
         data = new Float32Array(buf);
         int32Data = new Int32Array(buf);
@@ -1785,6 +1845,8 @@ self.onmessage = (e: MessageEvent) => {
         if (e.data.customClasses) {
             customClasses = e.data.customClasses;
         }
+        if (e.data.teamAConfig) teamAConfig = e.data.teamAConfig;
+        if (e.data.teamBConfig) teamBConfig = e.data.teamBConfig;
         battleTicks = 0;
         delayedDamages.length = 0;
         animLockTicks.fill(0);
