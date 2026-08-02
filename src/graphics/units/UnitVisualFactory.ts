@@ -56,7 +56,6 @@ export function createUnitVisual(
             break;
     }
 
-    // Pasang senjata ke bone
     unit.loadAssets();
 
     // Pilih klip animasi sesuai tipe

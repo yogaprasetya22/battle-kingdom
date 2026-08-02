@@ -656,9 +656,11 @@ export function updateFrame(data: Float32Array, delta: number) {
                 const maxHp = data[base + IDX_MAX_HP];
                 const hpRatio = maxHp > 0 ? hp / maxHp : 0;
 
+                // Copy camera quaternion — avoids 3x expensive lookAt() per unit
+                dummy.quaternion.copy(camera.quaternion);
+
                 dummy.position.set(meshX, billY, meshZ);
                 dummy.scale.set(1, 1, 1);
-                dummy.lookAt(camera.position);
                 dummy.updateMatrix();
                 hpBarsBg.setMatrixAt(i, dummy.matrix);
 
@@ -669,13 +671,11 @@ export function updateFrame(data: Float32Array, delta: number) {
                     meshZ,
                 );
                 dummy.scale.set(clampedScaleX, 1, 1);
-                dummy.lookAt(camera.position);
                 dummy.updateMatrix();
                 hpBarsFg.setMatrixAt(i, dummy.matrix);
 
                 dummy.position.set(meshX, billY + 0.35, meshZ);
                 dummy.scale.set(1, 1, 1);
-                dummy.lookAt(camera.position);
                 dummy.updateMatrix();
                 if (nameBarsA && nameBarsB) {
                     if (i < TEAM_SIZE) {

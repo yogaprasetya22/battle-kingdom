@@ -200,7 +200,7 @@ transformed += objectNormal * n * 0.22;
 // ═══════════════════════════════════════════════════════════════
 // Active FX management
 // ═══════════════════════════════════════════════════════════════
-const MAX_FX_HARSH = 150;
+const MAX_FX_HARSH = 40;
 export const activeFX: Array<{ update: (delta: number) => boolean }> = [];
 
 export function updateFX(delta: number) {
@@ -216,8 +216,9 @@ export function canSpawnFX(): boolean {
 export function fxQualityScale(): number {
     const n = activeFX.length;
     if (n < 5) return 1.0;
-    if (n < 12) return 0.4;
-    return 0.15;
+    if (n < 12) return 0.3;
+    if (n < 25) return 0.12;
+    return 0.05;
 }
 
 // ═══════════════════════════════════════════════════════════════

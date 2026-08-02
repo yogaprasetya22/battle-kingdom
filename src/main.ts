@@ -483,7 +483,8 @@ for (let i = 0; i < NUM_WORKERS; i++) {
 
         if (type === "skillFXBatch") {
             const list = e.data.fxList;
-            for (let k = 0; k < list.length; k++) {
+            const max = Math.min(list.length, 30);
+            for (let k = 0; k < max; k++) {
                 spawnSkillFX(list[k]);
             }
         }

@@ -38,6 +38,8 @@ import {
     getTerrainHeight,
 } from "./constants";
 
+import { buildGrid, findNearestEnemy, calcSeparation } from "./spatial-grid";
+
 import {
     HP_PER_TYPE,
     ATTRIBUTES,
@@ -85,8 +87,22 @@ interface TeamComposition {
     assassin: number;
 }
 let currentMatchup = "mix";
-let teamAConfig: TeamComposition = { tank: 15, archer: 20, mage: 20, healer: 5, gunslinger: 20, assassin: 20 };
-let teamBConfig: TeamComposition = { tank: 15, archer: 20, mage: 20, healer: 5, gunslinger: 20, assassin: 20 };
+let teamAConfig: TeamComposition = {
+    tank: 15,
+    archer: 20,
+    mage: 20,
+    healer: 5,
+    gunslinger: 20,
+    assassin: 20,
+};
+let teamBConfig: TeamComposition = {
+    tank: 15,
+    archer: 20,
+    mage: 20,
+    healer: 5,
+    gunslinger: 20,
+    assassin: 20,
+};
 
 // --- Spatial Hash Grid Configuration ---
 const cellSize = 6.0;
@@ -106,30 +122,10 @@ const hitFlags = new Uint8Array(UNIT_COUNT);
 const _casF32 = new Float32Array(1);
 const _casI32 = new Int32Array(_casF32.buffer);
 
-function buildGrid(d: Float32Array) {
-    gridHead.fill(-1);
-    gridNext.fill(-1);
-    for (let i = 0; i < UNIT_COUNT; i++) {
-        const base = i * STRIDE;
-        if (d[base + IDX_HP] <= 0) continue;
-
-        const x = d[base + IDX_X];
-        const z = d[base + IDX_Z];
-        const col = Math.floor((x - BOUND_X_MIN) / cellSize);
-        const row = Math.floor((z - BOUND_Z_MIN) / cellSize);
-
-        if (col >= 0 && col < gridCols && row >= 0 && row < gridRows) {
-            const cellIdx = row * gridCols + col;
-            gridNext[i] = gridHead[cellIdx];
-            gridHead[cellIdx] = i;
-        }
-    }
-}
-
 // --- Spawn ---
 function initUnits(d: Float32Array, matchup: string = "mix") {
     currentMatchup = matchup;
-    
+
     const typesA: number[] = [];
     const typesB: number[] = [];
     const fillTypes = (arr: number[], config: TeamComposition) => {
@@ -137,8 +133,10 @@ function initUnits(d: Float32Array, matchup: string = "mix") {
         for (let j = 0; j < (config.archer ?? 0); j++) arr.push(TYPE_ARCHER);
         for (let j = 0; j < (config.mage ?? 0); j++) arr.push(TYPE_MAGE);
         for (let j = 0; j < (config.healer ?? 0); j++) arr.push(TYPE_HEALER);
-        for (let j = 0; j < (config.gunslinger ?? 0); j++) arr.push(TYPE_GUNSLINGER);
-        for (let j = 0; j < (config.assassin ?? 0); j++) arr.push(TYPE_ASSASSIN);
+        for (let j = 0; j < (config.gunslinger ?? 0); j++)
+            arr.push(TYPE_GUNSLINGER);
+        for (let j = 0; j < (config.assassin ?? 0); j++)
+            arr.push(TYPE_ASSASSIN);
     };
     fillTypes(typesA, teamAConfig);
     fillTypes(typesB, teamBConfig);
@@ -209,11 +207,13 @@ function initUnits(d: Float32Array, matchup: string = "mix") {
         d[base + IDX_ANIM] = 1; // move
         d[base + IDX_TARGET] = -1;
 
-        // Reset cooldowns & states
-        d[base + IDX_SKILL1_CD] = 0;
-        d[base + IDX_SKILL2_CD] = 0;
-        d[base + IDX_SKILL3_CD] = 0;
-        d[base + IDX_ATTACK_CD] = 0;
+        // Stagger initial skill cooldowns biar gak semua unit fire skill serentak
+        // Spread across ~64 ticks (8 groups × 8 tick interval)
+        // Ini mencegah FX storm pas cluster — terutama untuk only_tank
+        d[base + IDX_SKILL1_CD] = (i & 7) * 8;
+        d[base + IDX_SKILL2_CD] = (i & 7) * 6 + 10;
+        d[base + IDX_SKILL3_CD] = (i & 7) * 10 + 20;
+        d[base + IDX_ATTACK_CD] = (i & 3) * 3; // spread normal attack juga
         d[base + IDX_EFFECT_STATE] = 0;
         d[base + IDX_IMMUNE_CD] = 0;
 
@@ -222,99 +222,6 @@ function initUnits(d: Float32Array, matchup: string = "mix") {
         d[base + IDX_Z] = -SPAWN_SPREAD / 2 + row * 1.4;
         d[base + IDX_Y] = getTerrainHeight(d[base + IDX_X], d[base + IDX_Z]);
     }
-}
-
-// --- Find nearest enemy using Spatial Grid ---
-function findNearestEnemy(d: Float32Array, i: number): number {
-    const base = i * STRIDE;
-    const myTeam = d[base + IDX_TEAM];
-    const myX = d[base + IDX_X];
-    const myZ = d[base + IDX_Z];
-
-    const myCol = Math.floor((myX - BOUND_X_MIN) / cellSize);
-    const myRow = Math.floor((myZ - BOUND_Z_MIN) / cellSize);
-
-    let minDist = Infinity;
-    let target = -1;
-
-    // 1. Search in 3x3 cells
-    for (let r = myRow - 1; r <= myRow + 1; r++) {
-        if (r < 0 || r >= gridRows) continue;
-        for (let c = myCol - 1; c <= myCol + 1; c++) {
-            if (c < 0 || c >= gridCols) continue;
-            const cellIdx = r * gridCols + c;
-            let curr = gridHead[cellIdx];
-            while (curr !== -1) {
-                const jBase = curr * STRIDE;
-                const isStealthed = d[jBase + IDX_EFFECT_STATE] >= 1000 && d[jBase + IDX_EFFECT_STATE] < 2000;
-                if (d[jBase + IDX_HP] > 0 && d[jBase + IDX_TEAM] !== myTeam && !isStealthed) {
-                    const dx = d[jBase + IDX_X] - myX;
-                    const dz = d[jBase + IDX_Z] - myZ;
-                    const dist = dx * dx + dz * dz;
-                    if (dist < minDist) {
-                        minDist = dist;
-                        target = curr;
-                    }
-                }
-                curr = gridNext[curr];
-            }
-        }
-    }
-
-    if (target !== -1) return target;
-
-    // 2. Search in 5x5 cells if not found in 3x3
-    for (let r = myRow - 2; r <= myRow + 2; r++) {
-        if (r < 0 || r >= gridRows) continue;
-        for (let c = myCol - 2; c <= myCol + 2; c++) {
-            if (c < 0 || c >= gridCols) continue;
-            if (
-                r >= myRow - 1 &&
-                r <= myRow + 1 &&
-                c >= myCol - 1 &&
-                c <= myCol + 1
-            )
-                continue;
-
-            const cellIdx = r * gridCols + c;
-            let curr = gridHead[cellIdx];
-            while (curr !== -1) {
-                const jBase = curr * STRIDE;
-                const isStealthed = d[jBase + IDX_EFFECT_STATE] >= 1000 && d[jBase + IDX_EFFECT_STATE] < 2000;
-                if (d[jBase + IDX_HP] > 0 && d[jBase + IDX_TEAM] !== myTeam && !isStealthed) {
-                    const dx = d[jBase + IDX_X] - myX;
-                    const dz = d[jBase + IDX_Z] - myZ;
-                    const dist = dx * dx + dz * dz;
-                    if (dist < minDist) {
-                        minDist = dist;
-                        target = curr;
-                    }
-                }
-                curr = gridNext[curr];
-            }
-        }
-    }
-
-    if (target !== -1) return target;
-
-    // 3. Fallback: Scan full slice
-    const jStart = myTeam === TEAM_A ? TEAM_SIZE : 0;
-    const jEnd = myTeam === TEAM_A ? UNIT_COUNT : TEAM_SIZE;
-
-    for (let j = jStart; j < jEnd; j++) {
-        const jBase = j * STRIDE;
-        if (d[jBase + IDX_HP] <= 0) continue;
-        const isStealthed = d[jBase + IDX_EFFECT_STATE] >= 1000 && d[jBase + IDX_EFFECT_STATE] < 2000;
-        if (isStealthed) continue;
-        const dx = d[jBase + IDX_X] - myX;
-        const dz = d[jBase + IDX_Z] - myZ;
-        const dist = dx * dx + dz * dz;
-        if (dist < minDist) {
-            minDist = dist;
-            target = j;
-        }
-    }
-    return target;
 }
 
 // --- Find lowest HP percent ally using Spatial Grid ---
@@ -405,8 +312,14 @@ function findLowestHpEnemy(d: Float32Array, i: number): number {
                 const jBase = curr * STRIDE;
                 if (d[jBase + IDX_HP] > 0 && d[jBase + IDX_TEAM] !== myTeam) {
                     const enemyType = d[jBase + IDX_TYPE];
-                    const isStealthed = d[jBase + IDX_EFFECT_STATE] >= 1000 && d[jBase + IDX_EFFECT_STATE] < 2000;
-                    if (enemyType !== TYPE_TANK && enemyType !== TYPE_ASSASSIN && !isStealthed) {
+                    const isStealthed =
+                        d[jBase + IDX_EFFECT_STATE] >= 1000 &&
+                        d[jBase + IDX_EFFECT_STATE] < 2000;
+                    if (
+                        enemyType !== TYPE_TANK &&
+                        enemyType !== TYPE_ASSASSIN &&
+                        !isStealthed
+                    ) {
                         const hp = d[jBase + IDX_HP];
                         if (hp < lowestHp) {
                             lowestHp = hp;
@@ -430,7 +343,9 @@ function findLowestHpEnemy(d: Float32Array, i: number): number {
         const hp = d[jBase + IDX_HP];
         if (hp <= 0) continue;
         const enemyType = d[jBase + IDX_TYPE];
-        const isStealthed = d[jBase + IDX_EFFECT_STATE] >= 1000 && d[jBase + IDX_EFFECT_STATE] < 2000;
+        const isStealthed =
+            d[jBase + IDX_EFFECT_STATE] >= 1000 &&
+            d[jBase + IDX_EFFECT_STATE] < 2000;
         if (isStealthed) continue;
         if (enemyType !== TYPE_TANK && enemyType !== TYPE_ASSASSIN) {
             if (hp < lowestHp) {
@@ -582,12 +497,17 @@ function queueDamage(
 
 const animLockTicks = new Int32Array(UNIT_COUNT);
 
+// Per-tick throttle counters untuk mencegah FX storm saat cluster
+let tankSelfBuffCount = 0;
+const MAX_SELF_BUFF_PER_TICK = 5;
+
 // --- Main tick ---
 function tick(d: Float32Array) {
     battleTicks++;
+    tankSelfBuffCount = 0;
 
     // 1. Build Spatial Grid for fast distance queries
-    buildGrid(d);
+    buildGrid(d, gridHead, gridNext);
 
     // Update delayed damages
     for (let i = delayedDamages.length - 1; i >= 0; i--) {
@@ -621,8 +541,20 @@ function tick(d: Float32Array) {
     let activeCountA = TEAM_SIZE;
     let activeCountB = TEAM_SIZE;
     if (currentMatchup === "custom_composition") {
-        activeCountA = (teamAConfig.tank ?? 0) + (teamAConfig.archer ?? 0) + (teamAConfig.mage ?? 0) + (teamAConfig.healer ?? 0) + (teamAConfig.gunslinger ?? 0) + (teamAConfig.assassin ?? 0);
-        activeCountB = (teamBConfig.tank ?? 0) + (teamBConfig.archer ?? 0) + (teamBConfig.mage ?? 0) + (teamBConfig.healer ?? 0) + (teamBConfig.gunslinger ?? 0) + (teamBConfig.assassin ?? 0);
+        activeCountA =
+            (teamAConfig.tank ?? 0) +
+            (teamAConfig.archer ?? 0) +
+            (teamAConfig.mage ?? 0) +
+            (teamAConfig.healer ?? 0) +
+            (teamAConfig.gunslinger ?? 0) +
+            (teamAConfig.assassin ?? 0);
+        activeCountB =
+            (teamBConfig.tank ?? 0) +
+            (teamBConfig.archer ?? 0) +
+            (teamBConfig.mage ?? 0) +
+            (teamBConfig.healer ?? 0) +
+            (teamBConfig.gunslinger ?? 0) +
+            (teamBConfig.assassin ?? 0);
     }
 
     const unitsToSpawn =
@@ -715,14 +647,15 @@ function tick(d: Float32Array) {
         let target = cachedTarget;
 
         // Check if current target is invalid (dead, none, or stealthed)
-        let isTargetInvalid = cachedTarget === -1 || d[cachedTarget * STRIDE + IDX_HP] <= 0;
+        let isTargetInvalid =
+            cachedTarget === -1 || d[cachedTarget * STRIDE + IDX_HP] <= 0;
         if (!isTargetInvalid && cachedTarget >= 0) {
             const tEffect = d[cachedTarget * STRIDE + IDX_EFFECT_STATE];
             if (tEffect >= 1000 && tEffect < 2000) {
                 isTargetInvalid = true; // Target went into stealth!
             }
         }
-        
+
         // If target is invalid, throttle search to once every 8 ticks. If valid, re-evaluate target every 4 ticks.
         const searchInterval = isTargetInvalid ? 8 : 4;
         const shouldSearch = (battleTicks + i) % searchInterval === 0;
@@ -734,15 +667,15 @@ function tick(d: Float32Array) {
             if (uType === TYPE_HEALER) {
                 target = findLowestHpAlly(d, i);
                 if (target === -1) {
-                    target = findNearestEnemy(d, i);
+                    target = findNearestEnemy(d, i, gridHead, gridNext);
                 }
             } else if (uType === TYPE_ASSASSIN) {
                 target = findLowestHpEnemy(d, i);
                 if (target === -1) {
-                    target = findNearestEnemy(d, i);
+                    target = findNearestEnemy(d, i, gridHead, gridNext);
                 }
             } else {
-                target = findNearestEnemy(d, i);
+                target = findNearestEnemy(d, i, gridHead, gridNext);
             }
             d[base + IDX_TARGET] = target;
         }
@@ -1382,7 +1315,9 @@ function tick(d: Float32Array) {
                 let dmg = isBackstab
                     ? ASSASSIN_SKILLS.backstab.damageBack
                     : ASSASSIN_SKILLS.backstab.damageFront;
-                const isAttackerStealthed = d[base + IDX_EFFECT_STATE] >= 1000 && d[base + IDX_EFFECT_STATE] < 2000;
+                const isAttackerStealthed =
+                    d[base + IDX_EFFECT_STATE] >= 1000 &&
+                    d[base + IDX_EFFECT_STATE] < 2000;
                 if (isAttackerStealthed) {
                     dmg = 999; // CRIT EXECUTE DAMAGE
                     d[base + IDX_EFFECT_STATE] = 0; // break stealth
@@ -1407,17 +1342,14 @@ function tick(d: Float32Array) {
                 d[base + IDX_ANIM] = 2;
                 animLockTicks[i] = 20;
                 let dmg = ASSASSIN_SKILLS.poisonBlade.damagePerTick;
-                const isAttackerStealthed = d[base + IDX_EFFECT_STATE] >= 1000 && d[base + IDX_EFFECT_STATE] < 2000;
+                const isAttackerStealthed =
+                    d[base + IDX_EFFECT_STATE] >= 1000 &&
+                    d[base + IDX_EFFECT_STATE] < 2000;
                 if (isAttackerStealthed) {
                     dmg = 999; // CRIT EXECUTE DAMAGE
                     d[base + IDX_EFFECT_STATE] = 0; // break stealth
                 }
-                queueDamage(
-                    target,
-                    dmg,
-                    10,
-                    i,
-                );
+                queueDamage(target, dmg, 10, i);
                 // Apply poison effect: base 2000 + duration ticks
                 d[tBase + IDX_EFFECT_STATE] =
                     2000 + ASSASSIN_SKILLS.poisonBlade.durationTicks;
@@ -1497,72 +1429,14 @@ function tick(d: Float32Array) {
 
             const isMoving = d[base + IDX_ANIM] === 1;
             // Temporal throttling: only calculate separation once every 2 ticks for moving units, and once every 4 ticks for stationary units
-            const shouldCalcSeparation = isMoving ? ((battleTicks + i) % 2 === 0) : ((battleTicks + i) % 4 === 0);
+            const shouldCalcSeparation = isMoving
+                ? (battleTicks + i) % 2 === 0
+                : (battleTicks + i) % 4 === 0;
 
             if (shouldCalcSeparation) {
-                // Separation query 3x3 cells (since separation radius is 0.95 and cellSize is 6.0)
-                const myCol = Math.floor(
-                    (d[base + IDX_X] - BOUND_X_MIN) / cellSize,
-                );
-                const myRow = Math.floor(
-                    (d[base + IDX_Z] - BOUND_Z_MIN) / cellSize,
-                );
-
-                let sepCount = 0;
-                const maxSepChecks = 8; // Early break after 8 close neighbors
-
-                for (let r = myRow - 1; r <= myRow + 1; r++) {
-                    if (r < 0 || r >= gridRows) continue;
-                    for (let c = myCol - 1; c <= myCol + 1; c++) {
-                        if (c < 0 || c >= gridCols) continue;
-                        const cellIdx = r * gridCols + c;
-                        let curr = gridHead[cellIdx];
-                        while (curr !== -1) {
-                            if (curr !== i) {
-                                const jBase = curr * STRIDE;
-                                const jHp = d[jBase + IDX_HP];
-                                if (jHp > 0) {
-                                    const jx = d[jBase + IDX_X];
-                                    const jz = d[jBase + IDX_Z];
-                                    const dxj = d[base + IDX_X] - jx;
-                                    const dzj = d[base + IDX_Z] - jz;
-                                    const distSq = dxj * dxj + dzj * dzj;
-
-                                    if (
-                                        distSq <
-                                            SEPARATION_RADIUS * SEPARATION_RADIUS &&
-                                        distSq > 0.0001
-                                    ) {
-                                        const distj = Math.sqrt(distSq);
-                                        const force =
-                                            (SEPARATION_RADIUS - distj) /
-                                            SEPARATION_RADIUS;
-                                        sepX +=
-                                            (dxj / distj) *
-                                            force *
-                                            SEPARATION_STRENGTH;
-                                        sepZ +=
-                                            (dzj / distj) *
-                                            force *
-                                            SEPARATION_STRENGTH;
-
-                                        sepCount++;
-                                        if (sepCount >= maxSepChecks) break;
-                                    }
-                                }
-                            }
-                            curr = gridNext[curr];
-                        }
-                        if (sepCount >= maxSepChecks) break;
-                    }
-                    if (sepCount >= maxSepChecks) break;
-                }
-            }
-
-            const sepMag = Math.sqrt(sepX * sepX + sepZ * sepZ);
-            if (sepMag > SEPARATION_MAX) {
-                sepX = (sepX / sepMag) * SEPARATION_MAX;
-                sepZ = (sepZ / sepMag) * SEPARATION_MAX;
+                const { sx, sz } = calcSeparation(d, i, gridHead, gridNext, 8);
+                sepX = sx;
+                sepZ = sz;
             }
 
             const isTargetAlly = d[tBase + IDX_TEAM] === d[base + IDX_TEAM];
@@ -1629,9 +1503,11 @@ function tick(d: Float32Array) {
                                     : uType === TYPE_GUNSLINGER
                                       ? 12
                                       : 22;
-                        
+
                         let dmg = baseDamage;
-                        const isAttackerStealthed = d[base + IDX_EFFECT_STATE] >= 1000 && d[base + IDX_EFFECT_STATE] < 2000;
+                        const isAttackerStealthed =
+                            d[base + IDX_EFFECT_STATE] >= 1000 &&
+                            d[base + IDX_EFFECT_STATE] < 2000;
                         if (uType === TYPE_ASSASSIN && isAttackerStealthed) {
                             dmg = 999; // CRIT EXECUTE DAMAGE
                             d[base + IDX_EFFECT_STATE] = 0; // break stealth
@@ -1664,7 +1540,10 @@ function tick(d: Float32Array) {
                     d[base + IDX_Z] += nz * mySpeed;
 
                     // Assassin stealth when running to target
-                    if (uType === TYPE_ASSASSIN && d[base + IDX_EFFECT_STATE] < 1000) {
+                    if (
+                        uType === TYPE_ASSASSIN &&
+                        d[base + IDX_EFFECT_STATE] < 1000
+                    ) {
                         d[base + IDX_EFFECT_STATE] = 1000 + 150; // Stealth for 150 ticks
                     }
                 }

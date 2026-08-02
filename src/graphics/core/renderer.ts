@@ -26,12 +26,13 @@ import {
     resetUnitsVisual as resetUnitVisualsRaw,
 } from "./UnitRenderer";
 import { clearAllFX } from "../effects/FXCore";
+import { PerformanceProfiler } from "./PerformanceProfiler";
 
 export { changeModel };
 export function resetUnitsVisual() {
     resetUnitVisualsRaw();
     clearAllFX(scene);
-    
+
     // Clear all skill meshes from fxGroup to ensure nothing stays stuck
     while (fxGroup.children.length > 0) {
         const child = fxGroup.children[0];
@@ -92,8 +93,23 @@ const dayCycleManager = new DayCycleManager(scene, 60); // 60 detik per siklus (
 dayCycleManager.setDirectionalLight(sun);
 dayCycleManager.setAmbientLight(ambient);
 
+// Accumulate count per frame untuk throttle basic attack/heal FX
+let _frameFXCount = 0;
+const MAX_FX_PER_FRAME = 30;
+
+export function resetFrameFXCount() {
+    _frameFXCount = 0;
+}
+
 export function spawnSkillFX(event: { skill: string; [key: string]: any }) {
     if (!canSpawnFX()) return;
+    _frameFXCount++;
+
+    // Skip non-critical FX when frame budget exceeded
+    if (_frameFXCount > MAX_FX_PER_FRAME) {
+        if (event.skill === "basicAttack" || event.skill === "basicHeal") return;
+    }
+
     const scene = fxGroup as unknown as THREE.Scene; // Shadow global scene with fxGroup casted to THREE.Scene
     if (event.skill === "arrowVolley") {
         const groundY = getTerrainHeight(event.x, event.z);
@@ -298,6 +314,7 @@ export function startRenderLoop() {
     const loop = (timestamp: number) => {
         animId = requestAnimationFrame(loop);
 
+        resetFrameFXCount();
         const delta = clock.getDelta();
         if (_onBeforeRender) _onBeforeRender(timestamp, delta);
 
@@ -336,7 +353,10 @@ export function startRenderLoop() {
         }
         if (msVal) msVal.textContent = (delta * 1000).toFixed(1);
 
-        if (sharedData) updateFrame(sharedData, delta);
+        if (sharedData) {
+            updateFrame(sharedData, delta);
+        }
+
         renderer.render(scene, camera);
     };
     animId = requestAnimationFrame(loop);

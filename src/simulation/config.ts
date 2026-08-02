@@ -17,12 +17,12 @@ export const SPAWN_INITIAL = 5; // unit awal per tim
 export const SPAWN_PER_WAVE = 1; // tambahan unit per wave
 export const SPAWN_WAVE_INTERVAL = 20; // ticks antar wave
 export const SPAWN_INSIDE_OFFSET_X = 6.5; // jarak spawn di dalam kastil (sumbu X)
-export const SPAWN_INSIDE_SPREAD_Z = 0.75; // max spread Z spawn (Math.random() - 0.5) * 2 * ini
+export const SPAWN_INSIDE_SPREAD_Z = 15; // max spread Z spawn (Math.random() - 0.5) * 2 * ini
 
 // ============ MOVEMENT & SEPARATION ============
-export const SEPARATION_RADIUS = 0.95;
-export const SEPARATION_STRENGTH = 0.02;
-export const SEPARATION_MAX = 0.04; // batas magnitude separation
+export const SEPARATION_RADIUS = 1.5;
+export const SEPARATION_STRENGTH = 0.03;
+export const SEPARATION_MAX = 0.03; // batas magnitude separation — < tank speed (0.035)
 
 // ============ TERRAIN BOUNDS ============
 export const BOUND_X_MIN = -119;

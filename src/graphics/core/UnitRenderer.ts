@@ -367,21 +367,44 @@ export function changeModel(
                         let uType = 0;
 
                         if (matchup === "custom_composition") {
-                            const configAStr = localStorage.getItem("teamAConfig");
-                            const configBStr = localStorage.getItem("teamBConfig");
-                            const defComp = { tank: 15, archer: 20, mage: 20, healer: 5, gunslinger: 20, assassin: 20 };
-                            const confA = configAStr ? JSON.parse(configAStr) : defComp;
-                            const confB = configBStr ? JSON.parse(configBStr) : defComp;
+                            const configAStr =
+                                localStorage.getItem("teamAConfig");
+                            const configBStr =
+                                localStorage.getItem("teamBConfig");
+                            const defComp = {
+                                tank: 15,
+                                archer: 20,
+                                mage: 20,
+                                healer: 5,
+                                gunslinger: 20,
+                                assassin: 20,
+                            };
+                            const confA = configAStr
+                                ? JSON.parse(configAStr)
+                                : defComp;
+                            const confB = configBStr
+                                ? JSON.parse(configBStr)
+                                : defComp;
 
                             const typesA: number[] = [];
                             const typesB: number[] = [];
                             const fillTypes = (arr: number[], config: any) => {
-                                for (let j = 0; j < (config.tank ?? 0); j++) arr.push(0);
-                                for (let j = 0; j < (config.archer ?? 0); j++) arr.push(1);
-                                for (let j = 0; j < (config.mage ?? 0); j++) arr.push(2);
-                                for (let j = 0; j < (config.healer ?? 0); j++) arr.push(3);
-                                for (let j = 0; j < (config.gunslinger ?? 0); j++) arr.push(4);
-                                for (let j = 0; j < (config.assassin ?? 0); j++) arr.push(5);
+                                for (let j = 0; j < (config.tank ?? 0); j++)
+                                    arr.push(0);
+                                for (let j = 0; j < (config.archer ?? 0); j++)
+                                    arr.push(1);
+                                for (let j = 0; j < (config.mage ?? 0); j++)
+                                    arr.push(2);
+                                for (let j = 0; j < (config.healer ?? 0); j++)
+                                    arr.push(3);
+                                for (
+                                    let j = 0;
+                                    j < (config.gunslinger ?? 0);
+                                    j++
+                                )
+                                    arr.push(4);
+                                for (let j = 0; j < (config.assassin ?? 0); j++)
+                                    arr.push(5);
                             };
                             fillTypes(typesA, confA);
                             fillTypes(typesB, confB);
@@ -403,7 +426,9 @@ export function changeModel(
                             }
                             if (matchup === "custom") {
                                 uType =
-                                    enabledTypes[localIdx % enabledTypes.length];
+                                    enabledTypes[
+                                        localIdx % enabledTypes.length
+                                    ];
                             } else if (matchup === "mage_vs_tank") {
                                 uType = team === TEAM_A ? 2 : 0;
                             } else if (matchup === "archer_vs_tank") {
@@ -511,8 +536,10 @@ let animFrameCount = 0;
 const LERP_SPEED = 12;
 
 // ── Animation batch optimization ──
-let animFrameBatch: number[] = []; // track units yang perlu mixer update
-const MAX_MIXER_UPDATES_PER_FRAME = 20; // batch limit untuk prevent frame drops
+// Tank skinned mesh mixer.update() count capped per frame.
+// 200 tank cluster = 200 update/frame. Distribusikan ke 4-5 frame.
+let tankMixerCount = 0;
+const MAX_TANK_MIXER_PER_FRAME = 50;
 
 const _frustum = new THREE.Frustum();
 const _projScreen = new THREE.Matrix4();
@@ -550,8 +577,8 @@ export function updateFrame(data: Float32Array, delta: number) {
     _forward.set(0, 0, 1).applyQuaternion(camera.quaternion);
     animFrameCount++;
 
-    // Reset mixer batch queue setiap frame
-    animFrameBatch.length = 0;
+    // Reset tank mixer counter setiap frame
+    tankMixerCount = 0;
 
     _projScreen.multiplyMatrices(
         camera.projectionMatrix,
@@ -640,28 +667,17 @@ export function updateFrame(data: Float32Array, delta: number) {
             const inView = _frustum.intersectsSphere(_unitSphere);
             unit.root.visible = inView && !isStealthed;
 
-            const showMesh = distSq < UNIT_LOD_DIST_SQ;
+            // Tank skinned mesh heavy — aggressive LOD. Hanya render mesh ≤40 unit.
+            // 200 tank cluster = 1000+ draw calls. Culling agresif simpan ~80% GPU.
+            const tankLOD = uType === 0 ? distSq < 1600 : true;
+            const showMesh = distSq < UNIT_LOD_DIST_SQ && tankLOD;
 
             for (let m = 0; m < unit.meshes.length; m++) {
                 unit.meshes[m].visible = showMesh;
             }
 
-            // Fase 5: LOD culling for attached weapons
-            // ASSASSIN OPTIMIZATION: Hide dual daggers at distance (distSq > 1225 = 35 units)
-            // Saves skeleton animation overhead for off-screen assassins
-            const weaponLodDist = uType === 5 ? 1225 : UNIT_LOD_DIST_SQ; // Type 5 = Assassin
-            const showWeapons = hp > 0 && distSq < weaponLodDist;
-
-            if (unit.weapons && unit.weapons.length > 0) {
-                for (let w = 0; w < unit.weapons.length; w++) {
-                    unit.weapons[w].visible = showMesh && showWeapons;
-                }
-            } else if (uType === 5 && inView && showMesh) {
-                // Lazy-load assassin weapons on first visibility
-                const assassinVisual = unit as any;
-                if (assassinVisual.getWeaponsForLOD) {
-                    assassinVisual.getWeaponsForLOD();
-                }
+            for (let w = 0; w < unit.weapons.length; w++) {
+                unit.weapons[w].visible = showMesh;
             }
 
             if (hp > 0 && !(unit as any)._wasAlive) {
@@ -802,10 +818,9 @@ export function updateFrame(data: Float32Array, delta: number) {
                 unit.deathTime &&
                 performance.now() - unit.deathTime < 2000;
 
-            // ★ ADAPTIVE ANIMATION LOD THROTTLE: Throttles animation updates based on distance
-            // Animation speed tetap normal karena menggunakan accumulated delta saat update.
-            // Membatasi update mixer per frame untuk kestabilan FPS (60 FPS playback untuk unit sangat dekat,
-            // 30 FPS untuk unit sedang, 15 FPS/7.5 FPS untuk unit jauh, skip untuk unit out of view/hidden).
+            // ★ ADAPTIVE ANIMATION LOD THROTTLE: Distance-based frame skip distributes
+            // mixer.update() load across frames. Near units get 60 FPS, far units get 7.5 FPS.
+            // Accumulated delta preserves animation speed correctness.
             const assassinTooFar = uType === 5 && distSq > 1225;
             const shouldUpdateMixer =
                 inView &&
@@ -814,22 +829,18 @@ export function updateFrame(data: Float32Array, delta: number) {
                 !assassinTooFar;
 
             if (shouldUpdateMixer) {
-                // Tentukan rate update berdasarkan jarak (LOD) agar gerakan tetap terlihat mulus
-                let updateRate = 1;
-                if (distSq > 4225) {        // > 65m: update setiap 5 frame
-                    updateRate = 5;
-                } else if (distSq > 1225) { // > 35m: update setiap 3 frame
-                    updateRate = 3;
-                } else if (distSq > 225) {  // > 15m: update setiap 2 frame
-                    updateRate = 2;
-                } // < 15m: update setiap frame
+                let updateMod = 1;
+                if (distSq > 3600) updateMod = 8;       // >60 units: ~7.5 FPS anim
+                else if (distSq > 1600) updateMod = 4;   // >40 units: ~15 FPS anim
+                else if (distSq > 625) updateMod = 2;    // >25 units: ~30 FPS anim
 
-                // Jadwalkan update merata antar frame menggunakan index unit
-                const isScheduled = (animFrameCount + i) % updateRate === 0;
-
-                if (isScheduled) {
+                // Tank skinned mesh heavy — global cap distribusi update, delta tetap akumulasi
+                if (uType === 0 && tankMixerCount >= MAX_TANK_MIXER_PER_FRAME) {
+                    // jangan reset accumulatedDelta — biarkan akumulasi buat catch-up frame berikutnya
+                } else if (animFrameCount % updateMod === (i % updateMod)) {
                     unit.mixer.update(unit.accumulatedDelta);
                     unit.accumulatedDelta = 0;
+                    if (uType === 0) tankMixerCount++;
                 }
             } else {
                 unit.accumulatedDelta = 0;
