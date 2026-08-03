@@ -13,6 +13,7 @@ import {
     easeOutBack,
     pooledPlane,
     pooledRing,
+    pooledCylinder,
     starTex,
     circleTex,
     sparkTex,
@@ -117,13 +118,14 @@ export function spawnLightningFX(
             const jz = s === SEGMENTS ? 0 : (Math.random() - 0.5) * 0.7;
             const nextPt = new THREE.Vector3(lx + jx, ly + jy, lz + jz);
 
-            // Create segment cylinder
+            // Create segment cylinder — use pooled geometry with Y-scale for variable distance
             const dist = lastPt.distanceTo(nextPt);
-            const geo = new THREE.CylinderGeometry(0.06, 0.06, dist, 4); // 4-sided is fast and sharp
+            const geo = pooledCylinder(0.06, 0.06, 1.0, 4); // fixed height=1, scale Y by dist
             cylinderGeoPool.push(geo);
 
             const mesh = new THREE.Mesh(geo, mat);
             mesh.frustumCulled = false;
+            mesh.scale.set(1, dist, 1);
             // Position at midpoint
             const mid = new THREE.Vector3()
                 .copy(lastPt)
@@ -150,7 +152,6 @@ export function spawnLightningFX(
             const t = Math.min(1, age / duration);
             if (t >= 1) {
                 meshes.forEach((m) => scene.remove(m));
-                cylinderGeoPool.forEach((g) => g.dispose());
                 mat.dispose();
                 return false;
             }
@@ -160,9 +161,10 @@ export function spawnLightningFX(
             mat.opacity = 0.95 * (1 - t) * flicker;
 
             // Jitter scale slightly to simulate high voltage vibration
-            const scale = 0.85 + Math.random() * 0.3;
+            const jitterS = 0.85 + Math.random() * 0.3;
             meshes.forEach((m) => {
-                m.scale.set(scale, 1.0, scale); // jitter thickness only
+                const baseY = m.scale.y; // preserve Y-scale (distance)
+                m.scale.set(jitterS, baseY, jitterS); // jitter X/Z thickness only, keep Y
             });
 
             return true;
@@ -218,9 +220,9 @@ export function spawnArrowVolleyFX(
     inner.position.set(centerX, groundY + 0.04, centerZ);
     scene.add(inner);
 
-    // Falling arrows — instanced
+    // Falling arrows — instanced, use pooled geometry (60 arrows per volley)
     const COUNT = 60;
-    const arrowGeo = new THREE.CylinderGeometry(0.01, 0.035, 1.0, 4);
+    const arrowGeo = pooledCylinder(0.01, 0.035, 1.0, 4);
 
     const arrowMat = new THREE.MeshBasicMaterial({
         color: colorStar,
@@ -233,8 +235,8 @@ export function spawnArrowVolleyFX(
     arrows.frustumCulled = false;
     scene.add(arrows);
 
-    // Arrow impact rings — instanced
-    const impactRingGeo = new THREE.PlaneGeometry(1.2, 1.2);
+    // Arrow impact rings — instanced, use pooled geometry
+    const impactRingGeo = pooledPlane(1.2, 1.2);
     const impactRingMat = new THREE.MeshBasicMaterial({
         map: starTex,
         color: colorStar,
@@ -294,9 +296,7 @@ export function spawnArrowVolleyFX(
                 ringMat.dispose();
                 innerGeo.dispose();
                 innerMat.dispose();
-                arrowGeo.dispose();
                 arrowMat.dispose();
-                impactRingGeo.dispose();
                 impactRingMat.dispose();
                 return false;
             }
@@ -1685,7 +1685,12 @@ export function spawnBasicAttackFX(
             update(delta) {
                 age += delta;
                 if (!trail) {
-                    const trailGeo = new THREE.CylinderGeometry(0.04, 0.04, 1.0, 4);
+                    const trailGeo = new THREE.CylinderGeometry(
+                        0.04,
+                        0.04,
+                        1.0,
+                        4,
+                    );
                     trailMat = new THREE.MeshBasicMaterial({
                         color: 0xffcc44,
                         transparent: true,

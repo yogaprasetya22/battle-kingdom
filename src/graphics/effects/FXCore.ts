@@ -58,6 +58,28 @@ export function pooledRing(
     return _ringGeoPool.get(key)!;
 }
 
+// Pooled cylinder geometry — avoids per-call allocations for Arrow Volley (60×) & Chain Lightning segments
+const _cylinderGeoPool = new Map<string, THREE.CylinderGeometry>();
+export function pooledCylinder(
+    radiusTop: number,
+    radiusBottom: number,
+    height: number,
+    radialSegments: number,
+): THREE.CylinderGeometry {
+    const key = `${radiusTop.toFixed(3)}_${radiusBottom.toFixed(3)}_${height.toFixed(2)}_${radialSegments}`;
+    if (!_cylinderGeoPool.has(key))
+        _cylinderGeoPool.set(
+            key,
+            new THREE.CylinderGeometry(
+                radiusTop,
+                radiusBottom,
+                height,
+                radialSegments,
+            ),
+        );
+    return _cylinderGeoPool.get(key)!;
+}
+
 // ═══════════════════════════════════════════════════════════════
 // Texture loading — once at module init
 // ═══════════════════════════════════════════════════════════════
