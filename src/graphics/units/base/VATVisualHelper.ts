@@ -87,13 +87,37 @@ export function prepareVATGeometry(geometry: THREE.BufferGeometry): void {
     const positionAttr = geometry.attributes.position;
     if (!positionAttr) return;
 
-    const vertexCount = positionAttr.count;
-    const vertexIds = new Float32Array(vertexCount);
-    for (let i = 0; i < vertexCount; i++) {
-        vertexIds[i] = i;
-    }
+    if (geometry.index !== null) {
+        // Save original indices BEFORE toNonIndexed() destroys them.
+        // After non-indexing, position count = index count (triangle corners).
+        // Each output vertex[i] came from input vertex index[i].
+        // vertexId MUST carry the original index so shader samples
+        // the correct column in VAT texture (which was baked per unique vertex).
+        const originalIndex = geometry.index.array.slice();
+        const nonIndexed = geometry.toNonIndexed();
+        geometry.copy(nonIndexed);
+        nonIndexed.dispose();
 
-    geometry.setAttribute("vertexId", new THREE.BufferAttribute(vertexIds, 1));
+        const vertexCount = geometry.attributes.position.count;
+        const vertexIds = new Float32Array(vertexCount);
+        for (let i = 0; i < vertexCount; i++) {
+            vertexIds[i] = originalIndex[i];
+        }
+        geometry.setAttribute(
+            "vertexId",
+            new THREE.BufferAttribute(vertexIds, 1),
+        );
+    } else {
+        const vertexCount = geometry.attributes.position.count;
+        const vertexIds = new Float32Array(vertexCount);
+        for (let i = 0; i < vertexCount; i++) {
+            vertexIds[i] = i;
+        }
+        geometry.setAttribute(
+            "vertexId",
+            new THREE.BufferAttribute(vertexIds, 1),
+        );
+    }
 }
 
 /**
@@ -141,6 +165,42 @@ export class VATVisual implements IUnitVisual {
         // Use material pool to prevent per-instance creation & shader recompilation
         const pool = getVATMaterialPool();
         const colorHex = (teamMaterial.color as any).getHex?.() || 0xffffff;
+
+        // Convert SkinnedMesh → regular Mesh: VAT replaces skinning entirely.
+        // GLTFLoader creates SkinnedMesh when skin data present; its shader
+        // overrides our VAT displacement. Strip skeleton/bindMatrix/bone attributes.
+        const replacements: {
+            parent: THREE.Object3D;
+            child: THREE.SkinnedMesh;
+            mesh: THREE.Mesh;
+        }[] = [];
+        this.root.traverse((child: any) => {
+            if (child.isSkinnedMesh) {
+                const skinned = child as THREE.SkinnedMesh;
+                const geo = skinned.geometry.clone();
+                // Remove skinning attributes
+                ["skinIndex", "skinWeight"].forEach((attr) => {
+                    if (geo.attributes[attr]) geo.deleteAttribute(attr);
+                });
+                const mat = Array.isArray(skinned.material)
+                    ? skinned.material[0].clone()
+                    : skinned.material.clone();
+                const mesh = new THREE.Mesh(geo, mat);
+                mesh.name = skinned.name;
+                mesh.position.copy(skinned.position);
+                mesh.rotation.copy(skinned.rotation);
+                mesh.scale.copy(skinned.scale);
+                replacements.push({
+                    parent: skinned.parent!,
+                    child: skinned,
+                    mesh,
+                });
+            }
+        });
+        for (const { parent, child, mesh } of replacements) {
+            parent.add(mesh);
+            parent.remove(child);
+        }
 
         this.root.traverse((child: any) => {
             if (child.isMesh) {

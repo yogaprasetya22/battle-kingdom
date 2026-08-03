@@ -58,6 +58,84 @@ export function pooledRing(
     return _ringGeoPool.get(key)!;
 }
 
+// ── Pooled projectile geometries (shared, never disposed) ──
+let _arrowGeo: THREE.CylinderGeometry | null = null;
+export function pooledArrowGeo(): THREE.CylinderGeometry {
+    if (!_arrowGeo) _arrowGeo = new THREE.CylinderGeometry(0.06, 0.06, 0.7, 5);
+    return _arrowGeo;
+}
+let _bulletGeo: THREE.CylinderGeometry | null = null;
+export function pooledBulletGeo(): THREE.CylinderGeometry {
+    if (!_bulletGeo)
+        _bulletGeo = new THREE.CylinderGeometry(0.04, 0.04, 1.0, 4);
+    return _bulletGeo;
+}
+let _magicGeo: THREE.SphereGeometry | null = null;
+export function pooledMagicGeo(): THREE.SphereGeometry {
+    if (!_magicGeo) _magicGeo = new THREE.SphereGeometry(0.15, 6, 6);
+    return _magicGeo;
+}
+let _slashGeo: THREE.PlaneGeometry | null = null;
+export function pooledSlashGeo(): THREE.PlaneGeometry {
+    if (!_slashGeo) _slashGeo = new THREE.PlaneGeometry(1.4, 0.3);
+    return _slashGeo;
+}
+
+// ── Shared projectile materials (never disposed) ──
+let _arrowMat: THREE.MeshBasicMaterial | null = null;
+export function sharedArrowMat(): THREE.MeshBasicMaterial {
+    if (!_arrowMat) {
+        _arrowMat = new THREE.MeshBasicMaterial({
+            color: 0xffeaad,
+            transparent: true,
+            opacity: 0.8,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false,
+        });
+    }
+    return _arrowMat;
+}
+let _magicMat: THREE.MeshBasicMaterial | null = null;
+export function sharedMagicMat(): THREE.MeshBasicMaterial {
+    if (!_magicMat) {
+        _magicMat = new THREE.MeshBasicMaterial({
+            color: 0x88e0ff,
+            transparent: true,
+            opacity: 0.9,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false,
+        });
+    }
+    return _magicMat;
+}
+let _bulletMat: THREE.MeshBasicMaterial | null = null;
+export function sharedBulletMat(): THREE.MeshBasicMaterial {
+    if (!_bulletMat) {
+        _bulletMat = new THREE.MeshBasicMaterial({
+            color: 0xffcc44,
+            transparent: true,
+            opacity: 0.95,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false,
+        });
+    }
+    return _bulletMat;
+}
+let _slashMat: THREE.MeshBasicMaterial | null = null;
+export function sharedSlashMat(): THREE.MeshBasicMaterial {
+    if (!_slashMat) {
+        _slashMat = new THREE.MeshBasicMaterial({
+            color: 0xff5533,
+            transparent: true,
+            opacity: 0.75,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false,
+            side: THREE.DoubleSide,
+        });
+    }
+    return _slashMat;
+}
+
 // ═══════════════════════════════════════════════════════════════
 // Texture loading — once at module init
 // ═══════════════════════════════════════════════════════════════
@@ -211,6 +289,10 @@ export function updateFX(delta: number) {
 
 export function canSpawnFX(): boolean {
     return activeFX.length < MAX_FX_HARSH;
+}
+
+export function getActiveFXCount(): number {
+    return activeFX.length;
 }
 
 export function fxQualityScale(): number {

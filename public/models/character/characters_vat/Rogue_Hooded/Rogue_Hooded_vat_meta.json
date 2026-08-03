@@ -1,0 +1,37 @@
+{
+  "character": "Rogue_Hooded",
+  "vertexCount": 4399,
+  "totalFrames": 155,
+  "animations": {
+    "Running_A_Rig_Medium.001": {
+      "start": 129,
+      "end": 153,
+      "length": 25,
+      "category": "run"
+    },
+    "Ranged_1H_Aiming_Rig_Medium.001": {
+      "start": 95,
+      "end": 127,
+      "length": 33,
+      "category": "shoot"
+    },
+    "Melee_1H_Attack_Chop_Rig_Medium.001": {
+      "start": 61,
+      "end": 93,
+      "length": 33,
+      "category": "attack"
+    },
+    "Idle_A_Rig_Medium.001": {
+      "start": 27,
+      "end": 59,
+      "length": 33,
+      "category": "idle"
+    },
+    "Death_A_Rig_Medium.001": {
+      "start": 1,
+      "end": 25,
+      "length": 25,
+      "category": "death"
+    }
+  }
+}

@@ -13,6 +13,14 @@ import {
     easeOutBack,
     pooledPlane,
     pooledRing,
+    pooledArrowGeo,
+    pooledBulletGeo,
+    pooledMagicGeo,
+    pooledSlashGeo,
+    sharedArrowMat,
+    sharedBulletMat,
+    sharedMagicMat,
+    sharedSlashMat,
     starTex,
     circleTex,
     sparkTex,
@@ -184,7 +192,13 @@ export function spawnArrowVolleyFX(
     const qScale = fxQualityScale();
     if (qScale < 0.5) {
         // Simplified volley: spawn simple particle explosion to prevent lag
-        spawnExplosion(scene, new THREE.Vector3(centerX, groundY, centerZ), team === 1 ? 0x00aaff : 0xff4433, 15, 0.25);
+        spawnExplosion(
+            scene,
+            new THREE.Vector3(centerX, groundY, centerZ),
+            team === 1 ? 0x00aaff : 0xff4433,
+            15,
+            0.25,
+        );
         return;
     }
     const isBlue = team === 1;
@@ -1610,26 +1624,17 @@ export function spawnBasicAttackFX(
         soundFX.playSlash(end.x, end.y, end.z, camera.position);
         spawnExplosion(scene, end, 0xffdd66, 6, 0.1);
     } else if (uType === 1) {
-        // Archer: Single arrow projectile
+        // Archer: Single arrow projectile (pooled geo, shared mat — zero alloc per shot)
         soundFX.playBow(start.x, start.y, start.z, camera.position);
         let age = 0;
-        const flight = 0.24; // slightly faster than double shot
+        const flight = 0.24;
         let mesh: THREE.Mesh | null = null;
-        let mat: THREE.MeshBasicMaterial | null = null;
 
         activeFX.push({
             update(delta) {
                 age += delta;
                 if (!mesh) {
-                    const geo = new THREE.CylinderGeometry(0.06, 0.06, 0.7, 5);
-                    mat = new THREE.MeshBasicMaterial({
-                        color: 0xffeaad,
-                        transparent: true,
-                        opacity: 0.8,
-                        blending: THREE.AdditiveBlending,
-                        depthWrite: false,
-                    });
-                    mesh = new THREE.Mesh(geo, mat);
+                    mesh = new THREE.Mesh(pooledArrowGeo(), sharedArrowMat());
                     mesh.frustumCulled = false;
                     mesh.position.copy(start);
                     mesh.lookAt(end);
@@ -1639,8 +1644,7 @@ export function spawnBasicAttackFX(
                 const t = Math.min(1, age / flight);
                 if (t >= 1) {
                     scene.remove(mesh!);
-                    mesh!.geometry.dispose();
-                    mat!.dispose();
+                    // ponytail: geo & mat shared — no dispose
                     spawnExplosion(scene, end, 0xffbb44, 4, 0.1);
                     return false;
                 }
@@ -1649,26 +1653,17 @@ export function spawnBasicAttackFX(
             },
         });
     } else if (uType === 2) {
-        // Mage: Small glowing magic projectile
+        // Mage: Small glowing magic projectile (pooled geo, shared mat)
         soundFX.playMagicCast(start.x, start.y, start.z, camera.position);
         let age = 0;
-        const flight = 0.35; // slower than arrow
+        const flight = 0.35;
         let mesh: THREE.Mesh | null = null;
-        let mat: THREE.MeshBasicMaterial | null = null;
 
         activeFX.push({
             update(delta) {
                 age += delta;
                 if (!mesh) {
-                    const geo = new THREE.SphereGeometry(0.15, 6, 6);
-                    mat = new THREE.MeshBasicMaterial({
-                        color: 0x88e0ff,
-                        transparent: true,
-                        opacity: 0.9,
-                        blending: THREE.AdditiveBlending,
-                        depthWrite: false,
-                    });
-                    mesh = new THREE.Mesh(geo, mat);
+                    mesh = new THREE.Mesh(pooledMagicGeo(), sharedMagicMat());
                     mesh.frustumCulled = false;
                     mesh.position.copy(start);
                     scene.add(mesh);
@@ -1676,8 +1671,7 @@ export function spawnBasicAttackFX(
                 const t = Math.min(1, age / flight);
                 if (t >= 1) {
                     scene.remove(mesh!);
-                    mesh!.geometry.dispose();
-                    mat!.dispose();
+                    // ponytail: geo & mat shared — no dispose
                     spawnExplosion(scene, end, 0x44ccff, 6, 0.1);
                     return false;
                 }
@@ -1686,26 +1680,20 @@ export function spawnBasicAttackFX(
             },
         });
     } else if (uType === 4) {
-        // Gunslinger: Fast bullet trail projectile with impact
+        // Gunslinger: Fast bullet trail (pooled geo, shared mat)
         soundFX.playBow(start.x, start.y, start.z, camera.position);
         let age = 0;
         const flight = 0.15;
         let trail: THREE.Mesh | null = null;
-        let trailMat: THREE.MeshBasicMaterial | null = null;
 
         activeFX.push({
             update(delta) {
                 age += delta;
                 if (!trail) {
-                    const trailGeo = new THREE.CylinderGeometry(0.04, 0.04, 1.0, 4);
-                    trailMat = new THREE.MeshBasicMaterial({
-                        color: 0xffcc44,
-                        transparent: true,
-                        opacity: 0.95,
-                        blending: THREE.AdditiveBlending,
-                        depthWrite: false,
-                    });
-                    trail = new THREE.Mesh(trailGeo, trailMat);
+                    trail = new THREE.Mesh(
+                        pooledBulletGeo(),
+                        sharedBulletMat(),
+                    );
                     trail.frustumCulled = false;
                     trail.position.copy(start);
                     trail.lookAt(end);
@@ -1715,8 +1703,7 @@ export function spawnBasicAttackFX(
                 const t = Math.min(1, age / flight);
                 if (t >= 1) {
                     scene.remove(trail!);
-                    trail!.geometry.dispose();
-                    trailMat!.dispose();
+                    // ponytail: geo & mat shared — no dispose
                     spawnExplosion(scene, end, 0xffaa22, 10, 0.12);
                     return false;
                 }
@@ -1725,7 +1712,7 @@ export function spawnBasicAttackFX(
             },
         });
     } else if (uType === 5) {
-        // Assassin: Quick melee slash with impact sparks
+        // Assassin: Quick melee slash (pooled geo, shared mat)
         soundFX.playSlash(end.x, end.y, end.z, camera.position);
         let age = 0;
         const slashLife = 0.15;
@@ -1737,7 +1724,6 @@ export function spawnBasicAttackFX(
                 age += delta;
                 const t = age / slashLife;
                 if (t < 0.03) {
-                    const arcGeo = new THREE.PlaneGeometry(1.4, 0.3);
                     const arcMat = new THREE.MeshBasicMaterial({
                         color: 0xff5533,
                         transparent: true,
@@ -1746,7 +1732,7 @@ export function spawnBasicAttackFX(
                         depthWrite: false,
                         side: THREE.DoubleSide,
                     });
-                    const arcMesh = new THREE.Mesh(arcGeo, arcMat);
+                    const arcMesh = new THREE.Mesh(pooledSlashGeo(), arcMat);
                     arcMesh.position.copy(mid);
                     arcMesh.quaternion.copy(getCamQuad());
                     arcMesh.frustumCulled = false;
@@ -1759,8 +1745,8 @@ export function spawnBasicAttackFX(
                             const at = arcAge / 0.16;
                             if (at >= 1) {
                                 scene.remove(arcMesh);
-                                arcMesh.geometry.dispose();
                                 arcMat.dispose();
+                                // ponytail: geometry pooled — no dispose
                                 return false;
                             }
                             arcMat.opacity = 0.75 * (1 - at);

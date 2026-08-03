@@ -47,8 +47,6 @@ let stunMat: THREE.MeshStandardMaterial | null = null;
 let buffMatA: THREE.MeshStandardMaterial | null = null;
 let buffMatB: THREE.MeshStandardMaterial | null = null;
 
-const exrLoader = new EXRLoader();
-
 // ── Ice InstancedMesh ──
 const _iceGeo = new THREE.DodecahedronGeometry(0.65);
 const _iceMat = new THREE.MeshStandardMaterial({
@@ -128,6 +126,9 @@ async function loadVATAssetsForChar(charName: string): Promise<{
     const baseUrl = import.meta.env.BASE_URL;
     const pathPrefix = `${baseUrl}models/character/characters_vat/${charName}/`;
 
+    // Fresh EXRLoader per character — prevents concurrent parse race on singleton
+    const localExrLoader = new EXRLoader();
+
     // 1. Load Base GLB
     const baseGLTF = await new Promise<any>((resolve, reject) => {
         gltfLoader.load(
@@ -140,9 +141,16 @@ async function loadVATAssetsForChar(charName: string): Promise<{
 
     // 2. Load VAT EXR Texture
     const vatTexture = await new Promise<THREE.Texture>((resolve, reject) => {
-        exrLoader.load(
+        localExrLoader.load(
             `${pathPrefix}${charName}_vat_pos.exr`,
-            (texture) => resolve(texture),
+            (texture) => {
+                texture.minFilter = THREE.NearestFilter;
+                texture.magFilter = THREE.NearestFilter;
+                texture.generateMipmaps = false;
+                texture.colorSpace = THREE.NoColorSpace;
+                texture.needsUpdate = true;
+                resolve(texture);
+            },
             undefined,
             (err) => reject(err),
         );
@@ -402,6 +410,38 @@ export function getUnits(): UnitVisual[] {
 
 export function isModelLoaded(): boolean {
     return modelLoaded;
+}
+
+export function resetUnitsVisual() {
+    units.forEach((unit, i) => {
+        unit.currentAnimState = 0;
+        unit.currentEffectState = 0;
+        unit.deathTime = undefined;
+        _iceInstanced.setMatrixAt(i, _iceDead);
+
+        // Reset billboards
+        hpBarsBg.setMatrixAt(i, _deadMatrix);
+        hpBarsFg.setMatrixAt(i, _deadMatrix);
+        cdRings.setMatrixAt(i, _deadMatrix);
+        immuneRings.setMatrixAt(i, _deadMatrix);
+        if (nameBarsA && nameBarsB) {
+            if (i < TEAM_SIZE) {
+                nameBarsA.setMatrixAt(i, _deadMatrix);
+            } else {
+                nameBarsB.setMatrixAt(i - TEAM_SIZE, _deadMatrix);
+            }
+        }
+    });
+
+    _iceInstanced.instanceMatrix.needsUpdate = true;
+    hpBarsBg.instanceMatrix.needsUpdate = true;
+    hpBarsFg.instanceMatrix.needsUpdate = true;
+    cdRings.instanceMatrix.needsUpdate = true;
+    immuneRings.instanceMatrix.needsUpdate = true;
+    if (nameBarsA && nameBarsB) {
+        nameBarsA.instanceMatrix.needsUpdate = true;
+        nameBarsB.instanceMatrix.needsUpdate = true;
+    }
 }
 
 export function updateFrame(data: Float32Array, delta: number) {

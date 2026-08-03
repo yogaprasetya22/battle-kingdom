@@ -61,6 +61,8 @@ export class VATMaterialPool {
         vatTexture.magFilter = THREE.NearestFilter;
         vatTexture.generateMipmaps = false;
         vatTexture.flipY = false;
+        vatTexture.colorSpace = THREE.NoColorSpace;
+        vatTexture.needsUpdate = true;
 
         // Unified uniforms
         const uniforms = {
@@ -104,15 +106,15 @@ export class VATMaterialPool {
             const search = "#include <begin_vertex>";
             const replacement = `
                 #include <begin_vertex>
-                
+
                 float frameRange = max(1.0, uEndFrame - uStartFrame + 1.0);
                 float frame = uStartFrame + mod(uTimeFrame, frameRange);
-                
+
                 float u = (vertexId + 0.5) / uVertexCount;
                 float v = (frame + 0.5) / uTotalFrames;
-                
+
                 vec4 displacement = texture2D(uVATTexture, vec2(u, v));
-                transformed += displacement.xyz;
+                transformed = displacement.xyz;
             `;
 
             shader.vertexShader = shader.vertexShader.replace(

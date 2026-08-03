@@ -1,0 +1,37 @@
+{
+  "character": "Knight",
+  "vertexCount": 4088,
+  "totalFrames": 155,
+  "animations": {
+    "Melee_1H_Attack_Chop_Rig_Medium.001": {
+      "start": 61,
+      "end": 93,
+      "length": 33,
+      "category": "attack"
+    },
+    "Death_A_Rig_Medium.001": {
+      "start": 1,
+      "end": 25,
+      "length": 25,
+      "category": "death"
+    },
+    "Ranged_1H_Aiming_Rig_Medium.001": {
+      "start": 95,
+      "end": 127,
+      "length": 33,
+      "category": "shoot"
+    },
+    "Idle_A_Rig_Medium.001": {
+      "start": 27,
+      "end": 59,
+      "length": 33,
+      "category": "idle"
+    },
+    "Running_A_Rig_Medium.001": {
+      "start": 129,
+      "end": 153,
+      "length": 25,
+      "category": "run"
+    }
+  }
+}

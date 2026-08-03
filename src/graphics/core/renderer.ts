@@ -24,9 +24,10 @@ import {
     updateFrame,
     changeModel,
     resetUnitsVisual as resetUnitVisualsRaw,
-} from "./UnitRenderer";
+} from "./VATUnitRenderer";
 import { clearAllFX } from "../effects/FXCore";
 import { PerformanceProfiler } from "./PerformanceProfiler";
+import { PerformanceRecorder } from "./PerformanceRecorder";
 
 export { changeModel };
 export function resetUnitsVisual() {
@@ -314,6 +315,9 @@ export function startRenderLoop() {
     const loop = (timestamp: number) => {
         animId = requestAnimationFrame(loop);
 
+        const recorder = PerformanceRecorder.getInstance();
+        recorder.frameStart();
+
         resetFrameFXCount();
         const delta = clock.getDelta();
         if (_onBeforeRender) _onBeforeRender(timestamp, delta);
@@ -353,11 +357,14 @@ export function startRenderLoop() {
         }
         if (msVal) msVal.textContent = (delta * 1000).toFixed(1);
 
+        recorder.unitUpdateStart();
         if (sharedData) {
             updateFrame(sharedData, delta);
         }
+        recorder.unitUpdateEnd();
 
         renderer.render(scene, camera);
+        recorder.frameEnd();
     };
     animId = requestAnimationFrame(loop);
 }

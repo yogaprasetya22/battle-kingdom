@@ -1,0 +1,35 @@
+{
+  "meta": {
+    "timestamp": "2026-08-03T03:38:02.024Z",
+    "bufferSize": 600,
+    "totalFrames": 0,
+    "exportedFrames": 0
+  },
+  "stats": {
+    "durationMs": 0,
+    "totalFrames": 0,
+    "avgFps": 0,
+    "minFps": 0,
+    "maxFps": 0,
+    "overBudgetPercent": 0,
+    "avgFrameTimeMs": 0,
+    "maxFrameTimeMs": 0,
+    "avgSimTickMs": 0,
+    "maxSimTickMs": 0,
+    "avgUnitUpdateMs": 0,
+    "maxUnitUpdateMs": 0,
+    "avgRenderMs": 0,
+    "maxRenderMs": 0,
+    "avgDrawCalls": 0,
+    "maxDrawCalls": 0,
+    "avgTriangles": 0,
+    "maxTriangles": 0,
+    "avgFxCount": 0,
+    "maxFxCount": 0,
+    "avgTankMixerCount": 0,
+    "maxTankMixerCount": 0,
+    "avgClusteredUnits": 0,
+    "maxClusteredUnits": 0
+  },
+  "frames": []
+}

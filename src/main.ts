@@ -14,6 +14,10 @@ import {
     spawnSkillFX,
     resetUnitsVisual,
 } from "./graphics/core/renderer";
+import { PerformanceRecorder } from "./graphics/core/PerformanceRecorder";
+import { getTankMixerCount, getSharedData as getUnitSharedData } from "./graphics/core/UnitRenderer";
+import { getActiveFXCount } from "./graphics/effects/FXCore";
+import { renderer } from "./graphics/core/scene";
 import { soundFX } from "./graphics/core/SoundFX";
 import { CharacterViewer } from "./graphics/viewer/CharacterViewer";
 import { WorkerDiagnostics } from "./simulation/WorkerDiagnostics";
@@ -327,6 +331,21 @@ function onTickComplete() {
     if (accumAliveOrUnspawnedA === 0 || accumAliveOrUnspawnedB === 0) {
         isRunning = false;
 
+        // Stop performance recording and print report
+        if (PerformanceRecorder.getInstance().isRecording()) {
+            PerformanceRecorder.getInstance().stop();
+            console.log(
+                "%c📊 Performance Report (auto-generated):",
+                "color:#00ffaa; font-weight:bold; font-size:14px",
+            );
+            console.log(PerformanceRecorder.getInstance().report());
+            console.log(
+                "%c💾 Download JSON: %c__recorder.downloadJSON()",
+                "color:#ffcc00",
+                "color:#ffcc00; font-weight:bold",
+            );
+        }
+
         // Reset and prepare statistics aggregation
         statsReceivedCount = 0;
         battleWinner = accumAliveOrUnspawnedA > 0 ? "A" : "B";
@@ -451,6 +470,7 @@ for (let i = 0; i < NUM_WORKERS; i++) {
 
             // Check if all workers have synced on the current tick
             if (allWorkersSyncedOnTick()) {
+                PerformanceRecorder.getInstance().simTickEnd();
                 aggregateWorkerCounts();
 
                 // Record diagnostic snapshot for this tick
@@ -533,6 +553,18 @@ btnStart.addEventListener("click", () => {
     isRunning = true;
     pendingTick = false;
     lastTime = performance.now();
+
+    // Auto-start performance recording
+    PerformanceRecorder.getInstance().start();
+    console.log(
+        "%c📊 Performance Recorder AUTO-STARTED %c— ketik %c__recorder.report()%c untuk lihat hasil, atau %c__recorder.downloadJSON()%c untuk export",
+        "color:#00ffaa; font-weight:bold",
+        "",
+        "color:#ffcc00",
+        "",
+        "color:#ffcc00",
+        "",
+    );
 });
 
 btnReset.addEventListener("click", () => {
@@ -703,6 +735,8 @@ setBeforeRenderCb((_timestamp: number, _delta: number) => {
         pendingTick = true;
         globalTickId++;
 
+        PerformanceRecorder.getInstance().simTickStart();
+
         // Reset worker states for this tick (mark all as pending)
         for (let i = 0; i < NUM_WORKERS; i++) {
             if (!workerTickStates.has(i)) {
@@ -726,6 +760,19 @@ setBeforeRenderCb((_timestamp: number, _delta: number) => {
 });
 
 startRenderLoop();
+
+// Setup PerformanceRecorder with hooks
+PerformanceRecorder.getInstance().setup({
+    getDrawCalls: () => renderer.info.render.calls,
+    getTriangles: () => renderer.info.render.triangles,
+    getUnitData: () => getUnitSharedData(),
+    getStride: () => STRIDE,
+    getUnitCount: () => UNIT_COUNT,
+    getAliveCount: () => accumAliveA + accumAliveB,
+    getTickId: () => globalTickId,
+    getTankMixerCount: () => getTankMixerCount(),
+    getActiveFXCount: () => getActiveFXCount(),
+});
 
 // Kirim buffer ke worker dengan workerId untuk per-worker tracking
 // Distribute units evenly across ALL workers (not by team)
