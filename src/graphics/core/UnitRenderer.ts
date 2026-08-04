@@ -44,6 +44,7 @@ import {
     getModelKey,
     getUnitScale,
 } from "../units/UnitVisualFactory";
+import { perfProfiler } from "./PerformanceProfiler";
 
 // ── Shared materials ──
 let teamMatA: THREE.MeshStandardMaterial | null = null;
@@ -610,6 +611,9 @@ export function updateFrame(data: Float32Array, delta: number) {
     // ponytail: billboard quaternion = camera quaternion (all billboards face camera)
     _billboardQuat.copy(camera.quaternion);
 
+    let animTimeTotal = 0;
+    let billTimeTotal = 0;
+
     for (let i = 0; i < UNIT_COUNT; i++) {
         const base = i * STRIDE;
         const hp = data[base + IDX_HP];
@@ -632,6 +636,7 @@ export function updateFrame(data: Float32Array, delta: number) {
                 unit.root.scale.setScalar(0.0001);
                 (unit as any)._wasAlive = false;
 
+                const tBill0 = performance.now();
                 hpBarsBg.setMatrixAt(i, _deadMatrix);
                 hpBarsFg.setMatrixAt(i, _deadMatrix);
                 cdRings.setMatrixAt(i, _deadMatrix);
@@ -643,6 +648,7 @@ export function updateFrame(data: Float32Array, delta: number) {
                         nameBarsB.setMatrixAt(i - TEAM_SIZE, _deadMatrix);
                     }
                 }
+                billTimeTotal += performance.now() - tBill0;
             }
             continue;
         }
@@ -657,6 +663,7 @@ export function updateFrame(data: Float32Array, delta: number) {
                     unit.root.visible = false;
                     (unit as any)._wasAlive = false;
 
+                    const tBill1 = performance.now();
                     hpBarsBg.setMatrixAt(i, _deadMatrix);
                     hpBarsFg.setMatrixAt(i, _deadMatrix);
                     cdRings.setMatrixAt(i, _deadMatrix);
@@ -668,6 +675,7 @@ export function updateFrame(data: Float32Array, delta: number) {
                             nameBarsB.setMatrixAt(i - TEAM_SIZE, _deadMatrix);
                         }
                     }
+                    billTimeTotal += performance.now() - tBill1;
                 }
                 continue; // CRITICAL OPTIMIZATION: skip updating fully dead units
             }
@@ -697,10 +705,8 @@ export function updateFrame(data: Float32Array, delta: number) {
                 unit.meshes[m].visible = showMesh;
             }
 
-            // Fase 5: LOD culling for attached weapons
-            // ASSASSIN OPTIMIZATION: Hide dual daggers at distance (distSq > 1225 = 35 units)
-            // Saves skeleton animation overhead for off-screen assassins
-            const weaponLodDist = uType === 5 ? 1225 : UNIT_LOD_DIST_SQ; // Type 5 = Assassin
+            // Fast path for weapon LOD
+            const weaponLodDist = uType === 5 ? 1225 : UNIT_LOD_DIST_SQ;
             const showWeapons = distSq < weaponLodDist;
 
             if (unit.weapons && unit.weapons.length > 0) {
@@ -708,7 +714,6 @@ export function updateFrame(data: Float32Array, delta: number) {
                     unit.weapons[w].visible = showMesh && showWeapons;
                 }
             } else if (uType === 5 && inView && showMesh) {
-                // Lazy-load assassin weapons on first visibility
                 const assassinVisual = unit as any;
                 if (assassinVisual.getWeaponsForLOD) {
                     assassinVisual.getWeaponsForLOD();
@@ -866,11 +871,11 @@ export function updateFrame(data: Float32Array, delta: number) {
                 unit.deathTime &&
                 performance.now() - unit.deathTime < 2000;
 
-            // ★ ANIMATION LOD: Distance-based frame skipping to save CPU on skeletal animation
+            // ★ ANIMATION LOD
             let skipFrames = 1;
-            if (distSq > 1600) {       // distance > 40
+            if (distSq > 1600) {
                 skipFrames = 4;
-            } else if (distSq > 400) { // distance > 20
+            } else if (distSq > 400) {
                 skipFrames = 2;
             }
             if (unit.animationFrameSkipCount === undefined) unit.animationFrameSkipCount = 0;
@@ -883,6 +888,7 @@ export function updateFrame(data: Float32Array, delta: number) {
                 (isDying || (hp > 0 && effect <= 0)) &&
                 !assassinTooFar;
 
+            const tAnim0 = performance.now();
             if (shouldUpdateMixer) {
                 unit.accumulatedDelta += delta;
                 if (unit.animationFrameSkipCount >= skipFrames) {
@@ -893,15 +899,14 @@ export function updateFrame(data: Float32Array, delta: number) {
             } else {
                 unit.accumulatedDelta = 0;
             }
+            animTimeTotal += performance.now() - tAnim0;
 
-            // Billboard positions — height based on unit scale
-            // Use interpolated mesh coordinates to avoid jitter from raw simulation ticks
+            // Billboard positions
+            const tBill2 = performance.now();
             const billY = unit.root.position.y + scale * 1.9 + 0.3;
             const meshX = unit.root.position.x;
             const meshZ = unit.root.position.z;
 
-            // Distance and frustum culling: only calculate and show billboards if unit is alive, close enough, and visible
-            // Pre-cull expensive lookAt() calculations for far/off-screen units
             const tooFar = distSq > 6400;
             const showBillboard = hp > 0 && !tooFar && inView && !isStealthed;
 
@@ -909,21 +914,17 @@ export function updateFrame(data: Float32Array, delta: number) {
                 const maxHp = data[base + IDX_MAX_HP];
                 const hpRatio = maxHp > 0 ? hp / maxHp : 0;
 
-                // ponytail: reuse pre-computed billboard quaternion — no lookAt per unit
-                // HP bar background
                 dummy.position.set(meshX, billY, meshZ);
                 dummy.scale.set(1, 1, 1);
                 dummy.quaternion.copy(_billboardQuat);
                 dummy.updateMatrix();
                 hpBarsBg.setMatrixAt(i, dummy.matrix);
 
-                // Pass hpRatio, teamId, and maxHp as matrix scales to avoid instanceColor allocation/upload
                 const teamId = i < TEAM_SIZE ? 0.0 : 1.0;
                 dummy.scale.set(hpRatio, teamId, maxHp);
                 dummy.updateMatrix();
                 hpBarsFg.setMatrixAt(i, dummy.matrix);
 
-                // Name label
                 dummy.position.set(meshX, billY + 0.18, meshZ);
                 dummy.scale.set(1, 1, 1);
                 dummy.quaternion.copy(_billboardQuat);
@@ -939,7 +940,6 @@ export function updateFrame(data: Float32Array, delta: number) {
                 cdRings.setMatrixAt(i, _deadMatrix);
                 immuneRings.setMatrixAt(i, _deadMatrix);
             } else {
-                // Dead, too far, or not in frustum — hide immediately without math computations
                 hpBarsBg.setMatrixAt(i, _deadMatrix);
                 hpBarsFg.setMatrixAt(i, _deadMatrix);
                 cdRings.setMatrixAt(i, _deadMatrix);
@@ -952,8 +952,12 @@ export function updateFrame(data: Float32Array, delta: number) {
                     }
                 }
             }
+            billTimeTotal += performance.now() - tBill2;
         }
     }
+
+    perfProfiler.trackSystemTime("animations", animTimeTotal);
+    perfProfiler.trackSystemTime("billboards", billTimeTotal);
 
     // ponytail: flush ice matrix once after loop, not per-unit
     if (_iceNeedsUpdate) {

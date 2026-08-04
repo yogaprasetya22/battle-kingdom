@@ -266,15 +266,15 @@ const geoVal = document.getElementById("geo-val");
 const texVal = document.getElementById("tex-val");
 const progVal = document.getElementById("prog-val");
 
-let lastFpsUpdate = 0;
-let frameCount = 0;
 
 export function startRenderLoop() {
     // Set Three.js renderer reference for CPU/GPU memory & draw call tracking
     perfProfiler.setRenderer(renderer);
 
     const loop = (timestamp: number) => {
-        perfProfiler.startFrame();
+        // Pass rAF timestamp so profiler measures frame-to-frame interval (real fps),
+        // not just CPU work time (which would report ~192fps on a 60Hz display).
+        perfProfiler.startFrame(timestamp);
         animId = requestAnimationFrame(loop);
 
         const delta = clock.getDelta();
@@ -290,28 +290,17 @@ export function startRenderLoop() {
         updateFX(delta);
         windEffect.update(delta);
 
-        frameCount++;
-        if (timestamp > lastFpsUpdate + 1000) {
-            if (fpsVal)
-                fpsVal.textContent = Math.round(
-                    (frameCount * 1000) / (timestamp - lastFpsUpdate),
-                ).toString();
-            if (dcVal)
-                dcVal.textContent = renderer.info.render.calls.toString();
-            if (triVal)
-                triVal.textContent = renderer.info.render.triangles.toString();
-            if (geoVal)
-                geoVal.textContent = renderer.info.memory.geometries.toString();
-            if (texVal)
-                texVal.textContent = renderer.info.memory.textures.toString();
-            if (progVal)
-                progVal.textContent = renderer.info.programs
-                    ? renderer.info.programs.length.toString()
-                    : "0";
-            frameCount = 0;
-            lastFpsUpdate = timestamp;
-        }
+        // HUD — profiler's rolling average so HUD matches logged data exactly
+        if (fpsVal) fpsVal.textContent = perfProfiler.getLiveFps().toString();
         if (msVal) msVal.textContent = (delta * 1000).toFixed(1);
+        if (dcVal) dcVal.textContent = renderer.info.render.calls.toString();
+        if (triVal) triVal.textContent = renderer.info.render.triangles.toString();
+        if (geoVal) geoVal.textContent = renderer.info.memory.geometries.toString();
+        if (texVal) texVal.textContent = renderer.info.memory.textures.toString();
+        if (progVal)
+            progVal.textContent = renderer.info.programs
+                ? renderer.info.programs.length.toString()
+                : "0";
 
         if (sharedData) updateFrame(sharedData, delta);
         renderer.render(scene, camera);

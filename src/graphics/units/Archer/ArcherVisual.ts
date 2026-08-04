@@ -68,7 +68,7 @@ export class ArcherVisual implements IUnitVisual {
 
     /** Pasang busur di tangan kiri + quiver di punggung */
     loadAssets(): void {
-        const bowName = this.isSkeleton ? "Skeleton_Crossbow" : "bow_withString";
+        const bowName = this.isSkeleton ? "bow_withString" : "bow_withString";
         const quiverName = this.isSkeleton ? "Skeleton_Quiver" : "quiver";
 
         const bow = attachWeapon(this.root, bowName, "hand_l");

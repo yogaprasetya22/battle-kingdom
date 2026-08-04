@@ -35,6 +35,7 @@ import {
     nameBarsB,
     initNameBars,
 } from "../ui/ui_billboards";
+import { perfProfiler } from "./PerformanceProfiler";
 import { spawnIceShatterFX } from "../effects/SkillFX";
 import { getUnitScale } from "../units/UnitVisualFactory";
 
@@ -404,6 +405,9 @@ export function isModelLoaded(): boolean {
 export function updateFrame(data: Float32Array, delta: number) {
     if (!modelLoaded) return;
 
+    let animTimeTotal = 0;
+    let billTimeTotal = 0;
+
     const cameraMoved = !_lastCameraMatrix.equals(camera.matrixWorld);
     if (cameraMoved) {
         _lastCameraMatrix.copy(camera.matrixWorld);
@@ -445,6 +449,7 @@ export function updateFrame(data: Float32Array, delta: number) {
                 unit.root.scale.setScalar(0.0001);
                 (unit as any)._wasAlive = false;
 
+                const tBill0 = performance.now();
                 hpBarsBg.setMatrixAt(i, _deadMatrix);
                 hpBarsFg.setMatrixAt(i, _deadMatrix);
                 cdRings.setMatrixAt(i, _deadMatrix);
@@ -456,6 +461,7 @@ export function updateFrame(data: Float32Array, delta: number) {
                         nameBarsB.setMatrixAt(i - TEAM_SIZE, _deadMatrix);
                     }
                 }
+                billTimeTotal += performance.now() - tBill0;
             }
             continue;
         }
@@ -630,11 +636,14 @@ export function updateFrame(data: Float32Array, delta: number) {
             }
 
             // Update frame animasi VAT di GPU
+            const tAnim0 = performance.now();
             if (inView && hp > 0 && effect <= 0) {
                 vatInst.update(delta);
             }
+            animTimeTotal += performance.now() - tAnim0;
 
             // Billboard positions
+            const tBill1 = performance.now();
             const billY = unit.root.position.y + scale * 1.9 + 0.3;
             const meshX = unit.root.position.x;
             const meshZ = unit.root.position.z;
@@ -685,8 +694,12 @@ export function updateFrame(data: Float32Array, delta: number) {
                     }
                 }
             }
+            billTimeTotal += performance.now() - tBill1;
         }
     }
+
+    perfProfiler.trackSystemTime("animations", animTimeTotal);
+    perfProfiler.trackSystemTime("billboards", billTimeTotal);
 
     // ponytail: flush ice matrix once after loop, not per-unit
     if (_iceNeedsUpdate) {

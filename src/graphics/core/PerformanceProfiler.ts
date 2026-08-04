@@ -39,13 +39,23 @@ export interface ProfilerReport {
     bottlenecks: string[];
 }
 
+// Rolling window — 60 frames (~1s at 60fps) to match what the eye perceives
+const FPS_WINDOW = 60;
+
 class PerformanceProfiler {
     private isProfiling = false;
     private logHistory: ProfilerReport[] = [];
     private maxHistory = 1000; // Simpan 1000 frame terakhir
+    private isSkeletonMode = false;
 
-    // Ticks & timing accumulators
+    // rAF-to-rAF ring buffer — the only accurate way to measure FPS
+    // (CPU work time alone excludes vSync wait, giving falsely high numbers)
+    private frameTimes: number[] = [];
+    private prevRafTs = 0;
+
+    // Wall-clock start of CPU work (for renderTimeMs only, NOT for fps)
     private frameStart = 0;
+
     private systemTimes = {
         animations: 0,
         billboards: 0,
@@ -77,19 +87,47 @@ class PerformanceProfiler {
         this.webGLRendererRef = renderer;
     }
 
-    public startFrame() {
-        this.frameStart = performance.now();
+    public setSkeletonMode(enabled: boolean) {
+        this.isSkeletonMode = enabled;
+    }
+
+    /**
+     * Call with the rAF `timestamp` argument — this is the inter-frame clock
+     * the browser itself uses, so it matches hardware overlays and DevTools FPS.
+     * Passing performance.now() here would include vSync wait and report 2-3x
+     * the real FPS (e.g. 192 instead of 60 on a 60Hz display).
+     */
+    public startFrame(rafTimestamp?: number) {
+        this.frameStart = performance.now(); // CPU work start
+
+        if (rafTimestamp !== undefined && rafTimestamp > 0) {
+            if (this.prevRafTs > 0) {
+                const dt = rafTimestamp - this.prevRafTs;
+                // Ignore tab-wake spikes (>5s gap) which would collapse the average
+                if (dt > 0 && dt < 5000) {
+                    this.frameTimes.push(dt);
+                    if (this.frameTimes.length > FPS_WINDOW) this.frameTimes.shift();
+                }
+            }
+            this.prevRafTs = rafTimestamp;
+        }
+
         // Reset per-frame activity counters
         this.activityMetrics.basicAttacks = 0;
         this.activityMetrics.skillsTriggered = {};
     }
 
     public endFrame() {
-        const frameEnd = performance.now();
-        const frameTime = frameEnd - this.frameStart;
-        const fps = frameTime > 0 ? 1000 / frameTime : 0;
+        const cpuWorkMs = performance.now() - this.frameStart; // CPU time only
 
         if (!this.isProfiling) return;
+
+        // Use rAF-to-rAF interval for FPS — matches what the device actually displays
+        // Fallback to cpuWorkMs only if no rAF timestamps recorded yet
+        const lastDt = this.frameTimes.length > 0
+            ? this.frameTimes[this.frameTimes.length - 1]
+            : cpuWorkMs;
+        const fps = this._smoothedFps();
 
         // Ambil info dari renderer Three.js
         let drawCalls = 0;
@@ -106,10 +144,14 @@ class PerformanceProfiler {
             programs = this.webGLRendererRef.info.programs ? this.webGLRendererRef.info.programs.length : 0;
         }
 
+        const frameTimeMs = this.frameTimes.length > 0
+            ? this.frameTimes[this.frameTimes.length - 1]
+            : cpuWorkMs;
+
         const report: ProfilerReport = {
             timestamp: Date.now(),
             fps: Math.round(fps),
-            frameTimeMs: parseFloat(frameTime.toFixed(2)),
+            frameTimeMs: parseFloat(frameTimeMs.toFixed(2)),
             drawCalls,
             triangles,
             geometries,
@@ -121,7 +163,7 @@ class PerformanceProfiler {
                 billboardsMs: parseFloat(this.systemTimes.billboards.toFixed(2)),
                 movementPhysicsMs: parseFloat(this.systemTimes.movementPhysics.toFixed(2)),
                 targetingMs: parseFloat(this.systemTimes.targeting.toFixed(2)),
-                renderTimeMs: parseFloat((frameTime - (this.systemTimes.animations + this.systemTimes.billboards)).toFixed(2))
+                renderTimeMs: parseFloat(cpuWorkMs.toFixed(2))
             },
             activity: {
                 skillsTriggered: { ...this.activityMetrics.skillsTriggered },
@@ -130,7 +172,7 @@ class PerformanceProfiler {
                 activeBuffs: this.activityMetrics.activeBuffs,
                 activeDeaths: this.activityMetrics.activeDeaths
             },
-            bottlenecks: this.detectBottlenecks(frameTime, drawCalls, triangles)
+            bottlenecks: this.detectBottlenecks(fps, frameTimeMs, drawCalls, triangles)
         };
 
         this.logHistory.push(report);
@@ -169,9 +211,25 @@ class PerformanceProfiler {
         this.activityMetrics.activeDeaths = deaths;
     }
 
+    /** Live FPS reading for HUD — same rolling average used in logged data. */
+    public getLiveFps(): number {
+        return Math.round(this._smoothedFps());
+    }
+
+    /** 1000 / mean(frameTimes) — harmonic mean of FPS, matches browser/overlay display */
+    private _smoothedFps(): number {
+        const n = this.frameTimes.length;
+        if (n === 0) return 0;
+        let sum = 0;
+        for (let i = 0; i < n; i++) sum += this.frameTimes[i];
+        return 1000 / (sum / n);
+    }
+
     public startLogging() {
         this.isProfiling = true;
         this.logHistory = [];
+        this.frameTimes = [];
+        this.prevRafTs = 0;
         console.log("📊 Performance recording STARTED.");
     }
 
@@ -180,10 +238,13 @@ class PerformanceProfiler {
         console.log("📊 Performance recording STOPPED.");
     }
 
-    private detectBottlenecks(frameTime: number, drawCalls: number, triangles: number): string[] {
+    private detectBottlenecks(fps: number, frameTimeMs: number, drawCalls: number, triangles: number): string[] {
         const issues: string[] = [];
-        if (frameTime > 16.67) {
-            issues.push("Low FPS (Frame Time > 16.67ms)");
+        // Threshold: 55fps gives ~8% headroom below 60Hz vSync — avoids false alarms
+        // where the rolling average naturally sits at 59.8 on a 60Hz display.
+        // ponytail: hardcoded 55 — upgrade path is user-configurable targetFps field
+        if (fps > 0 && fps < 55) {
+            issues.push(`Low FPS (${Math.round(fps)} fps, frame ${Math.round(frameTimeMs)}ms)`);
         }
         if (drawCalls > 150) {
             issues.push(`High Draw Calls (${drawCalls}) - CPU/GPU overhead`);
@@ -191,9 +252,14 @@ class PerformanceProfiler {
         if (triangles > 500000) {
             issues.push(`High Triangle Count (${triangles}) - GPU geometry limit`);
         }
-        if (this.systemTimes.animations > 4) {
-            issues.push(`Skeletal Animation bottleneck (${this.systemTimes.animations.toFixed(1)}ms)`);
+        
+        // Threshold: Skeletal animations (CPU skinning/mixing) is heavier than VAT (GPU shader uniform updates)
+        const animThreshold = this.isSkeletonMode ? 4.0 : 1.5;
+        if (this.systemTimes.animations > animThreshold) {
+            const animType = this.isSkeletonMode ? "Skeletal CPU Animation" : "VAT GPU Animation";
+            issues.push(`${animType} bottleneck (${this.systemTimes.animations.toFixed(1)}ms)`);
         }
+        
         if (this.systemTimes.billboards > 3) {
             issues.push(`Billboard UI/Matrix computation bottleneck (${this.systemTimes.billboards.toFixed(1)}ms)`);
         }

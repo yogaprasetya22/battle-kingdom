@@ -1867,7 +1867,9 @@ self.onmessage = (e: MessageEvent) => {
 
     if (type === "tick") {
         if (data) {
+            const tStart = performance.now();
             tick(data);
+            const tDuration = performance.now() - tStart;
             // Compute partial alive counts for this worker's range
             let aliveA = 0,
                 aliveB = 0,
@@ -1894,6 +1896,7 @@ self.onmessage = (e: MessageEvent) => {
                 aliveB,
                 aliveOrUnspawnedA,
                 aliveOrUnspawnedB,
+                tickTimeMs: tDuration,
             });
         }
     }

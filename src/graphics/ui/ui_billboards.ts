@@ -134,6 +134,22 @@ scene.add(immuneRings);
 export const dummy = new THREE.Object3D();
 export const _deadMatrix = new THREE.Matrix4().makeScale(0, 0, 0);
 
+// Hide all instances at origin until they are assigned a real position.
+// InstancedMesh defaults every instance to identity matrix (pos 0,0,0 = center
+// of arena), which causes ghost labels / bars to appear before battle starts.
+{
+    for (let _i = 0; _i < UNIT_COUNT; _i++) {
+        hpBarsBg.setMatrixAt(_i, _deadMatrix);
+        hpBarsFg.setMatrixAt(_i, _deadMatrix);
+        cdRings.setMatrixAt(_i, _deadMatrix);
+        immuneRings.setMatrixAt(_i, _deadMatrix);
+    }
+    hpBarsBg.instanceMatrix.needsUpdate = true;
+    hpBarsFg.instanceMatrix.needsUpdate = true;
+    cdRings.instanceMatrix.needsUpdate = true;
+    immuneRings.instanceMatrix.needsUpdate = true;
+}
+
 export let nameBarsA: THREE.InstancedMesh | null = null;
 export let nameBarsB: THREE.InstancedMesh | null = null;
 const nameGeo = new THREE.PlaneGeometry(1.2, 0.24);
@@ -216,14 +232,19 @@ export function initNameBars(modelName: string) {
                 float row = floor(idx / ${NAME_ATLAS_COLS.toFixed(1)});
                 float colSize = 1.0 / ${NAME_ATLAS_COLS.toFixed(1)};
                 float rowSize = 1.0 / ${NAME_ATLAS_ROWS.toFixed(1)};
-                // map local [0,1] UV to sprite cell in atlas
                 vUv = vec2(
                     col * colSize + uv.x * colSize,
-                    row * rowSize + uv.y * rowSize
+                    1.0 - ((row + 1.0) * rowSize) + uv.y * rowSize
                 );
                 #ifdef USE_INSTANCING
-                    vec4 lp = instanceMatrix * vec4(position, 1.0);
-                    gl_Position = projectionMatrix * modelViewMatrix * lp;
+                    // Spherical billboard: ambil hanya posisi dari instanceMatrix,
+                    // lalu orient quad menggunakan camera right/up — label selalu
+                    // menghadap kamera dan tidak "peang" (miring).
+                    vec3 worldPos = vec3(instanceMatrix[3]);
+                    vec3 camRight = vec3(viewMatrix[0][0], viewMatrix[1][0], viewMatrix[2][0]);
+                    vec3 camUp    = vec3(viewMatrix[0][1], viewMatrix[1][1], viewMatrix[2][1]);
+                    vec3 vPos = worldPos + camRight * position.x + camUp * position.y;
+                    gl_Position = projectionMatrix * viewMatrix * vec4(vPos, 1.0);
                 #else
                     gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
                 #endif
@@ -247,10 +268,14 @@ export function initNameBars(modelName: string) {
     nameBarsA = new THREE.InstancedMesh(nameGeo, buildNameMat(texA), TEAM_SIZE);
     nameBarsA.renderOrder = 999;
     nameBarsA.frustumCulled = false; // ponytail: we manage visibility via _deadMatrix
+    for (let _i = 0; _i < TEAM_SIZE; _i++) nameBarsA.setMatrixAt(_i, _deadMatrix);
+    nameBarsA.instanceMatrix.needsUpdate = true;
     scene.add(nameBarsA);
 
     nameBarsB = new THREE.InstancedMesh(nameGeo, buildNameMat(texB), TEAM_SIZE);
     nameBarsB.renderOrder = 999;
     nameBarsB.frustumCulled = false;
+    for (let _i = 0; _i < TEAM_SIZE; _i++) nameBarsB.setMatrixAt(_i, _deadMatrix);
+    nameBarsB.instanceMatrix.needsUpdate = true;
     scene.add(nameBarsB);
 }

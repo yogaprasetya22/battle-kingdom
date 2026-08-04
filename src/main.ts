@@ -457,6 +457,11 @@ for (let i = 0; i < NUM_WORKERS; i++) {
         if (type === "tick_done") {
             const workerId = e.data.workerId ?? -1;
 
+            if (e.data.tickTimeMs !== undefined) {
+                // Gunakan latency simulasi worker untuk diagnostics profiling
+                perfProfiler.setWorkerTickTime(e.data.tickTimeMs);
+            }
+
             // Update per-worker state with current tick results
             if (workerId >= 0 && e.data.aliveA !== undefined) {
                 workerTickStates.set(workerId, {
@@ -531,6 +536,8 @@ function resetWorkers() {
     readyWorkersCount = 0;
     workerTickStates.clear();
     if (workerTicks) workerTicks.textContent = "0";
+    scoreA.textContent = TEAM_SIZE.toString();
+    scoreB.textContent = TEAM_SIZE.toString();
     resetUnitsVisual();
 
     const customClasses = getCustomClasses();
@@ -577,7 +584,7 @@ selectModel.addEventListener("change", () => {
     resetWorkers();
 
     // Muat model baru
-    changeModel(
+    loadModel(
         selectModel.value,
         selectMatchup.value,
         () => {
@@ -604,7 +611,7 @@ selectMatchup.addEventListener("change", () => {
     resetWorkers();
 
     // Re-clone models to match the new matchup types
-    changeModel(selectModel.value, selectMatchup.value, () => {
+    loadModel(selectModel.value, selectMatchup.value, () => {
         enableControls();
     });
 });
@@ -718,6 +725,10 @@ document.addEventListener("click", (e) => {
 
 // ---- Init sequence ----
 setSharedData(sharedData);
+
+// Set initial HUD score from TEAM_SIZE — no hardcoded values in HTML
+scoreA.textContent = TEAM_SIZE.toString();
+scoreB.textContent = TEAM_SIZE.toString();
 
 // Inject worker tick dispatch into render loop (eliminates separate rAF)
 setBeforeRenderCb((_timestamp: number, _delta: number) => {
@@ -1005,7 +1016,7 @@ btnSettingsSave.addEventListener("click", () => {
     disableControls();
     overlay.style.display = "none";
     resetWorkers();
-    changeModel(selectModel.value, selectMatchup.value, () => {
+    loadModel(selectModel.value, selectMatchup.value, () => {
         enableControls();
     });
 });
@@ -1020,8 +1031,18 @@ btnSettingsSave.addEventListener("click", () => {
     disable: () => diagnostics.setEnabled(false),
 };
 
+function loadModel(
+    modelName: string,
+    matchup: string,
+    onSuccess?: () => void,
+    onError?: () => void,
+) {
+    perfProfiler.setSkeletonMode(modelName.toLowerCase().includes("skeleton"));
+    changeModel(modelName, matchup, onSuccess, onError);
+}
+
 // Load model awal secara dinamis
-changeModel(
+loadModel(
     "Knight",
     selectMatchup.value,
     () => {
@@ -1042,7 +1063,7 @@ document.querySelectorAll(".class-badge").forEach((badge) => {
         disableControls();
         overlay.style.display = "none";
         resetWorkers();
-        changeModel(selectModel.value, selectMatchup.value, () => {
+        loadModel(selectModel.value, selectMatchup.value, () => {
             enableControls();
         });
     });
