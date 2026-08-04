@@ -19,7 +19,7 @@ export const WEAPON_OFFSETS: Record<
 > = {
     sword_1handed: {
         pos: [-0.02, 0.08, 0.02],
-        rot: [0.038, -0.012, 1.738],
+        rot: [0.041, -0.012, 1.438],
         scale: [0.87, 1.0, 1.0],
     },
     axe_1handed: {

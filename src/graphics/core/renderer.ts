@@ -292,7 +292,7 @@ export function startRenderLoop() {
 
         // HUD — profiler's rolling average so HUD matches logged data exactly
         if (fpsVal) fpsVal.textContent = perfProfiler.getLiveFps().toString();
-        if (msVal) msVal.textContent = (delta * 1000).toFixed(1);
+        if (msVal) msVal.textContent = perfProfiler.getLastFrameTime().toFixed(1);
         if (dcVal) dcVal.textContent = renderer.info.render.calls.toString();
         if (triVal) triVal.textContent = renderer.info.render.triangles.toString();
         if (geoVal) geoVal.textContent = renderer.info.memory.geometries.toString();

@@ -122,6 +122,7 @@ const units: UnitVisual[] = [];
 /** Instance IUnitVisual untuk setiap unit (factory), untuk akses dispose() */
 const unitInstances: (IUnitVisual | null)[] = [];
 let modelLoaded = false;
+let isCurrentModelSkeleton = false;
 
 const logPanel = document.getElementById("log-panel");
 
@@ -189,6 +190,7 @@ export function changeModel(
     onError?: () => void,
 ) {
     modelLoaded = false;
+    isCurrentModelSkeleton = modelName.toLowerCase().includes("skeleton");
 
     // Fase 5: Clean old units — gunakan IUnitVisual.dispose()
     unitInstances.forEach((inst) => {
@@ -472,8 +474,8 @@ export function changeModel(
                                   ? teamMatA!
                                   : teamMatB!;
 
-                        // Gunakan factory untuk membuat unit visual
                         const isSkeleton = modelName.toLowerCase().includes("skeleton");
+
                         const srcGLTF = getModelKey(uType, gltfModels);
                         const unitVis = createUnitVisual(
                             uType,

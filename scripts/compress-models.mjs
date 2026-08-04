@@ -1,4 +1,4 @@
-import { readdir, mkdir, rename } from "node:fs/promises";
+import { readdir, mkdir, rename, copyFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -7,14 +7,26 @@ import { spawn } from "node:child_process";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT_DIR = path.join(__dirname, "..");
 
-const CONFIG = {
-    charactersInput: "/home/yoga/Dokumen/model-tiktok-next/sangat mantap/KayKit_Adventurers_2.0_FREE/Characters/characters-gltf",
-    charactersOutput: path.join(ROOT_DIR, "public", "models", "character", "characters"),
-    weaponsInput: "/home/yoga/Dokumen/model-tiktok-next/sangat mantap/KayKit_Adventurers_2.0_FREE/Assets/waepon-gltf",
-    weaponsOutput: path.join(ROOT_DIR, "public", "models", "character", "weapons"),
-    animationsFolder: path.join(ROOT_DIR, "public", "models", "character", "animation"),
-    simplify: 0.7,
-};
+const CONFIGS = [
+    {
+        name: "Adventurers",
+        charactersInput: "/home/yoga/Dokumen/model-tiktok-next/sangat mantap/KayKit_Adventurers_2.0_FREE/Characters/characters-gltf",
+        charactersOutput: path.join(ROOT_DIR, "public", "models", "character", "characters"),
+        weaponsInput: "/home/yoga/Dokumen/model-tiktok-next/sangat mantap/KayKit_Adventurers_2.0_FREE/Assets/waepon-gltf",
+        weaponsOutput: path.join(ROOT_DIR, "public", "models", "character", "weapons"),
+        simplify: 0.7,
+    },
+    {
+        name: "Skeletons",
+        charactersInput: "/home/yoga/Dokumen/model-tiktok-next/KayKit_Skeletons_1.1_FREE/characters/gltf",
+        charactersOutput: path.join(ROOT_DIR, "public", "models", "character", "characters"),
+        weaponsInput: "/home/yoga/Dokumen/model-tiktok-next/KayKit_Skeletons_1.1_FREE/assets/warpon",
+        weaponsOutput: path.join(ROOT_DIR, "public", "models", "character", "weapons"),
+        simplify: 0.7,
+    }
+];
+
+const ANIMATIONS_FOLDER = path.join(ROOT_DIR, "public", "models", "character", "animation");
 
 function runCommand(command, args) {
     return new Promise((resolve, reject) => {
@@ -28,98 +40,132 @@ function runCommand(command, args) {
 }
 
 async function start() {
-    console.log("🚀 MEMULAI OPTIMASI MODEL DENGAN GLTFPACK...");
+    console.log("🚀 REVERTING GLTFPACK TO SAFE MODE (WITHOUT -CC)...");
     console.log("--------------------------------------------------");
-
-    // Pastikan folder output tersedia
-    for (const folder of [CONFIG.charactersOutput, CONFIG.weaponsOutput]) {
-        if (!existsSync(folder)) {
-            await mkdir(folder, { recursive: true });
-        }
-    }
 
     let processedCount = 0;
 
-    // 1. Proses Character Models (.glb)
-    if (existsSync(CONFIG.charactersInput)) {
-        const charFiles = (await readdir(CONFIG.charactersInput)).filter(
-            (f) => f.toLowerCase().endsWith(".glb")
-        );
+    for (const config of CONFIGS) {
+        console.log(`\n=================== Memproses Aset: ${config.name} ===================`);
 
-        console.log(`\n👤 Memproses Character Models (${charFiles.length} file)...`);
-        for (const file of charFiles) {
-            const inputPath = path.join(CONFIG.charactersInput, file);
-            const outputPath = path.join(CONFIG.charactersOutput, file);
-
-            process.stdout.write(`  📦 [${processedCount + 1}] Mengompresi ${file} (gltfpack)... `);
-
-            try {
-                // gltfpack -i input -o output -c -si 0.7
-                await runCommand("npx", [
-                    "gltfpack",
-                    "-i", inputPath,
-                    "-o", outputPath,
-                    "-c",
-                    "-si", CONFIG.simplify.toString()
-                ]);
-                process.stdout.write("✅ BERHASIL\n");
-                processedCount++;
-            } catch (err) {
-                process.stdout.write("❌ GAGAL\n");
-                console.error(`     Error: ${err.message}`);
+        // Pastikan folder output tersedia
+        for (const folder of [config.charactersOutput, config.weaponsOutput]) {
+            if (!existsSync(folder)) {
+                await mkdir(folder, { recursive: true });
             }
         }
-    } else {
-        console.warn(`⚠️ Folder input character tidak ditemukan: ${CONFIG.charactersInput}`);
-    }
 
-    // 2. Proses Weapon Models (.gltf -> .glb)
-    if (existsSync(CONFIG.weaponsInput)) {
-        const weaponFiles = (await readdir(CONFIG.weaponsInput)).filter(
-            (f) => f.toLowerCase().endsWith(".gltf")
-        );
+        // 1. Proses Character Models
+        if (existsSync(config.charactersInput)) {
+            const charFiles = (await readdir(config.charactersInput));
+            
+            // Proses file .glb
+            const glbFiles = charFiles.filter((f) => f.toLowerCase().endsWith(".glb"));
+            console.log(`👤 Memproses Character Models GLB (${glbFiles.length} file)...`);
+            for (const file of glbFiles) {
+                const inputPath = path.join(config.charactersInput, file);
+                const outputPath = path.join(config.charactersOutput, file);
 
-        console.log(`\n⚔️ Memproses Weapon Models (${weaponFiles.length} file)...`);
-        for (const file of weaponFiles) {
-            const inputPath = path.join(CONFIG.weaponsInput, file);
-            const outputFileName = file.slice(0, -5) + ".glb"; // Simpan sebagai .glb
-            const outputPath = path.join(CONFIG.weaponsOutput, outputFileName);
+                process.stdout.write(`  📦 [${processedCount + 1}] Mengompresi ${file} (gltfpack)... `);
 
-            process.stdout.write(`  📦 [${processedCount + 1}] Mengompresi & convert ${file} -> ${outputFileName} (gltfpack)... `);
-
-            try {
-                await runCommand("npx", [
-                    "gltfpack",
-                    "-i", inputPath,
-                    "-o", outputPath,
-                    "-c",
-                    "-si", CONFIG.simplify.toString()
-                ]);
-                process.stdout.write("✅ BERHASIL\n");
-                processedCount++;
-            } catch (err) {
-                process.stdout.write("❌ GAGAL\n");
-                console.error(`     Error: ${err.message}`);
+                try {
+                    // Gunakan parameter asli: -c dan -si (tanpa -cc karena merusak skeletal bone binding)
+                    await runCommand("npx", [
+                        "gltfpack",
+                        "-i", inputPath,
+                        "-o", outputPath,
+                        "-c",
+                        "-si", config.simplify.toString()
+                    ]);
+                    process.stdout.write("✅ BERHASIL\n");
+                    processedCount++;
+                } catch (err) {
+                    process.stdout.write("❌ GAGAL\n");
+                    console.error(`     Error: ${err.message}`);
+                }
             }
+
+            // Copy file gambar tekstur (.png) jika ada
+            const pngFiles = charFiles.filter((f) => f.toLowerCase().endsWith(".png"));
+            for (const file of pngFiles) {
+                const inputPath = path.join(config.charactersInput, file);
+                const outputPath = path.join(config.charactersOutput, file);
+                try {
+                    await copyFile(inputPath, outputPath);
+                    console.log(`  🖼️  Menyalin tekstur ${file} -> OK`);
+                } catch (err) {
+                    console.error(`  🖼️  Gagal menyalin tekstur ${file}: ${err.message}`);
+                }
+            }
+        } else {
+            console.warn(`⚠️ Folder input character tidak ditemukan: ${config.charactersInput}`);
         }
-    } else {
-        console.warn(`⚠️ Folder input weapon tidak ditemukan: ${CONFIG.weaponsInput}`);
+
+        // 2. Proses Weapon Models (.gltf atau .glb)
+        if (existsSync(config.weaponsInput)) {
+            const weaponFiles = await readdir(config.weaponsInput);
+            
+            // Proses gltf dan glb
+            const weaponModels = weaponFiles.filter((f) => f.toLowerCase().endsWith(".gltf") || f.toLowerCase().endsWith(".glb"));
+            console.log(`\n⚔️ Memproses Weapon Models (${weaponModels.length} file)...`);
+            for (const file of weaponModels) {
+                const inputPath = path.join(config.weaponsInput, file);
+                const isGltf = file.toLowerCase().endsWith(".gltf");
+                const outputFileName = isGltf ? file.slice(0, -5) + ".glb" : file;
+                const outputPath = path.join(config.weaponsOutput, outputFileName);
+
+                process.stdout.write(`  📦 [${processedCount + 1}] Mengompresi weapon ${file} -> ${outputFileName} (gltfpack)... `);
+
+                try {
+                    // Senjata aman menggunakan -cc karena berupa static mesh (tanpa skinning)
+                    await runCommand("npx", [
+                        "gltfpack",
+                        "-i", inputPath,
+                        "-o", outputPath,
+                        "-c",
+                        "-cc",
+                        "-si", config.simplify.toString()
+                    ]);
+                    process.stdout.write("✅ BERHASIL\n");
+                    processedCount++;
+                } catch (err) {
+                    process.stdout.write("❌ GAGAL\n");
+                    console.error(`     Error: ${err.message}`);
+                }
+            }
+
+            // Copy file gambar tekstur (.png) jika ada di folder weapon
+            const pngFiles = weaponFiles.filter((f) => f.toLowerCase().endsWith(".png"));
+            for (const file of pngFiles) {
+                const inputPath = path.join(config.weaponsInput, file);
+                const outputPath = path.join(config.weaponsOutput, file);
+                try {
+                    await copyFile(inputPath, outputPath);
+                    console.log(`  🖼️  Menyalin tekstur weapon ${file} -> OK`);
+                } catch (err) {
+                    console.error(`  🖼️  Gagal menyalin tekstur weapon ${file}: ${err.message}`);
+                }
+            }
+        } else {
+            console.warn(`⚠️ Folder input weapon tidak ditemukan: ${config.weaponsInput}`);
+        }
     }
 
     // 3. Proses Animation Models (in-place)
-    if (existsSync(CONFIG.animationsFolder)) {
-        const animFiles = (await readdir(CONFIG.animationsFolder)).filter(
+    if (existsSync(ANIMATIONS_FOLDER)) {
+        const animFiles = (await readdir(ANIMATIONS_FOLDER)).filter(
             (f) => f.toLowerCase().endsWith(".glb") && !f.includes("_temp")
         );
 
         console.log(`\n🎬 Memproses Animation Models (${animFiles.length} file)...`);
         for (const file of animFiles) {
-            const inputPath = path.join(CONFIG.animationsFolder, file);
-            const tempPath = path.join(CONFIG.animationsFolder, file.replace(".glb", "_temp.glb"));
+            const inputPath = path.join(ANIMATIONS_FOLDER, file);
+            const tempPath = path.join(ANIMATIONS_FOLDER, file.replace(".glb", "_temp.glb"));
 
             process.stdout.write(`  📦 [${processedCount + 1}] Mengompresi ${file} (gltfpack)... `);
 
             try {
+                // Animasi tidak boleh menggunakan -cc karena merusak struktur track animasi bone
                 await runCommand("npx", [
                     "gltfpack",
                     "-i", inputPath,
@@ -139,14 +185,11 @@ async function start() {
             }
         }
     } else {
-        console.warn(`⚠️ Folder animasi tidak ditemukan: ${CONFIG.animationsFolder}`);
+        console.warn(`⚠️ Folder animasi tidak ditemukan: ${ANIMATIONS_FOLDER}`);
     }
 
     console.log("--------------------------------------------------");
-    console.log(`✨ SELESAI! Berhasil memproses ${processedCount} file.`);
-    console.log(`📁 Character tersimpan di: ${CONFIG.charactersOutput}`);
-    console.log(`📁 Weapon tersimpan di: ${CONFIG.weaponsOutput}`);
-    console.log(`📁 Animation tersimpan di: ${CONFIG.animationsFolder}\n`);
+    console.log(`✨ REVERT SELESAI! Berhasil memulihkan ${processedCount} file.`);
 }
 
 start();

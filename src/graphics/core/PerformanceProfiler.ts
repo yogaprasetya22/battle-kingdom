@@ -15,6 +15,7 @@ import * as THREE from "three";
 export interface ProfilerReport {
     timestamp: number;
     fps: number;
+    isSkeleton?: boolean;
     frameTimeMs: number;
     drawCalls: number;
     triangles: number;
@@ -98,19 +99,21 @@ class PerformanceProfiler {
      * the real FPS (e.g. 192 instead of 60 on a 60Hz display).
      */
     public startFrame(rafTimestamp?: number) {
-        this.frameStart = performance.now(); // CPU work start
+        const now = performance.now();
+        this.frameStart = now; // CPU work start
 
-        if (rafTimestamp !== undefined && rafTimestamp > 0) {
-            if (this.prevRafTs > 0) {
-                const dt = rafTimestamp - this.prevRafTs;
-                // Ignore tab-wake spikes (>5s gap) which would collapse the average
-                if (dt > 0 && dt < 5000) {
-                    this.frameTimes.push(dt);
-                    if (this.frameTimes.length > FPS_WINDOW) this.frameTimes.shift();
-                }
+        // Use wall-clock time (performance.now() difference) to measure the actual rendering intervals.
+        // This is immune to browser/compositor virtual timestamp alignment issues and accurately
+        // captures frame drops caused by GPU/CPU load.
+        if (this.prevRafTs > 0) {
+            const dt = now - this.prevRafTs;
+            // Ignore tab-wake spikes (>5s gap) which would collapse the average
+            if (dt > 0 && dt < 5000) {
+                this.frameTimes.push(dt);
+                if (this.frameTimes.length > FPS_WINDOW) this.frameTimes.shift();
             }
-            this.prevRafTs = rafTimestamp;
         }
+        this.prevRafTs = now;
 
         // Reset per-frame activity counters
         this.activityMetrics.basicAttacks = 0;
@@ -127,7 +130,10 @@ class PerformanceProfiler {
         const lastDt = this.frameTimes.length > 0
             ? this.frameTimes[this.frameTimes.length - 1]
             : cpuWorkMs;
-        const fps = this._smoothedFps();
+        
+        // Instantaneous FPS for per-frame report to capture exact drop spikes (e.g. down to 28 fps)
+        const instantFps = lastDt > 0 ? 1000 / lastDt : 0;
+        const smoothedFps = this._smoothedFps();
 
         // Ambil info dari renderer Three.js
         let drawCalls = 0;
@@ -150,7 +156,8 @@ class PerformanceProfiler {
 
         const report: ProfilerReport = {
             timestamp: Date.now(),
-            fps: Math.round(fps),
+            fps: Math.round(instantFps),
+            isSkeleton: this.isSkeletonMode,
             frameTimeMs: parseFloat(frameTimeMs.toFixed(2)),
             drawCalls,
             triangles,
@@ -172,7 +179,7 @@ class PerformanceProfiler {
                 activeBuffs: this.activityMetrics.activeBuffs,
                 activeDeaths: this.activityMetrics.activeDeaths
             },
-            bottlenecks: this.detectBottlenecks(fps, frameTimeMs, drawCalls, triangles)
+            bottlenecks: this.detectBottlenecks(instantFps, frameTimeMs, drawCalls, triangles)
         };
 
         this.logHistory.push(report);
@@ -214,6 +221,14 @@ class PerformanceProfiler {
     /** Live FPS reading for HUD — same rolling average used in logged data. */
     public getLiveFps(): number {
         return Math.round(this._smoothedFps());
+    }
+
+    /** Live Frame Time reading for HUD (Latency) */
+    public getLastFrameTime(): number {
+        if (this.frameTimes.length > 0) {
+            return this.frameTimes[this.frameTimes.length - 1];
+        }
+        return 16.67; // Default 60Hz fallback
     }
 
     /** 1000 / mean(frameTimes) — harmonic mean of FPS, matches browser/overlay display */

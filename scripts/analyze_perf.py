@@ -76,8 +76,8 @@ def analyze_diagnostics(file_path):
     WORKER_BUDGET_MS    = 12.0
 
     # Tentukan apakah file log ini merupakan mode skeleton
-    # dengan memeriksa jenis bottleneck yang tercatat di dalam file
-    is_skeleton_log = any("Skeletal" in str(b) for frame in data for b in frame.get('bottlenecks', []))
+    # dengan memeriksa properti isSkeleton dari data JSON
+    is_skeleton_log = any(frame.get('isSkeleton', False) for frame in data)
     anim_budget = ANIM_BUDGET_SKELETAL if is_skeleton_log else ANIM_BUDGET_VAT
 
     for frame in data:
