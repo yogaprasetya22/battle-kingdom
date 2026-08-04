@@ -90,16 +90,7 @@ export function spawnLightningFX(
     const colorLightning = isBlue ? 0x88ddff : 0xffa055;
     const colorSpark = isBlue ? 0x00aaff : 0xff6600;
 
-    const meshes: THREE.Mesh[] = [];
-    const mat = new THREE.MeshBasicMaterial({
-        color: colorLightning,
-        transparent: true,
-        opacity: 0.95,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false,
-    });
-
-    const cylinderGeoPool: THREE.CylinderGeometry[] = [];
+    const lineVertices: number[] = [];
 
     for (let pi = 0; pi < points.length - 1; pi++) {
         const from = points[pi].clone();
@@ -118,30 +109,29 @@ export function spawnLightningFX(
             const jz = s === SEGMENTS ? 0 : (Math.random() - 0.5) * 0.7;
             const nextPt = new THREE.Vector3(lx + jx, ly + jy, lz + jz);
 
-            // Create segment cylinder — use pooled geometry with Y-scale for variable distance
-            const dist = lastPt.distanceTo(nextPt);
-            const geo = pooledCylinder(0.06, 0.06, 1.0, 4); // fixed height=1, scale Y by dist
-            cylinderGeoPool.push(geo);
-
-            const mesh = new THREE.Mesh(geo, mat);
-            mesh.frustumCulled = false;
-            mesh.scale.set(1, dist, 1);
-            // Position at midpoint
-            const mid = new THREE.Vector3()
-                .copy(lastPt)
-                .add(nextPt)
-                .multiplyScalar(0.5);
-            mesh.position.copy(mid);
-            mesh.lookAt(nextPt);
-            mesh.rotateX(Math.PI / 2);
-            scene.add(mesh);
-            meshes.push(mesh);
+            // Add segment vertices: from lastPt to nextPt
+            lineVertices.push(lastPt.x, lastPt.y, lastPt.z);
+            lineVertices.push(nextPt.x, nextPt.y, nextPt.z);
 
             lastPt.copy(nextPt);
         }
         // Impact spark explosion
         spawnExplosion(scene, to, colorSpark, 10, 0.1);
     }
+
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.Float32BufferAttribute(lineVertices, 3));
+    
+    const mat = new THREE.LineBasicMaterial({
+        color: colorLightning,
+        transparent: true,
+        opacity: 0.95,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+    });
+
+    const segments = new THREE.LineSegments(geo, mat);
+    scene.add(segments);
 
     let age = 0;
     const duration = 0.25; // lightning is very fast
@@ -151,7 +141,8 @@ export function spawnLightningFX(
             age += delta;
             const t = Math.min(1, age / duration);
             if (t >= 1) {
-                meshes.forEach((m) => scene.remove(m));
+                scene.remove(segments);
+                geo.dispose();
                 mat.dispose();
                 return false;
             }
@@ -159,13 +150,6 @@ export function spawnLightningFX(
             // Flicker effect: random opacity drops
             const flicker = Math.random() > 0.35 ? 1.0 : 0.15;
             mat.opacity = 0.95 * (1 - t) * flicker;
-
-            // Jitter scale slightly to simulate high voltage vibration
-            const jitterS = 0.85 + Math.random() * 0.3;
-            meshes.forEach((m) => {
-                const baseY = m.scale.y; // preserve Y-scale (distance)
-                m.scale.set(jitterS, baseY, jitterS); // jitter X/Z thickness only, keep Y
-            });
 
             return true;
         },
@@ -643,7 +627,7 @@ export function spawnFireballFX(
                 // Flame puff
                 if (Math.random() < 0.7) {
                     const gm = pooledPlane(1.0, 1.0);
-                    const mm = new THREE.MeshBasicMaterial({
+                    const mm = getPooledMaterial({
                         map: flameTex,
                         color: 0xff4400,
                         transparent: true,
@@ -678,7 +662,7 @@ export function spawnFireballFX(
                 // Spark
                 if (Math.random() < 0.5) {
                     const gm = pooledPlane(0.5, 0.5);
-                    const mm = new THREE.MeshBasicMaterial({
+                    const mm = getPooledMaterial({
                         map: sparkTex,
                         color: 0xffcc00,
                         transparent: true,
@@ -709,7 +693,7 @@ export function spawnFireballFX(
                 const tp = tr.age / tr.maxAge;
                 if (tp >= 1) {
                     scene.remove(tr.mesh);
-                    tr.mat.dispose();
+                    releasePooledMaterial(tr.mat);
                     trails.splice(i, 1);
                 } else {
                     tr.mesh.position.addScaledVector(tr.vel, delta);

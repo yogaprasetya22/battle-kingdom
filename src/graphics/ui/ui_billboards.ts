@@ -6,12 +6,32 @@ import { scene } from "../core/scene";
 const hpBgGeo = new THREE.PlaneGeometry(0.84, 0.12);
 const hpFgGeo = new THREE.PlaneGeometry(0.80, 0.08);
 
-const hpBgMat = new THREE.MeshBasicMaterial({
-    color: 0x050505,
-    side: THREE.DoubleSide,
+const hpBgMat = new THREE.ShaderMaterial({
+    uniforms: {},
+    vertexShader: `
+        varying vec2 vUv;
+        void main() {
+            vUv = uv;
+            #ifdef USE_INSTANCING
+                vec3 worldPos = vec3(instanceMatrix[3]);
+                vec3 camRight = vec3(viewMatrix[0][0], viewMatrix[1][0], viewMatrix[2][0]);
+                vec3 camUp    = vec3(viewMatrix[0][1], viewMatrix[1][1], viewMatrix[2][1]);
+                vec3 vPos = worldPos + camRight * position.x + camUp * position.y;
+                gl_Position = projectionMatrix * viewMatrix * vec4(vPos, 1.0);
+            #else
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            #endif
+        }
+    `,
+    fragmentShader: `
+        varying vec2 vUv;
+        void main() {
+            gl_FragColor = vec4(0.05, 0.05, 0.05, 0.75);
+        }
+    `,
     transparent: true,
-    opacity: 0.75, // Semi-transparent background
-    depthTest: false,
+    side: THREE.DoubleSide,
+    depthTest: true,
     depthWrite: false,
 });
 
@@ -29,13 +49,11 @@ const hpFgMat = new THREE.ShaderMaterial({
                 float sZ = length(vec3(instanceMatrix[2][0], instanceMatrix[2][1], instanceMatrix[2][2]));
                 vColor = vec3(sX, sY, sZ);
 
-                mat4 normMatrix = instanceMatrix;
-                normMatrix[0] = vec4(sX > 0.0001 ? vec3(instanceMatrix[0][0], instanceMatrix[0][1], instanceMatrix[0][2]) / sX : vec3(1.0, 0.0, 0.0), 0.0);
-                normMatrix[1] = vec4(sY > 0.0001 ? vec3(instanceMatrix[1][0], instanceMatrix[1][1], instanceMatrix[1][2]) / sY : vec3(0.0, 1.0, 0.0), 0.0);
-                normMatrix[2] = vec4(sZ > 0.0001 ? vec3(instanceMatrix[2][0], instanceMatrix[2][1], instanceMatrix[2][2]) / sZ : vec3(0.0, 0.0, 1.0), 0.0);
-
-                vec4 localPosition = normMatrix * vec4(position, 1.0);
-                gl_Position = projectionMatrix * modelViewMatrix * localPosition;
+                vec3 worldPos = vec3(instanceMatrix[3]);
+                vec3 camRight = vec3(viewMatrix[0][0], viewMatrix[1][0], viewMatrix[2][0]);
+                vec3 camUp    = vec3(viewMatrix[0][1], viewMatrix[1][1], viewMatrix[2][1]);
+                vec3 vPos = worldPos + camRight * position.x + camUp * position.y;
+                gl_Position = projectionMatrix * viewMatrix * vec4(vPos, 1.0);
             #else
                 vColor = vec3(1.0, 0.0, 100.0); // Fallback
                 gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
@@ -85,7 +103,7 @@ const hpFgMat = new THREE.ShaderMaterial({
     `,
     transparent: true,
     side: THREE.DoubleSide,
-    depthTest: false,
+    depthTest: true,
     depthWrite: false,
 });
 
@@ -93,6 +111,8 @@ export const hpBarsBg = new THREE.InstancedMesh(hpBgGeo, hpBgMat, UNIT_COUNT);
 export const hpBarsFg = new THREE.InstancedMesh(hpFgGeo, hpFgMat, UNIT_COUNT);
 hpBarsBg.renderOrder = 998;
 hpBarsFg.renderOrder = 999;
+hpBarsBg.frustumCulled = false;
+hpBarsFg.frustumCulled = false;
 scene.add(hpBarsBg);
 scene.add(hpBarsFg);
 
@@ -111,6 +131,7 @@ export const cdRings = new THREE.InstancedMesh(
     UNIT_COUNT,
 );
 cdRings.renderOrder = 1;
+cdRings.frustumCulled = false;
 scene.add(cdRings);
 
 // ---- 3. Immunity Rings ----
@@ -128,11 +149,12 @@ export const immuneRings = new THREE.InstancedMesh(
     UNIT_COUNT,
 );
 immuneRings.renderOrder = 5;
+immuneRings.frustumCulled = false;
 scene.add(immuneRings);
 
-// ---- 4. Helper & Name Labels ----
 export const dummy = new THREE.Object3D();
 export const _deadMatrix = new THREE.Matrix4().makeScale(0, 0, 0);
+export const _deadNameMatrix = new THREE.Matrix4().makeTranslation(0, -999, 0);
 
 // Hide all instances at origin until they are assigned a real position.
 // InstancedMesh defaults every instance to identity matrix (pos 0,0,0 = center
@@ -152,7 +174,7 @@ export const _deadMatrix = new THREE.Matrix4().makeScale(0, 0, 0);
 
 export let nameBarsA: THREE.InstancedMesh | null = null;
 export let nameBarsB: THREE.InstancedMesh | null = null;
-const nameGeo = new THREE.PlaneGeometry(1.2, 0.24);
+const nameGeo = new THREE.PlaneGeometry(1.0, 0.25); // Aspect ratio 4:1 (tidak peyang)
 
 // Greek mythology names for Team A (Allies)
 const GREEK_NAMES = [
@@ -172,21 +194,22 @@ const NORSE_NAMES = [
     "Mimir", "Hoenir", "Lodur", "Vili", "Ve", "Gefjon", "Fulla", "Eir", "Gna", "Lofn"
 ];
 
-// Build a compact fixed-size 512x512 name sprite sheet:
-// Lay names in a grid of COLS columns. Each cell = 512/COLS wide, 512/ROWS tall.
+// Build a compact fixed-size 1024x512 name sprite sheet:
+// Grid of 5 columns x 10 rows = 50 slots. Each cell = 204.8px x 51.2px (Ratio 4:1).
 const NAME_ATLAS_COLS = 5;
-const NAME_ATLAS_ROWS = 10; // 5x10 = 50 slots (= TEAM_SIZE)
-const NAME_CELL_W = 512 / NAME_ATLAS_COLS;  // 102.4px → 102
-const NAME_CELL_H = 512 / NAME_ATLAS_ROWS;  // 51.2px → 51
+const NAME_ATLAS_ROWS = 10;
 
 function createNamesTextureAtlas(names: string[], color: string) {
     const canvas = document.createElement("canvas");
-    canvas.width = 512;
+    canvas.width = 1024;
     canvas.height = 512;
     const ctx = canvas.getContext("2d")!;
-    ctx.clearRect(0, 0, 512, 512);
+    ctx.clearRect(0, 0, 1024, 512);
 
-    ctx.font = `bold ${Math.floor(NAME_CELL_H * 0.6)}px 'Outfit', Arial, sans-serif`;
+    const cellW = 1024 / NAME_ATLAS_COLS; // 204.8px
+    const cellH = 512 / NAME_ATLAS_ROWS;  // 51.2px
+
+    ctx.font = `bold ${Math.floor(cellH * 0.65)}px 'Outfit', Arial, sans-serif`;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
 
@@ -194,22 +217,22 @@ function createNamesTextureAtlas(names: string[], color: string) {
         const name = names[i] || `P${i + 1}`;
         const col = i % NAME_ATLAS_COLS;
         const row = Math.floor(i / NAME_ATLAS_COLS);
-        const cx = col * NAME_CELL_W + NAME_CELL_W / 2;
-        const cy = row * NAME_CELL_H + NAME_CELL_H / 2;
+        const cx = col * cellW + cellW / 2;
+        const cy = row * cellH + cellH / 2;
 
         ctx.strokeStyle = "#000000";
-        ctx.lineWidth = 8;
+        ctx.lineWidth = 6;
         ctx.lineJoin = "round";
-        ctx.strokeText(name, cx, cy, NAME_CELL_W - 4);
+        ctx.strokeText(name, cx, cy, cellW - 12);
         ctx.fillStyle = color;
-        ctx.fillText(name, cx, cy, NAME_CELL_W - 4);
+        ctx.fillText(name, cx, cy, cellW - 12);
     }
 
     const texture = new THREE.CanvasTexture(canvas);
     texture.colorSpace = THREE.SRGBColorSpace;
     texture.minFilter = THREE.LinearFilter;
     texture.magFilter = THREE.LinearFilter;
-    texture.generateMipmaps = false; // ponytail: no mips needed for UI sprite sheet
+    texture.generateMipmaps = false;
     return texture;
 }
 
@@ -261,21 +284,21 @@ export function initNameBars(modelName: string) {
         `,
         transparent: true,
         side: THREE.DoubleSide,
-        depthTest: false,
+        depthTest: true,
         depthWrite: false,
     });
 
     nameBarsA = new THREE.InstancedMesh(nameGeo, buildNameMat(texA), TEAM_SIZE);
-    nameBarsA.renderOrder = 999;
+    nameBarsA.renderOrder = 1000;
     nameBarsA.frustumCulled = false; // ponytail: we manage visibility via _deadMatrix
-    for (let _i = 0; _i < TEAM_SIZE; _i++) nameBarsA.setMatrixAt(_i, _deadMatrix);
+    for (let _i = 0; _i < TEAM_SIZE; _i++) nameBarsA.setMatrixAt(_i, _deadNameMatrix);
     nameBarsA.instanceMatrix.needsUpdate = true;
     scene.add(nameBarsA);
 
     nameBarsB = new THREE.InstancedMesh(nameGeo, buildNameMat(texB), TEAM_SIZE);
-    nameBarsB.renderOrder = 999;
+    nameBarsB.renderOrder = 1000;
     nameBarsB.frustumCulled = false;
-    for (let _i = 0; _i < TEAM_SIZE; _i++) nameBarsB.setMatrixAt(_i, _deadMatrix);
+    for (let _i = 0; _i < TEAM_SIZE; _i++) nameBarsB.setMatrixAt(_i, _deadNameMatrix);
     nameBarsB.instanceMatrix.needsUpdate = true;
     scene.add(nameBarsB);
 }

@@ -1050,27 +1050,8 @@
 
   <!-- Controls -->
   <div id="controls">
-    <select id="select-model" disabled>
-      <option value="Knight" selected>Knight</option>
-      <option value="Mage">Mage</option>
-      <option value="Ranger">Ranger</option>
-      <option value="Rogue">Rogue</option>
-      <option value="Rogue_Hooded">Rogue Hooded</option>
-      <option value="Skeleton">Skeleton (Spesial)</option>
-    </select>
     <button id="btn-viewer" disabled style="display:none">📖 Katalog Karakter</button>
-    <select id="select-matchup" disabled>
-      <option value="mix" selected>Campuran (Semua Kelas)</option>
-      <option value="custom_composition">Kustom (Pengaturan UI)</option>
-      <option value="mage_vs_tank">Mage vs Tank</option>
-      <option value="archer_vs_tank">Archer vs Tank</option>
-      <option value="mage_vs_archer">Mage vs Archer</option>
-      <option value="only_mage">Hanya Mage</option>
-      <option value="only_archer">Hanya Archer</option>
-      <option value="only_tank">Hanya Tank</option>
-      <option value="only_gunslinger">Hanya Gunslinger</option>
-      <option value="only_assassin">Hanya Assassin</option>
-    </select>
+
     <button id="btn-settings" disabled>⚙️ Atur Tim</button>
     <button id="btn-start" disabled>⚔️ Mulai Pertempuran</button>
     <button id="btn-reset" disabled>↺ Reset</button>
@@ -1211,6 +1192,96 @@
               <input type="range" id="slider-a-assassin" min="0" max="100" value="10"
                 class="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-red-500">
             </div>
+
+            <!-- Skeleton Tank A -->
+            <div class="flex flex-col gap-1 border-t border-red-500/10 pt-2">
+              <div class="flex items-center justify-between">
+                <label class="text-sm font-bold text-slate-300 flex items-center gap-2">
+                  <input type="checkbox" id="chk-a-skel_tank"
+                    class="rounded bg-slate-800 border-slate-700 text-red-500 focus:ring-red-500">
+                  💀 Skeleton Tank
+                </label>
+                <span id="val-a-skel_tank"
+                  class="text-xs font-bold text-red-400 bg-red-500/10 px-2 py-0.5 rounded border border-red-500/20">0</span>
+              </div>
+              <input type="range" id="slider-a-skel_tank" min="0" max="100" value="0"
+                class="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-red-500">
+            </div>
+
+            <!-- Skeleton Archer A -->
+            <div class="flex flex-col gap-1">
+              <div class="flex items-center justify-between">
+                <label class="text-sm font-bold text-slate-300 flex items-center gap-2">
+                  <input type="checkbox" id="chk-a-skel_archer"
+                    class="rounded bg-slate-800 border-slate-700 text-red-500 focus:ring-red-500">
+                  💀 Skeleton Archer
+                </label>
+                <span id="val-a-skel_archer"
+                  class="text-xs font-bold text-red-400 bg-red-500/10 px-2 py-0.5 rounded border border-red-500/20">0</span>
+              </div>
+              <input type="range" id="slider-a-skel_archer" min="0" max="100" value="0"
+                class="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-red-500">
+            </div>
+
+            <!-- Skeleton Mage A -->
+            <div class="flex flex-col gap-1">
+              <div class="flex items-center justify-between">
+                <label class="text-sm font-bold text-slate-300 flex items-center gap-2">
+                  <input type="checkbox" id="chk-a-skel_mage"
+                    class="rounded bg-slate-800 border-slate-700 text-red-500 focus:ring-red-500">
+                  💀 Skeleton Mage
+                </label>
+                <span id="val-a-skel_mage"
+                  class="text-xs font-bold text-red-400 bg-red-500/10 px-2 py-0.5 rounded border border-red-500/20">0</span>
+              </div>
+              <input type="range" id="slider-a-skel_mage" min="0" max="100" value="0"
+                class="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-red-500">
+            </div>
+
+            <!-- Skeleton Healer A -->
+            <div class="flex flex-col gap-1">
+              <div class="flex items-center justify-between">
+                <label class="text-sm font-bold text-slate-300 flex items-center gap-2">
+                  <input type="checkbox" id="chk-a-skel_healer"
+                    class="rounded bg-slate-800 border-slate-700 text-red-500 focus:ring-red-500">
+                  💀 Skeleton Healer
+                </label>
+                <span id="val-a-skel_healer"
+                  class="text-xs font-bold text-red-400 bg-red-500/10 px-2 py-0.5 rounded border border-red-500/20">0</span>
+              </div>
+              <input type="range" id="slider-a-skel_healer" min="0" max="100" value="0"
+                class="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-red-500">
+            </div>
+
+            <!-- Skeleton Gunslinger A -->
+            <div class="flex flex-col gap-1">
+              <div class="flex items-center justify-between">
+                <label class="text-sm font-bold text-slate-300 flex items-center gap-2">
+                  <input type="checkbox" id="chk-a-skel_gunslinger"
+                    class="rounded bg-slate-800 border-slate-700 text-red-500 focus:ring-red-500">
+                  💀 Skeleton Gunslinger
+                </label>
+                <span id="val-a-skel_gunslinger"
+                  class="text-xs font-bold text-red-400 bg-red-500/10 px-2 py-0.5 rounded border border-red-500/20">0</span>
+              </div>
+              <input type="range" id="slider-a-skel_gunslinger" min="0" max="100" value="0"
+                class="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-red-500">
+            </div>
+
+            <!-- Skeleton Assassin A -->
+            <div class="flex flex-col gap-1">
+              <div class="flex items-center justify-between">
+                <label class="text-sm font-bold text-slate-300 flex items-center gap-2">
+                  <input type="checkbox" id="chk-a-skel_assassin"
+                    class="rounded bg-slate-800 border-slate-700 text-red-500 focus:ring-red-500">
+                  💀 Skeleton Assassin
+                </label>
+                <span id="val-a-skel_assassin"
+                  class="text-xs font-bold text-red-400 bg-red-500/10 px-2 py-0.5 rounded border border-red-500/20">0</span>
+              </div>
+              <input type="range" id="slider-a-skel_assassin" min="0" max="100" value="0"
+                class="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-red-500">
+            </div>
           </div>
         </div>
 
@@ -1312,6 +1383,96 @@
                   class="text-xs font-bold text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20">10</span>
               </div>
               <input type="range" id="slider-b-assassin" min="0" max="100" value="10"
+                class="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-500">
+            </div>
+
+            <!-- Skeleton Tank B -->
+            <div class="flex flex-col gap-1 border-t border-blue-500/10 pt-2">
+              <div class="flex items-center justify-between">
+                <label class="text-sm font-bold text-slate-300 flex items-center gap-2">
+                  <input type="checkbox" id="chk-b-skel_tank"
+                    class="rounded bg-slate-800 border-slate-700 text-blue-500 focus:ring-blue-500">
+                  💀 Skeleton Tank
+                </label>
+                <span id="val-b-skel_tank"
+                  class="text-xs font-bold text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20">0</span>
+              </div>
+              <input type="range" id="slider-b-skel_tank" min="0" max="100" value="0"
+                class="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-500">
+            </div>
+
+            <!-- Skeleton Archer B -->
+            <div class="flex flex-col gap-1">
+              <div class="flex items-center justify-between">
+                <label class="text-sm font-bold text-slate-300 flex items-center gap-2">
+                  <input type="checkbox" id="chk-b-skel_archer"
+                    class="rounded bg-slate-800 border-slate-700 text-blue-500 focus:ring-blue-500">
+                  💀 Skeleton Archer
+                </label>
+                <span id="val-b-skel_archer"
+                  class="text-xs font-bold text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20">0</span>
+              </div>
+              <input type="range" id="slider-b-skel_archer" min="0" max="100" value="0"
+                class="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-500">
+            </div>
+
+            <!-- Skeleton Mage B -->
+            <div class="flex flex-col gap-1">
+              <div class="flex items-center justify-between">
+                <label class="text-sm font-bold text-slate-300 flex items-center gap-2">
+                  <input type="checkbox" id="chk-b-skel_mage"
+                    class="rounded bg-slate-800 border-slate-700 text-blue-500 focus:ring-blue-500">
+                  💀 Skeleton Mage
+                </label>
+                <span id="val-b-skel_mage"
+                  class="text-xs font-bold text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20">0</span>
+              </div>
+              <input type="range" id="slider-b-skel_mage" min="0" max="100" value="0"
+                class="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-500">
+            </div>
+
+            <!-- Skeleton Healer B -->
+            <div class="flex flex-col gap-1">
+              <div class="flex items-center justify-between">
+                <label class="text-sm font-bold text-slate-300 flex items-center gap-2">
+                  <input type="checkbox" id="chk-b-skel_healer"
+                    class="rounded bg-slate-800 border-slate-700 text-blue-500 focus:ring-blue-500">
+                  💀 Skeleton Healer
+                </label>
+                <span id="val-b-skel_healer"
+                  class="text-xs font-bold text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20">0</span>
+              </div>
+              <input type="range" id="slider-b-skel_healer" min="0" max="100" value="0"
+                class="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-500">
+            </div>
+
+            <!-- Skeleton Gunslinger B -->
+            <div class="flex flex-col gap-1">
+              <div class="flex items-center justify-between">
+                <label class="text-sm font-bold text-slate-300 flex items-center gap-2">
+                  <input type="checkbox" id="chk-b-skel_gunslinger"
+                    class="rounded bg-slate-800 border-slate-700 text-blue-500 focus:ring-blue-500">
+                  💀 Skeleton Gunslinger
+                </label>
+                <span id="val-b-skel_gunslinger"
+                  class="text-xs font-bold text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20">0</span>
+              </div>
+              <input type="range" id="slider-b-skel_gunslinger" min="0" max="100" value="0"
+                class="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-500">
+            </div>
+
+            <!-- Skeleton Assassin B -->
+            <div class="flex flex-col gap-1">
+              <div class="flex items-center justify-between">
+                <label class="text-sm font-bold text-slate-300 flex items-center gap-2">
+                  <input type="checkbox" id="chk-b-skel_assassin"
+                    class="rounded bg-slate-800 border-slate-700 text-blue-500 focus:ring-blue-500">
+                  💀 Skeleton Assassin
+                </label>
+                <span id="val-b-skel_assassin"
+                  class="text-xs font-bold text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20">0</span>
+              </div>
+              <input type="range" id="slider-b-skel_assassin" min="0" max="100" value="0"
                 class="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-500">
             </div>
           </div>

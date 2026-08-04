@@ -48,12 +48,18 @@ const statsContainer = document.getElementById(
     "stats-container",
 ) as HTMLDivElement;
 const workerTicks = document.getElementById("worker-ticks") as HTMLSpanElement;
-const selectModel = document.getElementById(
-    "select-model",
-) as HTMLSelectElement;
-const selectMatchup = document.getElementById(
-    "select-matchup",
-) as HTMLSelectElement;
+// Mock selectModel object because the dropdown is removed from index.html
+const selectModel = {
+    value: "Knight",
+    disabled: false,
+    addEventListener: (type: string, listener: any) => {},
+};
+// Mock selectMatchup object because the dropdown is removed from index.html
+const selectMatchup = {
+    value: "custom_composition",
+    disabled: false,
+    addEventListener: (type: string, listener: any) => {},
+};
 const btnSettings = document.getElementById(
     "btn-settings",
 ) as HTMLButtonElement;
@@ -65,22 +71,40 @@ interface TeamConfig {
     healer: number;
     gunslinger: number;
     assassin: number;
+    skel_tank: number;
+    skel_archer: number;
+    skel_mage: number;
+    skel_healer: number;
+    skel_gunslinger: number;
+    skel_assassin: number;
 }
 let teamAConfig: TeamConfig = {
     tank: 15,
-    archer: 20,
-    mage: 20,
+    archer: 15,
+    mage: 10,
     healer: 5,
-    gunslinger: 20,
-    assassin: 20,
+    gunslinger: 5,
+    assassin: 0,
+    skel_tank: 0,
+    skel_archer: 0,
+    skel_mage: 0,
+    skel_healer: 0,
+    skel_gunslinger: 0,
+    skel_assassin: 0,
 };
 let teamBConfig: TeamConfig = {
     tank: 15,
-    archer: 20,
-    mage: 20,
+    archer: 15,
+    mage: 10,
     healer: 5,
-    gunslinger: 20,
-    assassin: 20,
+    gunslinger: 5,
+    assassin: 0,
+    skel_tank: 0,
+    skel_archer: 0,
+    skel_mage: 0,
+    skel_healer: 0,
+    skel_gunslinger: 0,
+    skel_assassin: 0,
 };
 
 const savedA = localStorage.getItem("teamAConfig");
@@ -214,7 +238,7 @@ function showBattleEnd(winner: "A" | "B", stats: typeof aggregatedStats) {
 
     // Hentikan recording & unduh report kinerja pertempuran otomatis
     perfProfiler.stopLogging();
-    perfProfiler.exportReport();
+    // perfProfiler.exportReport(); // iniyakk
 
     if (statsContainer) {
         statsContainer.innerHTML = `
@@ -814,7 +838,20 @@ const presetStealth = document.getElementById(
     "preset-stealth",
 ) as HTMLButtonElement;
 
-const classes = ["tank", "archer", "mage", "healer", "gunslinger", "assassin"];
+const classes = [
+    "tank",
+    "archer",
+    "mage",
+    "healer",
+    "gunslinger",
+    "assassin",
+    "skel_tank",
+    "skel_archer",
+    "skel_mage",
+    "skel_healer",
+    "skel_gunslinger",
+    "skel_assassin",
+];
 
 function loadConfigToUI() {
     classes.forEach((cls) => {
@@ -923,17 +960,17 @@ function applyPreset(presetA: number[], presetB: number[]) {
 }
 
 presetBalanced.addEventListener("click", () =>
-    // Scaled preset to total 50: [tank, archer, mage, healer, gunslinger, assassin]
-    applyPreset([7, 10, 10, 3, 10, 10], [7, 10, 10, 3, 10, 10]),
+    // Scaled preset to total 50: [tank, archer, mage, healer, gunslinger, assassin, ...skel]
+    applyPreset([7, 10, 10, 3, 10, 10, 0, 0, 0, 0, 0, 0], [7, 10, 10, 3, 10, 10, 0, 0, 0, 0, 0, 0]),
 );
 presetMagic.addEventListener("click", () =>
-    applyPreset([0, 0, 40, 10, 0, 0], [0, 0, 40, 10, 0, 0]),
+    applyPreset([0, 0, 40, 10, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 40, 10, 0, 0, 0, 0, 0, 0, 0, 0]),
 );
 presetDefense.addEventListener("click", () =>
-    applyPreset([30, 15, 0, 5, 0, 0], [30, 15, 0, 5, 0, 0]),
+    applyPreset([30, 15, 0, 5, 0, 0, 0, 0, 0, 0, 0, 0], [30, 15, 0, 5, 0, 0, 0, 0, 0, 0, 0, 0]),
 );
 presetStealth.addEventListener("click", () =>
-    applyPreset([0, 10, 0, 0, 15, 25], [0, 10, 0, 0, 15, 25]),
+    applyPreset([0, 10, 0, 0, 15, 25, 0, 0, 0, 0, 0, 0], [0, 10, 0, 0, 15, 25, 0, 0, 0, 0, 0, 0]),
 );
 
 classes.forEach((cls) => {
