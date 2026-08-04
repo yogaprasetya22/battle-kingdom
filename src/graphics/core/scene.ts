@@ -1,8 +1,11 @@
 import * as THREE from "three";
-import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 // @ts-ignore
 import { MeshoptDecoder } from "three/examples/jsm/libs/meshopt_decoder.module.js";
+import {
+    initFlyControls,
+    syncAnglesFromCamera,
+} from "./FreeFlyCameraController";
 
 // Loader Manager for GLB only (exclude MP3s from progress tracking)
 export const loadingManager = new THREE.LoadingManager();
@@ -100,29 +103,9 @@ camera.lookAt(0, 0, 0);
 camera.name = "mainCamera";
 scene.add(camera);
 
-// OrbitControls
-export const controls = new OrbitControls(camera, canvas);
-controls.enableDamping = true;
-controls.dampingFactor = 0.05;
-controls.maxPolarAngle = Math.PI / 2.1;
-controls.minDistance = 5;
-controls.maxDistance = 55;
-
-// ponytail: Throttle high-polling-rate gaming mouse events (e.g. 1000Hz+) to max 100Hz
-// This blocks excessive events in the capture phase before they reach OrbitControls, preventing main thread lag.
-let lastPointerMoveTime = 0;
-canvas.addEventListener(
-    "pointermove",
-    (e) => {
-        const now = performance.now();
-        if (now - lastPointerMoveTime < 10) {
-            e.stopImmediatePropagation();
-        } else {
-            lastPointerMoveTime = now;
-        }
-    },
-    { capture: true },
-);
+// Free-Fly spectator camera — sinkronkan sudut awal dari lookAt di atas
+syncAnglesFromCamera(camera);
+initFlyControls(canvas);
 
 // Lights
 export const hemiLight = new THREE.HemisphereLight(0xffffff, 0xc2e2b5, 2.2);

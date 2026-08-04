@@ -38,8 +38,12 @@ export const ARMOR: Record<number, number> = {
     3: 0.05, // Acolyte: 5% reduction
     4: 0.05, // Gunslinger: light armor
     5: 0.0, // Assassin: glass cannon, no armor
-    6: 0.15, // Merchant: light armor, support
-    7: 0.08, // Druid: light armor, caster
+    6: 0.4,  // Skeleton Tank: 40% reduction (Buffed)
+    7: 0.2,  // Skeleton Archer: 20% reduction (Buffed)
+    8: 0.1,  // Skeleton Mage: 10% reduction (Buffed)
+    9: 0.15, // Skeleton Healer: 15% reduction (Buffed)
+    10: 0.15, // Skeleton Gunslinger: 15% (Buffed)
+    11: 0.1,  // Skeleton Assassin: 10% (Buffed)
 };
 
 // ============ DEFENSE BUFF ============
@@ -51,10 +55,14 @@ export const HP_PER_TYPE: Record<number, number> = {
     1: 240, // Archer
     2: 210, // Mage
     3: 180, // Acolyte
-    4: 200, // Gunslinger — fragile, relies on evasion
-    5: 160, // Assassin — most fragile
-    6: 270, // Merchant — support, moderate HP
-    7: 220, // Druid — caster, moderate HP
+    4: 200, // Gunslinger
+    5: 160, // Assassin
+    6: 600, // Skeleton Tank (Buffed HP)
+    7: 350, // Skeleton Archer (Buffed HP)
+    8: 300, // Skeleton Mage (Buffed HP)
+    9: 270, // Skeleton Healer (Buffed HP)
+    10: 300, // Skeleton Gunslinger (Buffed HP)
+    11: 250, // Skeleton Assassin (Buffed HP)
 };
 
 // ============ ATTRIBUT PER TYPE ============
@@ -91,32 +99,58 @@ export const ATTRIBUTES: Record<number, UnitAttributes> = {
         attackInterval: 75,
     },
     4: {
-        // Gunslinger — high single-target damage, medium range
         moveSpeed: 0.03,
         attackRange: 7.0,
         baseDamage: 22,
         attackInterval: 50,
     },
     5: {
-        // Assassin — fastest, highest damage, melee
         moveSpeed: 0.055,
         attackRange: 1.2,
         baseDamage: 28,
         attackInterval: 35,
     },
     6: {
-        // Merchant — support, moderate speed & range
-        moveSpeed: 0.028,
-        attackRange: 4.5,
-        baseDamage: 8,
-        attackInterval: 70,
+        // Skeleton Tank: faster, hits much harder (Buffed)
+        moveSpeed: 0.04,
+        attackRange: 1.8,
+        baseDamage: 18,
+        attackInterval: 50,
     },
     7: {
-        // Druid — moderate speed, caster range
-        moveSpeed: 0.022,
-        attackRange: 9.0,
-        baseDamage: 14,
-        attackInterval: 65,
+        // Skeleton Archer: faster move/atk, higher damage (Buffed)
+        moveSpeed: 0.03,
+        attackRange: 6.5,
+        baseDamage: 20,
+        attackInterval: 32,
+    },
+    8: {
+        // Skeleton Mage: high damage (Buffed)
+        moveSpeed: 0.025,
+        attackRange: 12.0,
+        baseDamage: 28,
+        attackInterval: 48,
+    },
+    9: {
+        // Skeleton Healer (Buffed)
+        moveSpeed: 0.028,
+        attackRange: 8.0,
+        baseDamage: 5,
+        attackInterval: 55,
+    },
+    10: {
+        // Skeleton Gunslinger (Buffed)
+        moveSpeed: 0.035,
+        attackRange: 7.5,
+        baseDamage: 35,
+        attackInterval: 40,
+    },
+    11: {
+        // Skeleton Assassin: lethal glass-cannon (Buffed)
+        moveSpeed: 0.065,
+        attackRange: 1.2,
+        baseDamage: 45,
+        attackInterval: 28,
     },
 };
 

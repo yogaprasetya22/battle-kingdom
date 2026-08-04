@@ -21,8 +21,9 @@ export const IDX_ATTACK_CD = 12;
 export const IDX_EFFECT_STATE = 13;
 export const IDX_IMMUNE_CD = 14; // Countdown imun Tank (> 0 = imun, tidak bisa menerima damage)
 
-// LOD Culling Distance for unit meshes (45 units distance squared)
-export const UNIT_LOD_DIST_SQ = 6025;
+// LOD Culling Distance for unit meshes (larger visual range)
+export const UNIT_LOD_DIST_SQ = 7225; // ~85 units
+export const WEAPON_LOD_DIST_SQ = 3600; // ~60 units
 
 // Class Types
 export const TYPE_TANK = 0;

@@ -83,10 +83,23 @@ export class DayCycleManager {
     private ambientLight: THREE.Light | null = null;
     private scene: THREE.Scene;
 
+    private skyCanvas: HTMLCanvasElement;
+    private skyContext: CanvasRenderingContext2D;
+    private skyTexture: THREE.CanvasTexture;
+
     constructor(scene: THREE.Scene, cycleDurationSeconds: number = 60) {
         this.scene = scene;
         this.cycleDuration = cycleDurationSeconds;
         this.startTime = performance.now();
+
+        // Inisialisasi Canvas untuk gradient langit dinamis
+        this.skyCanvas = document.createElement("canvas");
+        this.skyCanvas.width = 2;
+        this.skyCanvas.height = 256;
+        this.skyContext = this.skyCanvas.getContext("2d")!;
+        this.skyTexture = new THREE.CanvasTexture(this.skyCanvas);
+        this.skyTexture.colorSpace = THREE.SRGBColorSpace;
+        this.scene.background = this.skyTexture;
 
         this.initializeValues();
     }
@@ -142,12 +155,8 @@ export class DayCycleManager {
             }
         }
 
-        // Interpolation ratio dengan smoothstep
-        const mixRatio = this.smoothstep(
-            this.currentProgress,
-            prevKeyframe.stop,
-            nextKeyframe.stop,
-        );
+        // Interpolation ratio linear untuk transisi konstan tanpa jeda/berhenti di keyframe
+        const mixRatio = (this.currentProgress - prevKeyframe.stop) / (nextKeyframe.stop - prevKeyframe.stop);
 
         // Interpolate all properties
         this.interpolateColor(
@@ -209,26 +218,30 @@ export class DayCycleManager {
             this.ambientLight.intensity = this.ambientIntensity;
         }
 
-        // Update scene fog (THREE.Fog uses near/far, not density)
+        // Update scene fog (THREE.Fog)
         if (this.scene.fog instanceof THREE.Fog) {
             this.scene.fog.color.lerpColors(
                 this.fogColorA,
                 this.fogColorB,
                 0.5,
             );
-            // Adjust fog near/far based on density (lower density = farther view)
-            this.scene.fog.near = 5;
-            this.scene.fog.far = 100 + (1 - this.fogDensity / 0.003) * 100;
+            // Jauhkan sedikit saja: naikkan targetFar dan naikkan near ke 25% dari far agar tidak menutup unit depan
+            const targetFar = 90 + (1 - this.fogDensity / 0.003) * 60;
+            this.scene.fog.near = targetFar * 0.25;
+            this.scene.fog.far = targetFar;
         }
 
-        // Update scene background (type guard for Color)
-        if (this.scene.background instanceof THREE.Color) {
-            this.scene.background.lerpColors(
-                this.fogColorA,
-                this.fogColorB,
-                0.3,
-            );
-        }
+        // Update langit gradient dinamis agar menyatu dengan fog horizon
+        const gradient = this.skyContext.createLinearGradient(0, 0, 0, 256);
+        gradient.addColorStop(0.0, "#" + this.fogColorB.getHexString()); // Bagian atas langit
+        gradient.addColorStop(0.6, "#" + this.fogColorA.getHexString()); // Bagian tengah/cakrawala
+        // Campuran warna cakrawala bawah agar blend dengan warna kabut
+        const horizonColor = this.fogColorA.clone().lerp(this.fogColorB, 0.15);
+        gradient.addColorStop(1.0, "#" + horizonColor.getHexString());
+
+        this.skyContext.fillStyle = gradient;
+        this.skyContext.fillRect(0, 0, 2, 256);
+        this.skyTexture.needsUpdate = true;
     }
 
     /**
@@ -279,6 +292,18 @@ export class DayCycleManager {
 
         const t = (x - a) / (b - a);
         return t * t * (3 - 2 * t); // Cubic Hermite
+    }
+
+    /**
+     * Smootherstep (Ken Perlin quintic S-curve)
+     * Memberikan transisi dengan zero first & second derivatives di batas akhir
+     */
+    private smootherstep(x: number, a: number, b: number): number {
+        if (x <= a) return 0;
+        if (x >= b) return 1;
+
+        const t = (x - a) / (b - a);
+        return t * t * t * (t * (t * 6 - 15) + 10);
     }
 
     /**

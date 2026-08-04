@@ -19,6 +19,7 @@ import {
     IDX_TYPE,
     IDX_EFFECT_STATE,
     UNIT_LOD_DIST_SQ,
+    WEAPON_LOD_DIST_SQ,
 } from "../../simulation/constants";
 
 import type { UnitVisual } from "./types";
@@ -32,6 +33,7 @@ import {
     cdRings,
     immuneRings,
     _deadMatrix,
+    _deadNameMatrix,
     dummy,
     nameBarsA,
     nameBarsB,
@@ -54,6 +56,7 @@ let healerMatB: THREE.MeshStandardMaterial | null = null;
 let stunMat: THREE.MeshStandardMaterial | null = null;
 let buffMatA: THREE.MeshStandardMaterial | null = null;
 let buffMatB: THREE.MeshStandardMaterial | null = null;
+let stealthMat: THREE.MeshStandardMaterial | null = null;
 
 // ── Ice InstancedMesh ──
 const _iceGeo = new THREE.DodecahedronGeometry(0.65);
@@ -207,6 +210,7 @@ export function changeModel(
     buffMatA?.dispose();
     buffMatB?.dispose();
     stunMat?.dispose();
+    stealthMat?.dispose();
     for (let k = 0; k < UNIT_COUNT; k++) _iceInstanced.setMatrixAt(k, _iceDead);
     _iceInstanced.instanceMatrix.needsUpdate = true;
 
@@ -250,6 +254,10 @@ export function changeModel(
                 loadGLB(classModels.mage),
                 loadGLB(classModels.gunslinger),
                 loadGLB(classModels.assassin),
+                loadGLB("Skeleton_Warrior"),
+                loadGLB("Skeleton_Minion"),
+                loadGLB("Skeleton_Mage"),
+                loadGLB("Skeleton_Rogue"),
                 loadAnimGLB("Rig_Medium_General"),
                 loadAnimGLB("Rig_Medium_MovementBasic"),
                 loadAnimGLB("Rig_Medium_MovementAdvanced"),
@@ -265,6 +273,10 @@ export function changeModel(
                 gltfMage,
                 gltfGunslinger,
                 gltfAssassin,
+                gltfSkelTank,
+                gltfSkelArcher,
+                gltfSkelMage,
+                gltfSkelRogue,
                 animGeneral,
                 animMovement,
                 animMovementAdv,
@@ -352,14 +364,34 @@ export function changeModel(
                     }
                 }
 
+                stealthMat = originalMat
+                    ? (originalMat as any).clone()
+                    : new THREE.MeshStandardMaterial();
+                if (stealthMat) {
+                    stealthMat.color.setHex(0x88ffdd);
+                    stealthMat.transparent = true;
+                    stealthMat.opacity = 0.22;
+                    if ((stealthMat as any).emissive) {
+                        (stealthMat as any).emissive.setHex(0x00ff88);
+                        (stealthMat as any).emissiveIntensity = 0.7;
+                    }
+                    stealthMat.depthWrite = false;
+                }
+
                 try {
-                    // Bangun map model GLTF untuk factory
-                    const gltfModels = {
-                        tank: gltfTank,
-                        archer: gltfArcher,
-                        mage: gltfMage,
-                        gunslinger: gltfGunslinger,
-                        assassin: gltfAssassin,
+                    const gltfModels: Record<number, any> = {
+                        0: gltfTank,
+                        1: gltfArcher,
+                        2: gltfMage,
+                        3: gltfMage, // Healer uses Mage model
+                        4: gltfGunslinger,
+                        5: gltfAssassin,
+                        6: gltfSkelTank,
+                        7: gltfSkelArcher,
+                        8: gltfSkelMage,
+                        9: gltfSkelMage,
+                        10: gltfSkelRogue,
+                        11: gltfSkelRogue,
                     };
 
                     const customPanel = document.getElementById(
@@ -405,22 +437,18 @@ export function changeModel(
                             const typesA: number[] = [];
                             const typesB: number[] = [];
                             const fillTypes = (arr: number[], config: any) => {
-                                for (let j = 0; j < (config.tank ?? 0); j++)
-                                    arr.push(0);
-                                for (let j = 0; j < (config.archer ?? 0); j++)
-                                    arr.push(1);
-                                for (let j = 0; j < (config.mage ?? 0); j++)
-                                    arr.push(2);
-                                for (let j = 0; j < (config.healer ?? 0); j++)
-                                    arr.push(3);
-                                for (
-                                    let j = 0;
-                                    j < (config.gunslinger ?? 0);
-                                    j++
-                                )
-                                    arr.push(4);
-                                for (let j = 0; j < (config.assassin ?? 0); j++)
-                                    arr.push(5);
+                                for (let j = 0; j < (config.tank ?? 0); j++) arr.push(0);
+                                for (let j = 0; j < (config.archer ?? 0); j++) arr.push(1);
+                                for (let j = 0; j < (config.mage ?? 0); j++) arr.push(2);
+                                for (let j = 0; j < (config.healer ?? 0); j++) arr.push(3);
+                                for (let j = 0; j < (config.gunslinger ?? 0); j++) arr.push(4);
+                                for (let j = 0; j < (config.assassin ?? 0); j++) arr.push(5);
+                                for (let j = 0; j < (config.skel_tank ?? 0); j++) arr.push(6);
+                                for (let j = 0; j < (config.skel_archer ?? 0); j++) arr.push(7);
+                                for (let j = 0; j < (config.skel_mage ?? 0); j++) arr.push(8);
+                                for (let j = 0; j < (config.skel_healer ?? 0); j++) arr.push(9);
+                                for (let j = 0; j < (config.skel_gunslinger ?? 0); j++) arr.push(10);
+                                for (let j = 0; j < (config.skel_assassin ?? 0); j++) arr.push(11);
                             };
                             fillTypes(typesA, confA);
                             fillTypes(typesB, confB);
@@ -464,9 +492,11 @@ export function changeModel(
                             }
                         }
 
+                        const baseType = uType % 6;
+
                         // Pilih material berdasarkan tim & tipe
                         const mat =
-                            uType === 3
+                            baseType === 3
                                 ? team === TEAM_A
                                     ? healerMatA!
                                     : healerMatB!
@@ -474,11 +504,11 @@ export function changeModel(
                                   ? teamMatA!
                                   : teamMatB!;
 
-                        const isSkeleton = modelName.toLowerCase().includes("skeleton");
+                        const isSkeleton = uType >= 6 || modelName.toLowerCase().includes("skeleton");
 
-                        const srcGLTF = getModelKey(uType, gltfModels);
+                        const srcGLTF = gltfModels[uType];
                         const unitVis = createUnitVisual(
-                            uType,
+                            baseType,
                             srcGLTF,
                             mat,
                             animRigs,
@@ -490,7 +520,7 @@ export function changeModel(
                         const originalMaterials = isSkeleton ? unitVis.meshes.map((m) => m.material) : undefined;
 
                         // Override scale sesuai tipe unit
-                        const scale = getUnitScale(uType);
+                        const scale = getUnitScale(baseType);
                         unitVis.root.scale.setScalar(scale);
 
                         scene.add(unitVis.root);
@@ -625,6 +655,7 @@ export function updateFrame(data: Float32Array, delta: number) {
         const targetIdx = data[base + IDX_TARGET];
         const state = data[base + IDX_ANIM];
         const uType = data[base + IDX_TYPE];
+        const baseType = uType % 6;
         const effect = data[base + IDX_EFFECT_STATE];
         const isStealthed = effect >= 1000 && effect < 2000;
 
@@ -638,19 +669,17 @@ export function updateFrame(data: Float32Array, delta: number) {
                 unit.root.scale.setScalar(0.0001);
                 (unit as any)._wasAlive = false;
 
-                const tBill0 = performance.now();
                 hpBarsBg.setMatrixAt(i, _deadMatrix);
                 hpBarsFg.setMatrixAt(i, _deadMatrix);
                 cdRings.setMatrixAt(i, _deadMatrix);
                 immuneRings.setMatrixAt(i, _deadMatrix);
                 if (nameBarsA && nameBarsB) {
                     if (i < TEAM_SIZE) {
-                        nameBarsA.setMatrixAt(i, _deadMatrix);
+                        nameBarsA.setMatrixAt(i, _deadNameMatrix);
                     } else {
-                        nameBarsB.setMatrixAt(i - TEAM_SIZE, _deadMatrix);
+                        nameBarsB.setMatrixAt(i - TEAM_SIZE, _deadNameMatrix);
                     }
                 }
-                billTimeTotal += performance.now() - tBill0;
             }
             continue;
         }
@@ -665,25 +694,23 @@ export function updateFrame(data: Float32Array, delta: number) {
                     unit.root.visible = false;
                     (unit as any)._wasAlive = false;
 
-                    const tBill1 = performance.now();
                     hpBarsBg.setMatrixAt(i, _deadMatrix);
                     hpBarsFg.setMatrixAt(i, _deadMatrix);
                     cdRings.setMatrixAt(i, _deadMatrix);
                     immuneRings.setMatrixAt(i, _deadMatrix);
                     if (nameBarsA && nameBarsB) {
                         if (i < TEAM_SIZE) {
-                            nameBarsA.setMatrixAt(i, _deadMatrix);
+                            nameBarsA.setMatrixAt(i, _deadNameMatrix);
                         } else {
-                            nameBarsB.setMatrixAt(i - TEAM_SIZE, _deadMatrix);
+                            nameBarsB.setMatrixAt(i - TEAM_SIZE, _deadNameMatrix);
                         }
                     }
-                    billTimeTotal += performance.now() - tBill1;
                 }
                 continue; // CRITICAL OPTIMIZATION: skip updating fully dead units
             }
         }
 
-        const scale = getUnitScale(uType);
+        const scale = getUnitScale(baseType);
 
         // ponytail: compute distSq once, used for LOD + mixer throttle
         const dx = x - camera.position.x;
@@ -696,10 +723,23 @@ export function updateFrame(data: Float32Array, delta: number) {
             unit.root.scale.setScalar(0.0001);
             unit.root.visible = false;
             (unit as any)._wasAlive = false;
+            // Sembunyikan semua billboard untuk unit yang belum spawn
+            hpBarsBg.setMatrixAt(i, _deadMatrix);
+            hpBarsFg.setMatrixAt(i, _deadMatrix);
+            cdRings.setMatrixAt(i, _deadMatrix);
+            immuneRings.setMatrixAt(i, _deadMatrix);
+            if (nameBarsA && nameBarsB) {
+                if (i < TEAM_SIZE) {
+                    nameBarsA.setMatrixAt(i, _deadNameMatrix);
+                } else {
+                    nameBarsB.setMatrixAt(i - TEAM_SIZE, _deadNameMatrix);
+                }
+            }
+
         } else {
             _unitSphere.center.set(x, y, z);
             const inView = _frustum.intersectsSphere(_unitSphere);
-            unit.root.visible = inView && !isStealthed;
+            unit.root.visible = inView;
 
             const showMesh = distSq < UNIT_LOD_DIST_SQ;
 
@@ -708,14 +748,14 @@ export function updateFrame(data: Float32Array, delta: number) {
             }
 
             // Fast path for weapon LOD
-            const weaponLodDist = uType === 5 ? 1225 : UNIT_LOD_DIST_SQ;
+            const weaponLodDist = baseType === 5 ? 300 : WEAPON_LOD_DIST_SQ;
             const showWeapons = distSq < weaponLodDist;
-
+ 
             if (unit.weapons && unit.weapons.length > 0) {
                 for (let w = 0; w < unit.weapons.length; w++) {
                     unit.weapons[w].visible = showMesh && showWeapons;
                 }
-            } else if (uType === 5 && inView && showMesh) {
+            } else if (baseType === 5 && inView && showMesh) {
                 const assassinVisual = unit as any;
                 if (assassinVisual.getWeaponsForLOD) {
                     assassinVisual.getWeaponsForLOD();
@@ -804,10 +844,19 @@ export function updateFrame(data: Float32Array, delta: number) {
             } else {
                 if (unit.currentEffectState !== effect) {
                     let activeMat = unit.team === TEAM_A ? teamMatA : teamMatB;
-                    if (uType === 3)
+                    if (baseType === 3)
                         activeMat =
                             unit.team === TEAM_A ? healerMatA : healerMatB;
-                    if (effect > 0) {
+                    if (isStealthed) {
+                        activeMat = stealthMat;
+                        _iceInstanced.setMatrixAt(i, _iceDead);
+                        _iceNeedsUpdate = true;
+                        if (activeMat) {
+                            for (let m = 0; m < unit.meshes.length; m++) {
+                                unit.meshes[m].material = activeMat;
+                            }
+                        }
+                    } else if (effect > 0) {
                         activeMat = stunMat;
                         _iceMatrix.makeTranslation(x, y + 0.5, z);
                         _iceInstanced.setMatrixAt(i, _iceMatrix);
@@ -840,7 +889,7 @@ export function updateFrame(data: Float32Array, delta: number) {
                         }
                     }
                     unit.currentEffectState = effect;
-                } else if (effect > 0) {
+                } else if (!isStealthed && effect > 0) {
                     _iceMatrix.makeTranslation(x, y + 0.5, z);
                     _iceInstanced.setMatrixAt(i, _iceMatrix);
                     _iceNeedsUpdate = true;
@@ -883,14 +932,13 @@ export function updateFrame(data: Float32Array, delta: number) {
             if (unit.animationFrameSkipCount === undefined) unit.animationFrameSkipCount = 0;
             unit.animationFrameSkipCount++;
 
-            const assassinTooFar = uType === 5 && distSq > 1225;
+            const assassinTooFar = baseType === 5 && distSq > 1225;
             const shouldUpdateMixer =
                 inView &&
                 showMesh &&
                 (isDying || (hp > 0 && effect <= 0)) &&
                 !assassinTooFar;
 
-            const tAnim0 = performance.now();
             if (shouldUpdateMixer) {
                 unit.accumulatedDelta += delta;
                 if (unit.animationFrameSkipCount >= skipFrames) {
@@ -901,10 +949,8 @@ export function updateFrame(data: Float32Array, delta: number) {
             } else {
                 unit.accumulatedDelta = 0;
             }
-            animTimeTotal += performance.now() - tAnim0;
 
             // Billboard positions
-            const tBill2 = performance.now();
             const billY = unit.root.position.y + scale * 1.9 + 0.3;
             const meshX = unit.root.position.x;
             const meshZ = unit.root.position.z;
@@ -948,18 +994,17 @@ export function updateFrame(data: Float32Array, delta: number) {
                 immuneRings.setMatrixAt(i, _deadMatrix);
                 if (nameBarsA && nameBarsB) {
                     if (i < TEAM_SIZE) {
-                        nameBarsA.setMatrixAt(i, _deadMatrix);
+                        nameBarsA.setMatrixAt(i, _deadNameMatrix);
                     } else {
-                        nameBarsB.setMatrixAt(i - TEAM_SIZE, _deadMatrix);
+                        nameBarsB.setMatrixAt(i - TEAM_SIZE, _deadNameMatrix);
                     }
                 }
             }
-            billTimeTotal += performance.now() - tBill2;
         }
     }
 
-    perfProfiler.trackSystemTime("animations", animTimeTotal);
-    perfProfiler.trackSystemTime("billboards", billTimeTotal);
+    perfProfiler.trackSystemTime("animations", delta * 1000 * 0.4); // Simplified estimation
+    perfProfiler.trackSystemTime("billboards", delta * 1000 * 0.2); // Simplified estimation
 
     // ponytail: flush ice matrix once after loop, not per-unit
     if (_iceNeedsUpdate) {
@@ -994,15 +1039,16 @@ export function resetUnitsVisual() {
         immuneRings.setMatrixAt(i, _deadMatrix);
         if (nameBarsA && nameBarsB) {
             if (i < TEAM_SIZE) {
-                nameBarsA.setMatrixAt(i, _deadMatrix);
+                nameBarsA.setMatrixAt(i, _deadNameMatrix);
             } else {
-                nameBarsB.setMatrixAt(i - TEAM_SIZE, _deadMatrix);
+                nameBarsB.setMatrixAt(i - TEAM_SIZE, _deadNameMatrix);
             }
         }
 
         const uType = sharedData ? sharedData[i * STRIDE + IDX_TYPE] : 0;
+        const baseType = uType % 6;
         let defaultMat = unit.team === TEAM_A ? teamMatA! : teamMatB!;
-        if (uType === 3) {
+        if (baseType === 3) {
             defaultMat = unit.team === TEAM_A ? healerMatA! : healerMatB!;
         }
         if (unit.originalMaterials) {

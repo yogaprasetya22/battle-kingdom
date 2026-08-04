@@ -83,23 +83,41 @@ interface TeamComposition {
     healer: number;
     gunslinger: number;
     assassin: number;
+    skel_tank: number;
+    skel_archer: number;
+    skel_mage: number;
+    skel_healer: number;
+    skel_gunslinger: number;
+    skel_assassin: number;
 }
 let currentMatchup = "mix";
 let teamAConfig: TeamComposition = {
     tank: 15,
-    archer: 20,
-    mage: 20,
+    archer: 15,
+    mage: 10,
     healer: 5,
-    gunslinger: 20,
-    assassin: 20,
+    gunslinger: 5,
+    assassin: 0,
+    skel_tank: 0,
+    skel_archer: 0,
+    skel_mage: 0,
+    skel_healer: 0,
+    skel_gunslinger: 0,
+    skel_assassin: 0,
 };
 let teamBConfig: TeamComposition = {
     tank: 15,
-    archer: 20,
-    mage: 20,
+    archer: 15,
+    mage: 10,
     healer: 5,
-    gunslinger: 20,
-    assassin: 20,
+    gunslinger: 5,
+    assassin: 0,
+    skel_tank: 0,
+    skel_archer: 0,
+    skel_mage: 0,
+    skel_healer: 0,
+    skel_gunslinger: 0,
+    skel_assassin: 0,
 };
 
 // --- Spatial Hash Grid Configuration ---
@@ -151,10 +169,15 @@ function initUnits(d: Float32Array, matchup: string = "mix") {
         for (let j = 0; j < (config.archer ?? 0); j++) arr.push(TYPE_ARCHER);
         for (let j = 0; j < (config.mage ?? 0); j++) arr.push(TYPE_MAGE);
         for (let j = 0; j < (config.healer ?? 0); j++) arr.push(TYPE_HEALER);
-        for (let j = 0; j < (config.gunslinger ?? 0); j++)
-            arr.push(TYPE_GUNSLINGER);
-        for (let j = 0; j < (config.assassin ?? 0); j++)
-            arr.push(TYPE_ASSASSIN);
+        for (let j = 0; j < (config.gunslinger ?? 0); j++) arr.push(TYPE_GUNSLINGER);
+        for (let j = 0; j < (config.assassin ?? 0); j++) arr.push(TYPE_ASSASSIN);
+        // Skeleton Special Roles (types 6 to 11):
+        for (let j = 0; j < (config.skel_tank ?? 0); j++) arr.push(6);
+        for (let j = 0; j < (config.skel_archer ?? 0); j++) arr.push(7);
+        for (let j = 0; j < (config.skel_mage ?? 0); j++) arr.push(8);
+        for (let j = 0; j < (config.skel_healer ?? 0); j++) arr.push(9);
+        for (let j = 0; j < (config.skel_gunslinger ?? 0); j++) arr.push(10);
+        for (let j = 0; j < (config.skel_assassin ?? 0); j++) arr.push(11);
     };
     fillTypes(typesA, teamAConfig);
     fillTypes(typesB, teamBConfig);
@@ -668,14 +691,26 @@ function tick(d: Float32Array) {
             (teamAConfig.mage ?? 0) +
             (teamAConfig.healer ?? 0) +
             (teamAConfig.gunslinger ?? 0) +
-            (teamAConfig.assassin ?? 0);
+            (teamAConfig.assassin ?? 0) +
+            (teamAConfig.skel_tank ?? 0) +
+            (teamAConfig.skel_archer ?? 0) +
+            (teamAConfig.skel_mage ?? 0) +
+            (teamAConfig.skel_healer ?? 0) +
+            (teamAConfig.skel_gunslinger ?? 0) +
+            (teamAConfig.skel_assassin ?? 0);
         activeCountB =
             (teamBConfig.tank ?? 0) +
             (teamBConfig.archer ?? 0) +
             (teamBConfig.mage ?? 0) +
             (teamBConfig.healer ?? 0) +
             (teamBConfig.gunslinger ?? 0) +
-            (teamBConfig.assassin ?? 0);
+            (teamBConfig.assassin ?? 0) +
+            (teamBConfig.skel_tank ?? 0) +
+            (teamBConfig.skel_archer ?? 0) +
+            (teamBConfig.skel_mage ?? 0) +
+            (teamBConfig.skel_healer ?? 0) +
+            (teamBConfig.skel_gunslinger ?? 0) +
+            (teamBConfig.skel_assassin ?? 0);
     }
 
     const unitsToSpawn =
@@ -763,7 +798,8 @@ function tick(d: Float32Array) {
         if (d[base + IDX_SKILL3_CD] > 0) d[base + IDX_SKILL3_CD]--;
         if (d[base + IDX_ATTACK_CD] > 0) d[base + IDX_ATTACK_CD]--;
 
-        const uType = d[base + IDX_TYPE];
+        const uTypeRaw = d[base + IDX_TYPE];
+        const uType = uTypeRaw % 6;
         const cachedTarget = d[base + IDX_TARGET];
         let target = cachedTarget;
 
@@ -912,7 +948,7 @@ function tick(d: Float32Array) {
                 }
 
                 const sepMag = Math.sqrt(sepX * sepX + sepZ * sepZ);
-                const attr = ATTRIBUTES[uType] ?? DEFAULT_ATTRIBUTES;
+                const attr = ATTRIBUTES[uTypeRaw] ?? DEFAULT_ATTRIBUTES;
                 const mySpeed = attr.moveSpeed;
                 const limitMax = Math.min(SEPARATION_MAX, mySpeed); // Solusi 2
                 if (sepMag > limitMax) {
@@ -922,17 +958,17 @@ function tick(d: Float32Array) {
                 d[base + IDX_X] += sepX;
                 d[base + IDX_Z] += sepZ;
             }
-
+ 
             if (d[base + IDX_X] < BOUND_X_MIN) d[base + IDX_X] = BOUND_X_MIN;
             if (d[base + IDX_X] > BOUND_X_MAX) d[base + IDX_X] = BOUND_X_MAX;
             if (d[base + IDX_Z] < BOUND_Z_MIN) d[base + IDX_Z] = BOUND_Z_MIN;
             if (d[base + IDX_Z] > BOUND_Z_MAX) d[base + IDX_Z] = BOUND_Z_MAX;
             d[base + IDX_Y] = getTerrainHeight(d[base + IDX_X], d[base + IDX_Z]);
-
+ 
             continue;
         }
-
-        const attr = ATTRIBUTES[uType] ?? DEFAULT_ATTRIBUTES;
+ 
+        const attr = ATTRIBUTES[uTypeRaw] ?? DEFAULT_ATTRIBUTES;
         const mySpeed = attr.moveSpeed;
         const myRange = attr.attackRange;
         const baseDamage = attr.baseDamage;
@@ -1849,7 +1885,8 @@ function getStats(d: Float32Array) {
 
     for (let i = startIndex; i < endIndex; i++) {
         const base = i * STRIDE;
-        const uType = d[base + IDX_TYPE];
+        const uTypeRaw = d[base + IDX_TYPE];
+        const uType = uTypeRaw % 6;
         const team = d[base + IDX_TEAM];
 
         const dealt = statsDamageDealt[i];

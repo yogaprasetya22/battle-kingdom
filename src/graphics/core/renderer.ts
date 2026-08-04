@@ -11,11 +11,11 @@ import {
     scene,
     camera,
     renderer,
-    controls,
     gltfLoader,
     sun,
     ambient,
 } from "./scene";
+import { updateFlyCamera } from "./FreeFlyCameraController";
 import { soundFX } from "./SoundFX";
 import { World } from "../scenery/World";
 import {
@@ -280,7 +280,8 @@ export function startRenderLoop() {
         const delta = clock.getDelta();
         if (_onBeforeRender) _onBeforeRender(timestamp, delta);
 
-        controls.update();
+        // Update kamera free-fly (gerak + look)
+        updateFlyCamera(camera, delta);
         world.update(delta, camera.position);
         effectUniforms.uTime.value += delta;
 
