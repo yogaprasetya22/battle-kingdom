@@ -873,6 +873,62 @@ function tick(d: Float32Array) {
             if (animLockTicks[i] === 0) {
                 d[base + IDX_ANIM] = 0; // idle
             }
+
+            // Apply separation even when targetless so unit can be pushed out of the way (Solusi 1)
+            if (!skillActivated) {
+                let sepX = 0;
+                let sepZ = 0;
+                const myCol = Math.floor((d[base + IDX_X] - BOUND_X_MIN) / cellSize);
+                const myRow = Math.floor((d[base + IDX_Z] - BOUND_Z_MIN) / cellSize);
+
+                for (let r = myRow - 1; r <= myRow + 1; r++) {
+                    if (r < 0 || r >= gridRows) continue;
+                    for (let c = myCol - 1; c <= myCol + 1; c++) {
+                        if (c < 0 || c >= gridCols) continue;
+                        const cellIdx = r * gridCols + c;
+                        let curr = gridHead[cellIdx];
+                        while (curr !== -1) {
+                            if (curr !== i) {
+                                const jBase = curr * STRIDE;
+                                const jHp = d[jBase + IDX_HP];
+                                if (jHp > 0) {
+                                    const jx = d[jBase + IDX_X];
+                                    const jz = d[jBase + IDX_Z];
+                                    const dxj = d[base + IDX_X] - jx;
+                                    const dzj = d[base + IDX_Z] - jz;
+                                    const distSq = dxj * dxj + dzj * dzj;
+                                    if (distSq < SEPARATION_RADIUS * SEPARATION_RADIUS && distSq > 0.0001) {
+                                        const distj = Math.sqrt(distSq);
+                                        const force = (SEPARATION_RADIUS - distj) / SEPARATION_RADIUS;
+                                        const softDist = distj + 0.1;
+                                        sepX += (dxj / softDist) * force * SEPARATION_STRENGTH;
+                                        sepZ += (dzj / softDist) * force * SEPARATION_STRENGTH;
+                                    }
+                                }
+                            }
+                            curr = gridNext[curr];
+                        }
+                    }
+                }
+
+                const sepMag = Math.sqrt(sepX * sepX + sepZ * sepZ);
+                const attr = ATTRIBUTES[uType] ?? DEFAULT_ATTRIBUTES;
+                const mySpeed = attr.moveSpeed;
+                const limitMax = Math.min(SEPARATION_MAX, mySpeed); // Solusi 2
+                if (sepMag > limitMax) {
+                    sepX = (sepX / sepMag) * limitMax;
+                    sepZ = (sepZ / sepMag) * limitMax;
+                }
+                d[base + IDX_X] += sepX;
+                d[base + IDX_Z] += sepZ;
+            }
+
+            if (d[base + IDX_X] < BOUND_X_MIN) d[base + IDX_X] = BOUND_X_MIN;
+            if (d[base + IDX_X] > BOUND_X_MAX) d[base + IDX_X] = BOUND_X_MAX;
+            if (d[base + IDX_Z] < BOUND_Z_MIN) d[base + IDX_Z] = BOUND_Z_MIN;
+            if (d[base + IDX_Z] > BOUND_Z_MAX) d[base + IDX_Z] = BOUND_Z_MAX;
+            d[base + IDX_Y] = getTerrainHeight(d[base + IDX_X], d[base + IDX_Z]);
+
             continue;
         }
 
@@ -1600,9 +1656,10 @@ function tick(d: Float32Array) {
             }
 
             const sepMag = Math.sqrt(sepX * sepX + sepZ * sepZ);
-            if (sepMag > SEPARATION_MAX) {
-                sepX = (sepX / sepMag) * SEPARATION_MAX;
-                sepZ = (sepZ / sepMag) * SEPARATION_MAX;
+            const limitMax = Math.min(SEPARATION_MAX, mySpeed); // Solusi 2: Batasi max separation agar tidak melebihi kecepatan maju
+            if (sepMag > limitMax) {
+                sepX = (sepX / sepMag) * limitMax;
+                sepZ = (sepZ / sepMag) * limitMax;
             }
 
             const isTargetAlly = d[tBase + IDX_TEAM] === d[base + IDX_TEAM];
