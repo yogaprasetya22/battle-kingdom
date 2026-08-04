@@ -2,18 +2,88 @@ import * as THREE from "three";
 import { UNIT_COUNT, TEAM_SIZE } from "../../simulation/constants";
 import { scene } from "../core/scene";
 
-// ---- 1. HP Bars (thinner, always on top, Ragnarok style border) ----
-const hpBgGeo = new THREE.PlaneGeometry(1.06, 0.10);
-const hpFgGeo = new THREE.PlaneGeometry(1.0, 0.05);
+// ---- 1. HP Bars (Redesigned: thinner, highly visible neon colors, transparent to prevent blocking the battle) ----
+const hpBgGeo = new THREE.PlaneGeometry(0.84, 0.12);
+const hpFgGeo = new THREE.PlaneGeometry(0.80, 0.08);
 
 const hpBgMat = new THREE.MeshBasicMaterial({
-    color: 0x000000,
+    color: 0x050505,
     side: THREE.DoubleSide,
+    transparent: true,
+    opacity: 0.75, // Semi-transparent background
     depthTest: false,
     depthWrite: false,
 });
-const hpFgMat = new THREE.MeshBasicMaterial({
-    color: 0x2ecc71, // Ragnarok neon-ish green
+
+// Custom ShaderMaterial for foreground to support instanced coloring, neon glow, transparency, and dividers
+const hpFgMat = new THREE.ShaderMaterial({
+    uniforms: {},
+    vertexShader: `
+        varying vec2 vUv;
+        varying vec3 vColor;
+        void main() {
+            vUv = uv;
+            #ifdef USE_INSTANCING
+                float sX = length(vec3(instanceMatrix[0][0], instanceMatrix[0][1], instanceMatrix[0][2]));
+                float sY = length(vec3(instanceMatrix[1][0], instanceMatrix[1][1], instanceMatrix[1][2]));
+                float sZ = length(vec3(instanceMatrix[2][0], instanceMatrix[2][1], instanceMatrix[2][2]));
+                vColor = vec3(sX, sY, sZ);
+
+                mat4 normMatrix = instanceMatrix;
+                normMatrix[0] = vec4(sX > 0.0001 ? vec3(instanceMatrix[0][0], instanceMatrix[0][1], instanceMatrix[0][2]) / sX : vec3(1.0, 0.0, 0.0), 0.0);
+                normMatrix[1] = vec4(sY > 0.0001 ? vec3(instanceMatrix[1][0], instanceMatrix[1][1], instanceMatrix[1][2]) / sY : vec3(0.0, 1.0, 0.0), 0.0);
+                normMatrix[2] = vec4(sZ > 0.0001 ? vec3(instanceMatrix[2][0], instanceMatrix[2][1], instanceMatrix[2][2]) / sZ : vec3(0.0, 0.0, 1.0), 0.0);
+
+                vec4 localPosition = normMatrix * vec4(position, 1.0);
+                gl_Position = projectionMatrix * modelViewMatrix * localPosition;
+            #else
+                vColor = vec3(1.0, 0.0, 100.0); // Fallback
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            #endif
+        }
+    `,
+    fragmentShader: `
+        varying vec2 vUv;
+        varying vec3 vColor;
+        void main() {
+            float hpRatio = vColor.r;
+            float teamId = vColor.g;
+            float maxHp = vColor.b;
+
+            // Discard pixels beyond current HP ratio
+            if (vUv.x > hpRatio) {
+                discard;
+            }
+
+            // High-brightness neon colors: Neon green for Team A (allies), Neon hot pink-red for Team B (enemies)
+            vec3 baseColor = (teamId < 0.5) ? vec3(0.0, 1.0, 0.45) : vec3(1.0, 0.08, 0.35);
+
+            // Optimized simple linear gradient (no smoothstep)
+            vec3 finalColor = baseColor;
+            if (vUv.y > 0.6) {
+                finalColor = mix(baseColor, vec3(1.0), (vUv.y - 0.6) * 1.25);
+            } else {
+                finalColor = mix(baseColor * 0.75, baseColor, vUv.y * 1.6);
+            }
+
+            // Draw dividers (ticks) every 25 HP (optimized modulo check)
+            if (maxHp > 25.0) {
+                float tickSpacing = 25.0 / maxHp;
+                float absX = vUv.x * hpRatio;
+                float distToTick = mod(absX, tickSpacing);
+                
+                // Draw sharp ticks, avoiding boundaries
+                if (absX < hpRatio - 0.015 && absX > 0.015) {
+                    if (distToTick < 0.012 || (tickSpacing - distToTick) < 0.012) {
+                        finalColor = vec3(0.0);
+                    }
+                }
+            }
+
+            gl_FragColor = vec4(finalColor, 0.85);
+        }
+    `,
+    transparent: true,
     side: THREE.DoubleSide,
     depthTest: false,
     depthWrite: false,
@@ -21,7 +91,7 @@ const hpFgMat = new THREE.MeshBasicMaterial({
 
 export const hpBarsBg = new THREE.InstancedMesh(hpBgGeo, hpBgMat, UNIT_COUNT);
 export const hpBarsFg = new THREE.InstancedMesh(hpFgGeo, hpFgMat, UNIT_COUNT);
-hpBarsBg.renderOrder = 998; // Background slightly behind foreground
+hpBarsBg.renderOrder = 998;
 hpBarsFg.renderOrder = 999;
 scene.add(hpBarsBg);
 scene.add(hpBarsFg);
@@ -66,81 +136,121 @@ export const _deadMatrix = new THREE.Matrix4().makeScale(0, 0, 0);
 
 export let nameBarsA: THREE.InstancedMesh | null = null;
 export let nameBarsB: THREE.InstancedMesh | null = null;
-const nameGeo = new THREE.PlaneGeometry(2.0, 0.4);
+const nameGeo = new THREE.PlaneGeometry(1.2, 0.24);
 
-function createNameTexture(text: string, color: string) {
+// Greek mythology names for Team A (Allies)
+const GREEK_NAMES = [
+    "Ares", "Zeus", "Athena", "Hades", "Poseidon", "Apollo", "Artemis", "Hermes", "Hera", "Demeter",
+    "Hephaestus", "Aphrodite", "Hestia", "Dionysus", "Persephone", "Hercules", "Achilles", "Odysseus", "Theseus", "Perseus",
+    "Jason", "Bellerophon", "Orpheus", "Cadmus", "Ajax", "Agamemnon", "Menelaus", "Hector", "Paris", "Priam",
+    "Aeneas", "Romulus", "Remus", "Julius", "Augustus", "Marcus", "Hadrian", "Trajan", "Nero", "Caligula",
+    "Tiberius", "Claudius", "Vespasian", "Titus", "Domitian", "Nerva", "Antoninus", "Commodus", "Severus", "Caracalla"
+];
+
+// Norse mythology names for Team B (Enemies)
+const NORSE_NAMES = [
+    "Thor", "Odin", "Loki", "Freya", "Baldur", "Tyr", "Heimdall", "Frigg", "Sif", "Bragi",
+    "Idun", "Vidar", "Vali", "Ullr", "Forseti", "Hermod", "Kvasir", "Mani", "Sol", "Jord",
+    "Ran", "Aegir", "Hel", "Fenrir", "Jormungandr", "Ymir", "Surtr", "Thrym", "Gymir", "Gerd",
+    "Skadi", "Njord", "Freyr", "Sigyn", "Nanna", "Hermod", "Bor", "Buri", "Bestla", "Bolthorn",
+    "Mimir", "Hoenir", "Lodur", "Vili", "Ve", "Gefjon", "Fulla", "Eir", "Gna", "Lofn"
+];
+
+// Build a compact fixed-size 512x512 name sprite sheet:
+// Lay names in a grid of COLS columns. Each cell = 512/COLS wide, 512/ROWS tall.
+const NAME_ATLAS_COLS = 5;
+const NAME_ATLAS_ROWS = 10; // 5x10 = 50 slots (= TEAM_SIZE)
+const NAME_CELL_W = 512 / NAME_ATLAS_COLS;  // 102.4px → 102
+const NAME_CELL_H = 512 / NAME_ATLAS_ROWS;  // 51.2px → 51
+
+function createNamesTextureAtlas(names: string[], color: string) {
     const canvas = document.createElement("canvas");
     canvas.width = 512;
-    canvas.height = 128;
+    canvas.height = 512;
     const ctx = canvas.getContext("2d")!;
-    ctx.clearRect(0, 0, 512, 128);
+    ctx.clearRect(0, 0, 512, 512);
 
-    ctx.font = "bold 64px 'Outfit', 'Inter', Arial, sans-serif";
+    ctx.font = `bold ${Math.floor(NAME_CELL_H * 0.6)}px 'Outfit', Arial, sans-serif`;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
 
-    // Crisp Ragnarok-style solid black outline with rounded joints
-    ctx.strokeStyle = "#000000";
-    ctx.lineWidth = 14;
-    ctx.lineJoin = "round";
-    ctx.lineCap = "round";
-    ctx.strokeText(text, 256, 64);
+    for (let i = 0; i < TEAM_SIZE && i < NAME_ATLAS_COLS * NAME_ATLAS_ROWS; i++) {
+        const name = names[i] || `P${i + 1}`;
+        const col = i % NAME_ATLAS_COLS;
+        const row = Math.floor(i / NAME_ATLAS_COLS);
+        const cx = col * NAME_CELL_W + NAME_CELL_W / 2;
+        const cy = row * NAME_CELL_H + NAME_CELL_H / 2;
 
-    // Fill with crisp high-visibility color
-    ctx.fillStyle = color;
-    ctx.fillText(text, 256, 64);
+        ctx.strokeStyle = "#000000";
+        ctx.lineWidth = 8;
+        ctx.lineJoin = "round";
+        ctx.strokeText(name, cx, cy, NAME_CELL_W - 4);
+        ctx.fillStyle = color;
+        ctx.fillText(name, cx, cy, NAME_CELL_W - 4);
+    }
 
     const texture = new THREE.CanvasTexture(canvas);
     texture.colorSpace = THREE.SRGBColorSpace;
+    texture.minFilter = THREE.LinearFilter;
+    texture.magFilter = THREE.LinearFilter;
+    texture.generateMipmaps = false; // ponytail: no mips needed for UI sprite sheet
     return texture;
 }
 
 export function initNameBars(modelName: string) {
-    if (nameBarsA) scene.remove(nameBarsA);
-    if (nameBarsB) scene.remove(nameBarsB);
+    if (nameBarsA) { nameBarsA.geometry.dispose(); (nameBarsA.material as any).map?.dispose(); scene.remove(nameBarsA); }
+    if (nameBarsB) { nameBarsB.geometry.dispose(); (nameBarsB.material as any).map?.dispose(); scene.remove(nameBarsB); }
 
-    const model = modelName.toLowerCase();
-    let nameA = "Knight";
-    let nameB = "Knight";
+    const texA = createNamesTextureAtlas(GREEK_NAMES, "#ffea00");
+    const texB = createNamesTextureAtlas(NORSE_NAMES, "#00f0ff");
 
-    if (model.includes("mage")) {
-        nameA = "Mage";
-        nameB = "Mage";
-    } else if (model.includes("archer") || model.includes("ranger")) {
-        nameA = "Archer";
-        nameB = "Archer";
-    } else if (model.includes("barbarian")) {
-        nameA = "Barbarian";
-        nameB = "Barbarian";
-    } else if (model.includes("gunslinger") || model.includes("rogue_hooded")) {
-        nameA = "Gunslinger";
-        nameB = "Gunslinger";
-    } else if (model.includes("assassin") || model.includes("rogue")) {
-        nameA = "Assassin";
-        nameB = "Assassin";
-    }
-
-    const texA = createNameTexture(nameA, "#ffea00"); // Ragnarok gold/yellow name for readability
-    const matA = new THREE.MeshBasicMaterial({
-        map: texA,
+    // ponytail: one shared ShaderMaterial class, two instances with different uniform
+    // Vertex shader extracts (col, row) from gl_InstanceID to sample correct sprite cell
+    const buildNameMat = (tex: THREE.Texture) => new THREE.ShaderMaterial({
+        uniforms: { map: { value: tex } },
+        vertexShader: `
+            varying vec2 vUv;
+            void main() {
+                float idx = float(gl_InstanceID);
+                float col = mod(idx, ${NAME_ATLAS_COLS.toFixed(1)});
+                float row = floor(idx / ${NAME_ATLAS_COLS.toFixed(1)});
+                float colSize = 1.0 / ${NAME_ATLAS_COLS.toFixed(1)};
+                float rowSize = 1.0 / ${NAME_ATLAS_ROWS.toFixed(1)};
+                // map local [0,1] UV to sprite cell in atlas
+                vUv = vec2(
+                    col * colSize + uv.x * colSize,
+                    row * rowSize + uv.y * rowSize
+                );
+                #ifdef USE_INSTANCING
+                    vec4 lp = instanceMatrix * vec4(position, 1.0);
+                    gl_Position = projectionMatrix * modelViewMatrix * lp;
+                #else
+                    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                #endif
+            }
+        `,
+        fragmentShader: `
+            uniform sampler2D map;
+            varying vec2 vUv;
+            void main() {
+                vec4 c = texture2D(map, vUv);
+                if (c.a < 0.1) discard;
+                gl_FragColor = c;
+            }
+        `,
         transparent: true,
         side: THREE.DoubleSide,
         depthTest: false,
         depthWrite: false,
     });
-    nameBarsA = new THREE.InstancedMesh(nameGeo, matA, TEAM_SIZE);
+
+    nameBarsA = new THREE.InstancedMesh(nameGeo, buildNameMat(texA), TEAM_SIZE);
     nameBarsA.renderOrder = 999;
+    nameBarsA.frustumCulled = false; // ponytail: we manage visibility via _deadMatrix
     scene.add(nameBarsA);
 
-    const texB = createNameTexture(nameB, "#00f0ff"); // High-contrast neon cyan for team B
-    const matB = new THREE.MeshBasicMaterial({
-        map: texB,
-        transparent: true,
-        side: THREE.DoubleSide,
-        depthTest: false,
-        depthWrite: false,
-    });
-    nameBarsB = new THREE.InstancedMesh(nameGeo, matB, TEAM_SIZE);
+    nameBarsB = new THREE.InstancedMesh(nameGeo, buildNameMat(texB), TEAM_SIZE);
     nameBarsB.renderOrder = 999;
+    nameBarsB.frustumCulled = false;
     scene.add(nameBarsB);
 }

@@ -20,9 +20,9 @@ export const SPAWN_INSIDE_OFFSET_X = 6.5; // jarak spawn di dalam kastil (sumbu 
 export const SPAWN_INSIDE_SPREAD_Z = 0.75; // max spread Z spawn (Math.random() - 0.5) * 2 * ini
 
 // ============ MOVEMENT & SEPARATION ============
-export const SEPARATION_RADIUS = 0.95;
-export const SEPARATION_STRENGTH = 0.02;
-export const SEPARATION_MAX = 0.04; // batas magnitude separation
+export const SEPARATION_RADIUS = 1.5; // naik dari 0.95 — tank menyebar lebih luas, kurangi klaster padat
+export const SEPARATION_STRENGTH = 0.03; // naik dari 0.02 — dorong lebih kuat saat bertumpuk
+export const SEPARATION_MAX = 0.06; // naik dari 0.04 — batas dorong maksimum per tick
 
 // ============ TERRAIN BOUNDS ============
 export const BOUND_X_MIN = -119;

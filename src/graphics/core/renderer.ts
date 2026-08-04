@@ -22,6 +22,7 @@ import {
     setSharedData as setUnitSharedData,
     updateFrame,
 } from "./UnitRenderer";
+import { perfProfiler } from "./PerformanceProfiler";
 
 export { changeModel, resetUnitsVisual } from "./UnitRenderer";
 
@@ -269,7 +270,11 @@ let lastFpsUpdate = 0;
 let frameCount = 0;
 
 export function startRenderLoop() {
+    // Set Three.js renderer reference for CPU/GPU memory & draw call tracking
+    perfProfiler.setRenderer(renderer);
+
     const loop = (timestamp: number) => {
+        perfProfiler.startFrame();
         animId = requestAnimationFrame(loop);
 
         const delta = clock.getDelta();
@@ -310,6 +315,8 @@ export function startRenderLoop() {
 
         if (sharedData) updateFrame(sharedData, delta);
         renderer.render(scene, camera);
+
+        perfProfiler.endFrame();
     };
     animId = requestAnimationFrame(loop);
 }

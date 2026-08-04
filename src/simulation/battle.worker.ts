@@ -1582,12 +1582,13 @@ function tick(d: Float32Array) {
                                     const force =
                                         (SEPARATION_RADIUS - distj) /
                                         SEPARATION_RADIUS;
+                                    const softDist = distj + 0.1;
                                     sepX +=
-                                        (dxj / distj) *
+                                        (dxj / softDist) *
                                         force *
                                         SEPARATION_STRENGTH;
                                     sepZ +=
-                                        (dzj / distj) *
+                                        (dzj / softDist) *
                                         force *
                                         SEPARATION_STRENGTH;
                                 }

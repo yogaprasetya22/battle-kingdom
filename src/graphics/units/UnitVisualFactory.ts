@@ -26,33 +26,34 @@ export function createUnitVisual(
     sourceGLTF: any,
     teamMat: THREE.MeshStandardMaterial,
     animRigs: Record<string, THREE.AnimationClip[]>,
+    isSkeleton: boolean = false,
 ): IUnitVisual {
     let unit: IUnitVisual;
 
     switch (uType) {
         case 0:
-            unit = new KnightVisual(sourceGLTF, teamMat);
+            unit = new KnightVisual(sourceGLTF, teamMat, isSkeleton);
             break;
         case 1:
-            unit = new ArcherVisual(sourceGLTF, teamMat);
+            unit = new ArcherVisual(sourceGLTF, teamMat, isSkeleton);
             break;
         case 2:
-            unit = new MageVisual(sourceGLTF, teamMat);
+            unit = new MageVisual(sourceGLTF, teamMat, isSkeleton);
             break;
         case 3:
-            unit = new HealerVisual(sourceGLTF, teamMat);
+            unit = new HealerVisual(sourceGLTF, teamMat, isSkeleton);
             break;
         case 4:
-            unit = new GunslingerVisual(sourceGLTF, teamMat);
+            unit = new GunslingerVisual(sourceGLTF, teamMat, isSkeleton);
             break;
         case 5:
-            unit = new AssassinVisual(sourceGLTF, teamMat);
+            unit = new AssassinVisual(sourceGLTF, teamMat, isSkeleton);
             break;
         // ponytail: tipe 6-7 belum dibuat class mandiri, fallback ke Knight dulu
         case 6:
         case 7:
         default:
-            unit = new KnightVisual(sourceGLTF, teamMat);
+            unit = new KnightVisual(sourceGLTF, teamMat, isSkeleton);
             break;
     }
 

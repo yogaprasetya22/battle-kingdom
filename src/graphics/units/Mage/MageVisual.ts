@@ -31,14 +31,22 @@ export class MageVisual implements IUnitVisual {
     readonly meshes: THREE.Mesh[] = [];
     readonly weapons: THREE.Group[] = [];
     private _currentAnimState = 0;
+    readonly isSkeleton: boolean;
 
-    constructor(sourceGLTF: any, teamMaterial: THREE.MeshStandardMaterial) {
+    constructor(
+        sourceGLTF: any,
+        teamMaterial: THREE.MeshStandardMaterial,
+        isSkeleton = false,
+    ) {
+        this.isSkeleton = isSkeleton;
         this.root = SkeletonUtils.clone(sourceGLTF.scene) as THREE.Group;
         this.root.scale.setScalar(0.6);
 
         this.root.traverse((child: any) => {
             if (child.isMesh) {
-                child.material = teamMaterial;
+                if (!isSkeleton) {
+                    child.material = teamMaterial;
+                }
                 this.meshes.push(child as THREE.Mesh);
             }
         });
@@ -46,7 +54,8 @@ export class MageVisual implements IUnitVisual {
     }
 
     loadAssets(): void {
-        const staff = attachWeapon(this.root, "staff", "hand_r");
+        const staffName = this.isSkeleton ? "Skeleton_Staff" : "staff";
+        const staff = attachWeapon(this.root, staffName, "hand_r");
         if (staff) this.weapons.push(staff);
     }
 

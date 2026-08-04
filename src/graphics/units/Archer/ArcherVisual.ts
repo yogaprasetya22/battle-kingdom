@@ -34,14 +34,22 @@ export class ArcherVisual implements IUnitVisual {
     readonly weapons: THREE.Group[] = [];
 
     private _currentAnimState = 0;
+    readonly isSkeleton: boolean;
 
-    constructor(sourceGLTF: any, teamMaterial: THREE.MeshStandardMaterial) {
+    constructor(
+        sourceGLTF: any,
+        teamMaterial: THREE.MeshStandardMaterial,
+        isSkeleton = false,
+    ) {
+        this.isSkeleton = isSkeleton;
         this.root = SkeletonUtils.clone(sourceGLTF.scene) as THREE.Group;
         this.root.scale.setScalar(0.42); // Archer lebih kecil — proporsional
 
         this.root.traverse((child: any) => {
             if (child.isMesh) {
-                child.material = teamMaterial;
+                if (!isSkeleton) {
+                    child.material = teamMaterial;
+                }
                 this.meshes.push(child as THREE.Mesh);
             }
         });
@@ -60,10 +68,13 @@ export class ArcherVisual implements IUnitVisual {
 
     /** Pasang busur di tangan kiri + quiver di punggung */
     loadAssets(): void {
-        const bow = attachWeapon(this.root, "bow_withString", "hand_l");
+        const bowName = this.isSkeleton ? "Skeleton_Crossbow" : "bow_withString";
+        const quiverName = this.isSkeleton ? "Skeleton_Quiver" : "quiver";
+
+        const bow = attachWeapon(this.root, bowName, "hand_l");
         if (bow) this.weapons.push(bow);
 
-        const quiver = attachWeapon(this.root, "quiver", "spine");
+        const quiver = attachWeapon(this.root, quiverName, "spine");
         if (quiver) this.weapons.push(quiver);
     }
 

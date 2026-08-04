@@ -10,7 +10,8 @@
     content="Simulasi pertempuran massal 100 vs 100 unit menggunakan Pure Three.js dan Web Workers" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet"
+    crossorigin />
   <script src="/tailwindcss.js"></script>
   <style>
     body {
@@ -988,7 +989,8 @@
       font-family: 'Inter', sans-serif;
       color: #ffffff;
     }
-    #settings-overlay > div {
+
+    #settings-overlay>div {
       background-color: #0b0f19 !important;
       border: 1px solid rgba(255, 255, 255, 0.15) !important;
       box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8) !important;
@@ -1048,15 +1050,15 @@
 
   <!-- Controls -->
   <div id="controls">
-    <select id="select-model" style="display: none;" disabled>
+    <select id="select-model" disabled>
       <option value="Knight" selected>Knight</option>
-      <option value="Barbarian">Barbarian</option>
       <option value="Mage">Mage</option>
       <option value="Ranger">Ranger</option>
       <option value="Rogue">Rogue</option>
       <option value="Rogue_Hooded">Rogue Hooded</option>
+      <option value="Skeleton">Skeleton (Spesial)</option>
     </select>
-    <button id="btn-viewer" style="display: none;" disabled>📖 Katalog Karakter</button>
+    <button id="btn-viewer" disabled style="display:none">📖 Katalog Karakter</button>
     <select id="select-matchup" disabled>
       <option value="mix" selected>Campuran (Semua Kelas)</option>
       <option value="custom_composition">Kustom (Pengaturan UI)</option>
@@ -1075,24 +1077,35 @@
   </div>
 
   <!-- Settings Overlay -->
-  <div id="settings-overlay" style="display: none;" class="fixed inset-0 bg-slate-950/85 backdrop-blur-xl flex-col items-center justify-center z-[100] p-4 md:p-6 overflow-y-auto">
-    <div class="bg-slate-900/90 border border-slate-700/50 rounded-3xl p-6 w-full max-w-4xl shadow-2xl flex flex-col gap-6 max-h-[90vh] overflow-y-auto text-white">
+  <div id="settings-overlay" style="display: none;"
+    class="fixed inset-0 bg-slate-950/85 backdrop-blur-xl flex-col items-center justify-center z-[100] p-4 md:p-6 overflow-y-auto">
+    <div
+      class="bg-slate-900/90 border border-slate-700/50 rounded-3xl p-6 w-full max-w-4xl shadow-2xl flex flex-col gap-6 max-h-[90vh] overflow-y-auto text-white">
       <div class="flex items-center justify-between border-b border-slate-800 pb-4">
         <div>
           <h2 class="text-2xl font-black tracking-tight text-white">⚙️ Pengaturan Komposisi Pasukan</h2>
           <p class="text-xs text-slate-400">Atur jumlah unit per kelas untuk setiap tim (Maks. 100 unit per tim)</p>
         </div>
-        <button id="btn-settings-close" class="text-slate-400 hover:text-white transition-colors text-xl font-bold p-2">✕</button>
+        <button id="btn-settings-close"
+          class="text-slate-400 hover:text-white transition-colors text-xl font-bold p-2">✕</button>
       </div>
 
       <!-- Presets -->
       <div class="flex flex-col gap-2">
         <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Pilih Preset Cepat:</span>
         <div class="flex flex-wrap gap-2">
-          <button id="preset-balanced" class="bg-slate-800 hover:bg-slate-700 text-xs text-white font-bold py-2 px-4 rounded-full border border-slate-700/50 transition">⚖️ Campuran Seimbang</button>
-          <button id="preset-magic" class="bg-slate-800 hover:bg-slate-700 text-xs text-white font-bold py-2 px-4 rounded-full border border-slate-700/50 transition">🧙 Pasukan Sihir</button>
-          <button id="preset-defense" class="bg-slate-800 hover:bg-slate-700 text-xs text-white font-bold py-2 px-4 rounded-full border border-slate-700/50 transition">🛡️ Benteng Pertahanan</button>
-          <button id="preset-stealth" class="bg-slate-800 hover:bg-slate-700 text-xs text-white font-bold py-2 px-4 rounded-full border border-slate-700/50 transition">🗡️ Operasi Senyap</button>
+          <button id="preset-balanced"
+            class="bg-slate-800 hover:bg-slate-700 text-xs text-white font-bold py-2 px-4 rounded-full border border-slate-700/50 transition">⚖️
+            Campuran Seimbang</button>
+          <button id="preset-magic"
+            class="bg-slate-800 hover:bg-slate-700 text-xs text-white font-bold py-2 px-4 rounded-full border border-slate-700/50 transition">🧙
+            Pasukan Sihir</button>
+          <button id="preset-defense"
+            class="bg-slate-800 hover:bg-slate-700 text-xs text-white font-bold py-2 px-4 rounded-full border border-slate-700/50 transition">🛡️
+            Benteng Pertahanan</button>
+          <button id="preset-stealth"
+            class="bg-slate-800 hover:bg-slate-700 text-xs text-white font-bold py-2 px-4 rounded-full border border-slate-700/50 transition">🗡️
+            Operasi Senyap</button>
         </div>
       </div>
 
@@ -1102,7 +1115,9 @@
         <div class="bg-red-950/20 border border-red-500/20 rounded-2xl p-5 flex flex-col gap-4">
           <div class="flex items-center justify-between border-b border-red-500/20 pb-3">
             <span class="text-lg font-black text-red-400">🔴 TIM A (Kiri)</span>
-            <span class="bg-red-500/10 text-red-300 border border-red-500/30 text-xs font-black px-3 py-1 rounded-full"><span id="total-a-units">0</span> / 100 Unit</span>
+            <span
+              class="bg-red-500/10 text-red-300 border border-red-500/30 text-xs font-black px-3 py-1 rounded-full"><span
+                id="total-a-units">0</span><span class="limit-placeholder-text"> / 100 Unit</span></span>
           </div>
 
           <!-- Class Controls A -->
@@ -1111,72 +1126,90 @@
             <div class="flex flex-col gap-1">
               <div class="flex items-center justify-between">
                 <label class="text-sm font-bold text-slate-200 flex items-center gap-2">
-                  <input type="checkbox" id="chk-a-tank" class="rounded bg-slate-800 border-slate-700 text-red-500 focus:ring-red-500" checked>
+                  <input type="checkbox" id="chk-a-tank"
+                    class="rounded bg-slate-800 border-slate-700 text-red-500 focus:ring-red-500" checked>
                   🛡️ Tank (Knight)
                 </label>
-                <span id="val-a-tank" class="text-xs font-bold text-red-400 bg-red-500/10 px-2 py-0.5 rounded border border-red-500/20">15</span>
+                <span id="val-a-tank"
+                  class="text-xs font-bold text-red-400 bg-red-500/10 px-2 py-0.5 rounded border border-red-500/20">7</span>
               </div>
-              <input type="range" id="slider-a-tank" min="0" max="100" value="15" class="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-red-500">
+              <input type="range" id="slider-a-tank" min="0" max="100" value="7"
+                class="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-red-500">
             </div>
 
             <!-- Archer A -->
             <div class="flex flex-col gap-1">
               <div class="flex items-center justify-between">
                 <label class="text-sm font-bold text-slate-200 flex items-center gap-2">
-                  <input type="checkbox" id="chk-a-archer" class="rounded bg-slate-800 border-slate-700 text-red-500 focus:ring-red-500" checked>
+                  <input type="checkbox" id="chk-a-archer"
+                    class="rounded bg-slate-800 border-slate-700 text-red-500 focus:ring-red-500" checked>
                   🏹 Archer (Ranger)
                 </label>
-                <span id="val-a-archer" class="text-xs font-bold text-red-400 bg-red-500/10 px-2 py-0.5 rounded border border-red-500/20">20</span>
+                <span id="val-a-archer"
+                  class="text-xs font-bold text-red-400 bg-red-500/10 px-2 py-0.5 rounded border border-red-500/20">10</span>
               </div>
-              <input type="range" id="slider-a-archer" min="0" max="100" value="20" class="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-red-500">
+              <input type="range" id="slider-a-archer" min="0" max="100" value="10"
+                class="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-red-500">
             </div>
 
             <!-- Mage A -->
             <div class="flex flex-col gap-1">
               <div class="flex items-center justify-between">
                 <label class="text-sm font-bold text-slate-200 flex items-center gap-2">
-                  <input type="checkbox" id="chk-a-mage" class="rounded bg-slate-800 border-slate-700 text-red-500 focus:ring-red-500" checked>
+                  <input type="checkbox" id="chk-a-mage"
+                    class="rounded bg-slate-800 border-slate-700 text-red-500 focus:ring-red-500" checked>
                   🧙 Mage
                 </label>
-                <span id="val-a-mage" class="text-xs font-bold text-red-400 bg-red-500/10 px-2 py-0.5 rounded border border-red-500/20">20</span>
+                <span id="val-a-mage"
+                  class="text-xs font-bold text-red-400 bg-red-500/10 px-2 py-0.5 rounded border border-red-500/20">10</span>
               </div>
-              <input type="range" id="slider-a-mage" min="0" max="100" value="20" class="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-red-500">
+              <input type="range" id="slider-a-mage" min="0" max="100" value="10"
+                class="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-red-500">
             </div>
 
             <!-- Healer A -->
             <div class="flex flex-col gap-1">
               <div class="flex items-center justify-between">
                 <label class="text-sm font-bold text-slate-200 flex items-center gap-2">
-                  <input type="checkbox" id="chk-a-healer" class="rounded bg-slate-800 border-slate-700 text-red-500 focus:ring-red-500" checked>
+                  <input type="checkbox" id="chk-a-healer"
+                    class="rounded bg-slate-800 border-slate-700 text-red-500 focus:ring-red-500" checked>
                   💚 Healer (Acolyte)
                 </label>
-                <span id="val-a-healer" class="text-xs font-bold text-red-400 bg-red-500/10 px-2 py-0.5 rounded border border-red-500/20">5</span>
+                <span id="val-a-healer"
+                  class="text-xs font-bold text-red-400 bg-red-500/10 px-2 py-0.5 rounded border border-red-500/20">3</span>
               </div>
-              <input type="range" id="slider-a-healer" min="0" max="100" value="5" class="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-red-500">
+              <input type="range" id="slider-a-healer" min="0" max="100" value="3"
+                class="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-red-500">
             </div>
 
             <!-- Gunslinger A -->
             <div class="flex flex-col gap-1">
               <div class="flex items-center justify-between">
                 <label class="text-sm font-bold text-slate-200 flex items-center gap-2">
-                  <input type="checkbox" id="chk-a-gunslinger" class="rounded bg-slate-800 border-slate-700 text-red-500 focus:ring-red-500" checked>
+                  <input type="checkbox" id="chk-a-gunslinger"
+                    class="rounded bg-slate-800 border-slate-700 text-red-500 focus:ring-red-500" checked>
                   🔫 Gunslinger
                 </label>
-                <span id="val-a-gunslinger" class="text-xs font-bold text-red-400 bg-red-500/10 px-2 py-0.5 rounded border border-red-500/20">20</span>
+                <span id="val-a-gunslinger"
+                  class="text-xs font-bold text-red-400 bg-red-500/10 px-2 py-0.5 rounded border border-red-500/20">10</span>
               </div>
-              <input type="range" id="slider-a-gunslinger" min="0" max="100" value="20" class="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-red-500">
+              <input type="range" id="slider-a-gunslinger" min="0" max="100" value="10"
+                class="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-red-500">
             </div>
 
             <!-- Assassin A -->
             <div class="flex flex-col gap-1">
               <div class="flex items-center justify-between">
                 <label class="text-sm font-bold text-slate-200 flex items-center gap-2">
-                  <input type="checkbox" id="chk-a-assassin" class="rounded bg-slate-800 border-slate-700 text-red-500 focus:ring-red-500" checked>
+                  <input type="checkbox" id="chk-a-assassin"
+                    class="rounded bg-slate-800 border-slate-700 text-red-500 focus:ring-red-500" checked>
                   🗡️ Assassin
                 </label>
-                <span id="val-a-assassin" class="text-xs font-bold text-red-400 bg-red-500/10 px-2 py-0.5 rounded border border-red-500/20">20</span>
+                <span id="val-a-assassin"
+                  class="text-xs font-bold text-red-400 bg-red-500/10 px-2 py-0.5 rounded border border-red-500/20">10</span>
               </div>
-              <input type="range" id="slider-a-assassin" min="0" max="100" value="20" class="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-red-500">
+              <input type="range" id="slider-a-assassin" min="0" max="100" value="10"
+                class="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-red-500">
             </div>
           </div>
         </div>
@@ -1185,7 +1218,9 @@
         <div class="bg-blue-950/20 border border-blue-500/20 rounded-2xl p-5 flex flex-col gap-4">
           <div class="flex items-center justify-between border-b border-blue-500/20 pb-3">
             <span class="text-lg font-black text-blue-400">🔵 TIM B (Kanan)</span>
-            <span class="bg-blue-500/10 text-blue-300 border border-blue-500/30 text-xs font-black px-3 py-1 rounded-full"><span id="total-b-units">0</span> / 100 Unit</span>
+            <span
+              class="bg-blue-500/10 text-blue-300 border border-blue-500/30 text-xs font-black px-3 py-1 rounded-full"><span
+                id="total-b-units">0</span><span class="limit-placeholder-text"> / 100 Unit</span></span>
           </div>
 
           <!-- Class Controls B -->
@@ -1194,72 +1229,90 @@
             <div class="flex flex-col gap-1">
               <div class="flex items-center justify-between">
                 <label class="text-sm font-bold text-slate-200 flex items-center gap-2">
-                  <input type="checkbox" id="chk-b-tank" class="rounded bg-slate-800 border-slate-700 text-blue-500 focus:ring-blue-500" checked>
+                  <input type="checkbox" id="chk-b-tank"
+                    class="rounded bg-slate-800 border-slate-700 text-blue-500 focus:ring-blue-500" checked>
                   🛡️ Tank (Knight)
                 </label>
-                <span id="val-b-tank" class="text-xs font-bold text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20">15</span>
+                <span id="val-b-tank"
+                  class="text-xs font-bold text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20">7</span>
               </div>
-              <input type="range" id="slider-b-tank" min="0" max="100" value="15" class="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-500">
+              <input type="range" id="slider-b-tank" min="0" max="100" value="7"
+                class="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-500">
             </div>
 
             <!-- Archer B -->
             <div class="flex flex-col gap-1">
               <div class="flex items-center justify-between">
                 <label class="text-sm font-bold text-slate-200 flex items-center gap-2">
-                  <input type="checkbox" id="chk-b-archer" class="rounded bg-slate-800 border-slate-700 text-blue-500 focus:ring-blue-500" checked>
+                  <input type="checkbox" id="chk-b-archer"
+                    class="rounded bg-slate-800 border-slate-700 text-blue-500 focus:ring-blue-500" checked>
                   🏹 Archer (Ranger)
                 </label>
-                <span id="val-b-archer" class="text-xs font-bold text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20">20</span>
+                <span id="val-b-archer"
+                  class="text-xs font-bold text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20">10</span>
               </div>
-              <input type="range" id="slider-b-archer" min="0" max="100" value="20" class="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-500">
+              <input type="range" id="slider-b-archer" min="0" max="100" value="10"
+                class="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-500">
             </div>
 
             <!-- Mage B -->
             <div class="flex flex-col gap-1">
               <div class="flex items-center justify-between">
                 <label class="text-sm font-bold text-slate-200 flex items-center gap-2">
-                  <input type="checkbox" id="chk-b-mage" class="rounded bg-slate-800 border-slate-700 text-blue-500 focus:ring-blue-500" checked>
+                  <input type="checkbox" id="chk-b-mage"
+                    class="rounded bg-slate-800 border-slate-700 text-blue-500 focus:ring-blue-500" checked>
                   🧙 Mage
                 </label>
-                <span id="val-b-mage" class="text-xs font-bold text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20">20</span>
+                <span id="val-b-mage"
+                  class="text-xs font-bold text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20">10</span>
               </div>
-              <input type="range" id="slider-b-mage" min="0" max="100" value="20" class="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-500">
+              <input type="range" id="slider-b-mage" min="0" max="100" value="10"
+                class="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-500">
             </div>
 
             <!-- Healer B -->
             <div class="flex flex-col gap-1">
               <div class="flex items-center justify-between">
                 <label class="text-sm font-bold text-slate-200 flex items-center gap-2">
-                  <input type="checkbox" id="chk-b-healer" class="rounded bg-slate-800 border-slate-700 text-blue-500 focus:ring-blue-500" checked>
+                  <input type="checkbox" id="chk-b-healer"
+                    class="rounded bg-slate-800 border-slate-700 text-blue-500 focus:ring-blue-500" checked>
                   💚 Healer (Acolyte)
                 </label>
-                <span id="val-b-healer" class="text-xs font-bold text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20">5</span>
+                <span id="val-b-healer"
+                  class="text-xs font-bold text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20">3</span>
               </div>
-              <input type="range" id="slider-b-healer" min="0" max="100" value="5" class="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-500">
+              <input type="range" id="slider-b-healer" min="0" max="100" value="3"
+                class="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-500">
             </div>
 
             <!-- Gunslinger B -->
             <div class="flex flex-col gap-1">
               <div class="flex items-center justify-between">
                 <label class="text-sm font-bold text-slate-200 flex items-center gap-2">
-                  <input type="checkbox" id="chk-b-gunslinger" class="rounded bg-slate-800 border-slate-700 text-blue-500 focus:ring-blue-500" checked>
+                  <input type="checkbox" id="chk-b-gunslinger"
+                    class="rounded bg-slate-800 border-slate-700 text-blue-500 focus:ring-blue-500" checked>
                   🔫 Gunslinger
                 </label>
-                <span id="val-b-gunslinger" class="text-xs font-bold text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20">20</span>
+                <span id="val-b-gunslinger"
+                  class="text-xs font-bold text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20">10</span>
               </div>
-              <input type="range" id="slider-b-gunslinger" min="0" max="100" value="20" class="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-500">
+              <input type="range" id="slider-b-gunslinger" min="0" max="100" value="10"
+                class="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-500">
             </div>
 
             <!-- Assassin B -->
             <div class="flex flex-col gap-1">
               <div class="flex items-center justify-between">
                 <label class="text-sm font-bold text-slate-200 flex items-center gap-2">
-                  <input type="checkbox" id="chk-b-assassin" class="rounded bg-slate-800 border-slate-700 text-blue-500 focus:ring-blue-500" checked>
+                  <input type="checkbox" id="chk-b-assassin"
+                    class="rounded bg-slate-800 border-slate-700 text-blue-500 focus:ring-blue-500" checked>
                   🗡️ Assassin
                 </label>
-                <span id="val-b-assassin" class="text-xs font-bold text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20">20</span>
+                <span id="val-b-assassin"
+                  class="text-xs font-bold text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20">10</span>
               </div>
-              <input type="range" id="slider-b-assassin" min="0" max="100" value="20" class="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-500">
+              <input type="range" id="slider-b-assassin" min="0" max="100" value="10"
+                class="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-500">
             </div>
           </div>
         </div>
@@ -1267,13 +1320,17 @@
 
       <!-- Warning & Actions -->
       <div class="flex flex-col gap-4 border-t border-slate-800 pt-4">
-        <div id="settings-warning" class="hidden bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-bold px-4 py-3 rounded-xl flex items-center gap-2">
+        <div id="settings-warning"
+          class="hidden bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-bold px-4 py-3 rounded-xl flex items-center gap-2">
           ⚠️ Total unit untuk salah satu tim melebihi 100 atau kosong! Mohon sesuaikan kembali.
         </div>
 
         <div class="flex items-center justify-end gap-3">
-          <button id="btn-settings-cancel" class="bg-slate-800 hover:bg-slate-750 text-white font-bold py-2.5 px-6 rounded-full border border-slate-700/50 transition">Batal</button>
-          <button id="btn-settings-save" class="bg-gradient-to-r from-red-500 to-blue-500 hover:opacity-90 text-white font-bold py-2.5 px-8 rounded-full shadow-lg transition">Simpan & Terapkan</button>
+          <button id="btn-settings-cancel"
+            class="bg-slate-800 hover:bg-slate-750 text-white font-bold py-2.5 px-6 rounded-full border border-slate-700/50 transition">Batal</button>
+          <button id="btn-settings-save"
+            class="bg-gradient-to-r from-red-500 to-blue-500 hover:opacity-90 text-white font-bold py-2.5 px-8 rounded-full shadow-lg transition">Simpan
+            & Terapkan</button>
         </div>
       </div>
     </div>

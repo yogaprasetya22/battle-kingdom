@@ -84,6 +84,13 @@ const WEAPON_ASSETS = [
     { name: "dagger", path: "dagger.glb" },
     { name: "mug_full", path: "mug_full.glb" },
     { name: "spellbook_closed", path: "spellbook_closed.glb" },
+    { name: "Skeleton_Axe", path: "Skeleton_Axe.glb" },
+    { name: "Skeleton_Blade", path: "Skeleton_Blade.glb" },
+    { name: "Skeleton_Crossbow", path: "Skeleton_Crossbow.glb" },
+    { name: "Skeleton_Quiver", path: "Skeleton_Quiver.glb" },
+    { name: "Skeleton_Shield_Small_A", path: "Skeleton_Shield_Small_A.glb" },
+    { name: "Skeleton_Shield_Large_A", path: "Skeleton_Shield_Large_A.glb" },
+    { name: "Skeleton_Staff", path: "Skeleton_Staff.glb" },
 ];
 let weaponsCached = false;
 
@@ -164,6 +171,12 @@ function getModelsForMatchup(baseModel: string): {
         tank = "Knight";
         archer = "Ranger";
         mage = "Mage";
+    } else if (model.includes("skeleton")) {
+        tank = "Skeleton_Warrior";
+        archer = "Skeleton_Minion";
+        mage = "Skeleton_Mage";
+        gunslinger = "Skeleton_Rogue";
+        assassin = "Skeleton_Rogue";
     }
     return { tank, archer, mage, gunslinger, assassin };
 }
@@ -367,21 +380,44 @@ export function changeModel(
                         let uType = 0;
 
                         if (matchup === "custom_composition") {
-                            const configAStr = localStorage.getItem("teamAConfig");
-                            const configBStr = localStorage.getItem("teamBConfig");
-                            const defComp = { tank: 15, archer: 20, mage: 20, healer: 5, gunslinger: 20, assassin: 20 };
-                            const confA = configAStr ? JSON.parse(configAStr) : defComp;
-                            const confB = configBStr ? JSON.parse(configBStr) : defComp;
+                            const configAStr =
+                                localStorage.getItem("teamAConfig");
+                            const configBStr =
+                                localStorage.getItem("teamBConfig");
+                            const defComp = {
+                                tank: 15,
+                                archer: 20,
+                                mage: 20,
+                                healer: 5,
+                                gunslinger: 20,
+                                assassin: 20,
+                            };
+                            const confA = configAStr
+                                ? JSON.parse(configAStr)
+                                : defComp;
+                            const confB = configBStr
+                                ? JSON.parse(configBStr)
+                                : defComp;
 
                             const typesA: number[] = [];
                             const typesB: number[] = [];
                             const fillTypes = (arr: number[], config: any) => {
-                                for (let j = 0; j < (config.tank ?? 0); j++) arr.push(0);
-                                for (let j = 0; j < (config.archer ?? 0); j++) arr.push(1);
-                                for (let j = 0; j < (config.mage ?? 0); j++) arr.push(2);
-                                for (let j = 0; j < (config.healer ?? 0); j++) arr.push(3);
-                                for (let j = 0; j < (config.gunslinger ?? 0); j++) arr.push(4);
-                                for (let j = 0; j < (config.assassin ?? 0); j++) arr.push(5);
+                                for (let j = 0; j < (config.tank ?? 0); j++)
+                                    arr.push(0);
+                                for (let j = 0; j < (config.archer ?? 0); j++)
+                                    arr.push(1);
+                                for (let j = 0; j < (config.mage ?? 0); j++)
+                                    arr.push(2);
+                                for (let j = 0; j < (config.healer ?? 0); j++)
+                                    arr.push(3);
+                                for (
+                                    let j = 0;
+                                    j < (config.gunslinger ?? 0);
+                                    j++
+                                )
+                                    arr.push(4);
+                                for (let j = 0; j < (config.assassin ?? 0); j++)
+                                    arr.push(5);
                             };
                             fillTypes(typesA, confA);
                             fillTypes(typesB, confB);
@@ -403,7 +439,9 @@ export function changeModel(
                             }
                             if (matchup === "custom") {
                                 uType =
-                                    enabledTypes[localIdx % enabledTypes.length];
+                                    enabledTypes[
+                                        localIdx % enabledTypes.length
+                                    ];
                             } else if (matchup === "mage_vs_tank") {
                                 uType = team === TEAM_A ? 2 : 0;
                             } else if (matchup === "archer_vs_tank") {
@@ -434,14 +472,19 @@ export function changeModel(
                                   : teamMatB!;
 
                         // Gunakan factory untuk membuat unit visual
+                        const isSkeleton = modelName.toLowerCase().includes("skeleton");
                         const srcGLTF = getModelKey(uType, gltfModels);
                         const unitVis = createUnitVisual(
                             uType,
                             srcGLTF,
                             mat,
                             animRigs,
+                            isSkeleton,
                         );
                         unitInstances[i] = unitVis;
+
+                        // Save original materials for skeleton units
+                        const originalMaterials = isSkeleton ? unitVis.meshes.map((m) => m.material) : undefined;
 
                         // Override scale sesuai tipe unit
                         const scale = getUnitScale(uType);
@@ -459,6 +502,7 @@ export function changeModel(
                             weapons: unitVis.weapons,
                             team,
                             accumulatedDelta: 0,
+                            originalMaterials,
                         });
                     }
 
@@ -507,6 +551,10 @@ const _forward = new THREE.Vector3();
 const _lookTarget = new THREE.Vector3();
 const _q1 = new THREE.Quaternion();
 let animFrameCount = 0;
+// ponytail: dirty flag — flush ice instanceMatrix once per frame, not per unit
+let _iceNeedsUpdate = false;
+// ponytail: pre-computed billboard quaternion (shared across all units in one frame)
+const _billboardQuat = new THREE.Quaternion();
 
 const LERP_SPEED = 12;
 
@@ -558,6 +606,9 @@ export function updateFrame(data: Float32Array, delta: number) {
         camera.matrixWorldInverse,
     );
     _frustum.setFromProjectionMatrix(_projScreen);
+
+    // ponytail: billboard quaternion = camera quaternion (all billboards face camera)
+    _billboardQuat.copy(camera.quaternion);
 
     for (let i = 0; i < UNIT_COUNT; i++) {
         const base = i * STRIDE;
@@ -733,7 +784,7 @@ export function updateFrame(data: Float32Array, delta: number) {
                     }
                 }
                 _iceInstanced.setMatrixAt(i, _iceDead);
-                _iceInstanced.instanceMatrix.needsUpdate = true;
+                _iceNeedsUpdate = true;
                 if (unit.currentEffectState > 0) {
                     spawnIceShatterFX(
                         scene,
@@ -753,24 +804,39 @@ export function updateFrame(data: Float32Array, delta: number) {
                         activeMat = stunMat;
                         _iceMatrix.makeTranslation(x, y + 0.5, z);
                         _iceInstanced.setMatrixAt(i, _iceMatrix);
-                        _iceInstanced.instanceMatrix.needsUpdate = true;
+                        _iceNeedsUpdate = true;
+                        if (activeMat) {
+                            for (let m = 0; m < unit.meshes.length; m++) {
+                                unit.meshes[m].material = activeMat;
+                            }
+                        }
                     } else {
                         _iceInstanced.setMatrixAt(i, _iceDead);
-                        _iceInstanced.instanceMatrix.needsUpdate = true;
-                        if (effect < 0)
-                            activeMat =
-                                unit.team === TEAM_A ? buffMatA : buffMatB;
-                    }
-                    if (activeMat) {
-                        for (let m = 0; m < unit.meshes.length; m++) {
-                            unit.meshes[m].material = activeMat;
+                        _iceNeedsUpdate = true;
+                        if (effect < 0) {
+                            activeMat = unit.team === TEAM_A ? buffMatA : buffMatB;
+                            if (activeMat) {
+                                for (let m = 0; m < unit.meshes.length; m++) {
+                                    unit.meshes[m].material = activeMat;
+                                }
+                            }
+                        } else {
+                            if (unit.originalMaterials) {
+                                for (let m = 0; m < unit.meshes.length; m++) {
+                                    unit.meshes[m].material = unit.originalMaterials[m];
+                                }
+                            } else if (activeMat) {
+                                for (let m = 0; m < unit.meshes.length; m++) {
+                                    unit.meshes[m].material = activeMat;
+                                }
+                            }
                         }
                     }
                     unit.currentEffectState = effect;
                 } else if (effect > 0) {
                     _iceMatrix.makeTranslation(x, y + 0.5, z);
                     _iceInstanced.setMatrixAt(i, _iceMatrix);
-                    _iceInstanced.instanceMatrix.needsUpdate = true;
+                    _iceNeedsUpdate = true;
                 }
 
                 if (targetIdx !== -1) {
@@ -794,19 +860,21 @@ export function updateFrame(data: Float32Array, delta: number) {
                 }
             }
 
-            unit.accumulatedDelta += delta;
-
             const isDying =
                 hp <= 0 &&
                 hp >= -10 &&
                 unit.deathTime &&
                 performance.now() - unit.deathTime < 2000;
 
-            // ★ DISABLE LOD THROTTLE: Always update animation mixer
-            // Animation speed tetap normal di semua jarak (60 FPS playback everywhere)
-            // Trade-off: terima FPS drop acceptable untuk konsistensi animation
-            // ASSASSIN OPTIMIZATION: Skip mixer update if weapons hidden (distance > 35 units)
-            // This prevents expensive skeletal animation calcs for off-screen dual-dagger assassins
+            // ★ ANIMATION LOD: Distance-based frame skipping to save CPU on skeletal animation
+            let skipFrames = 1;
+            if (distSq > 1600) {       // distance > 40
+                skipFrames = 4;
+            } else if (distSq > 400) { // distance > 20
+                skipFrames = 2;
+            }
+            if (unit.animationFrameSkipCount === undefined) unit.animationFrameSkipCount = 0;
+            unit.animationFrameSkipCount++;
 
             const assassinTooFar = uType === 5 && distSq > 1225;
             const shouldUpdateMixer =
@@ -816,9 +884,12 @@ export function updateFrame(data: Float32Array, delta: number) {
                 !assassinTooFar;
 
             if (shouldUpdateMixer) {
-                // Always update dengan current frame delta (no throttling, no accumulation)
-                unit.mixer.update(delta);
-                unit.accumulatedDelta = 0;
+                unit.accumulatedDelta += delta;
+                if (unit.animationFrameSkipCount >= skipFrames) {
+                    unit.mixer.update(unit.accumulatedDelta);
+                    unit.accumulatedDelta = 0;
+                    unit.animationFrameSkipCount = 0;
+                }
             } else {
                 unit.accumulatedDelta = 0;
             }
@@ -838,29 +909,24 @@ export function updateFrame(data: Float32Array, delta: number) {
                 const maxHp = data[base + IDX_MAX_HP];
                 const hpRatio = maxHp > 0 ? hp / maxHp : 0;
 
+                // ponytail: reuse pre-computed billboard quaternion — no lookAt per unit
                 // HP bar background
                 dummy.position.set(meshX, billY, meshZ);
                 dummy.scale.set(1, 1, 1);
-                dummy.lookAt(camera.position);
+                dummy.quaternion.copy(_billboardQuat);
                 dummy.updateMatrix();
                 hpBarsBg.setMatrixAt(i, dummy.matrix);
 
-                // HP bar foreground
-                const clampedScaleX = Math.max(0.01, hpRatio);
-                dummy.position.set(
-                    meshX - (1 - clampedScaleX) * 0.5,
-                    billY,
-                    meshZ,
-                );
-                dummy.scale.set(clampedScaleX, 1, 1);
-                dummy.lookAt(camera.position);
+                // Pass hpRatio, teamId, and maxHp as matrix scales to avoid instanceColor allocation/upload
+                const teamId = i < TEAM_SIZE ? 0.0 : 1.0;
+                dummy.scale.set(hpRatio, teamId, maxHp);
                 dummy.updateMatrix();
                 hpBarsFg.setMatrixAt(i, dummy.matrix);
 
-                // Name label — above HP bar
-                dummy.position.set(meshX, billY + 0.35, meshZ);
+                // Name label
+                dummy.position.set(meshX, billY + 0.18, meshZ);
                 dummy.scale.set(1, 1, 1);
-                dummy.lookAt(camera.position);
+                dummy.quaternion.copy(_billboardQuat);
                 dummy.updateMatrix();
                 if (nameBarsA && nameBarsB) {
                     if (i < TEAM_SIZE) {
@@ -887,6 +953,12 @@ export function updateFrame(data: Float32Array, delta: number) {
                 }
             }
         }
+    }
+
+    // ponytail: flush ice matrix once after loop, not per-unit
+    if (_iceNeedsUpdate) {
+        _iceInstanced.instanceMatrix.needsUpdate = true;
+        _iceNeedsUpdate = false;
     }
 
     if (needsMatrixUpload) {
@@ -927,8 +999,14 @@ export function resetUnitsVisual() {
         if (uType === 3) {
             defaultMat = unit.team === TEAM_A ? healerMatA! : healerMatB!;
         }
-        for (let m = 0; m < unit.meshes.length; m++) {
-            unit.meshes[m].material = defaultMat;
+        if (unit.originalMaterials) {
+            for (let m = 0; m < unit.meshes.length; m++) {
+                unit.meshes[m].material = unit.originalMaterials[m];
+            }
+        } else {
+            for (let m = 0; m < unit.meshes.length; m++) {
+                unit.meshes[m].material = defaultMat;
+            }
         }
         if (unit.mixer) {
             unit.mixer.stopAllAction();

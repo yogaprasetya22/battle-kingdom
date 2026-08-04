@@ -193,14 +193,7 @@ export function changeModel(
     logDiag("Loading VAT Assets parallelly...");
 
     // Karakter unik yang diperlukan dalam simulasi
-    const uniqueChars = [
-        "Knight",
-        "Barbarian",
-        "Mage",
-        "Ranger",
-        "Rogue",
-        "Rogue_Hooded",
-    ];
+    const uniqueChars = ["Knight", "Mage", "Ranger", "Rogue", "Rogue_Hooded"];
 
     Promise.all(uniqueChars.map((char) => loadVATAssetsForChar(char)))
         .then(() => {
@@ -378,6 +371,10 @@ const _forward = new THREE.Vector3();
 const _lookTarget = new THREE.Vector3();
 const _q1 = new THREE.Quaternion();
 let animFrameCount = 0;
+// ponytail: dirty flag — flush ice instanceMatrix once per frame, not per unit
+let _iceNeedsUpdate = false;
+// ponytail: pre-computed billboard quaternion (shared across all units in one frame)
+const _billboardQuat = new THREE.Quaternion();
 
 const LERP_SPEED = 12;
 
@@ -422,6 +419,9 @@ export function updateFrame(data: Float32Array, delta: number) {
         camera.matrixWorldInverse,
     );
     _frustum.setFromProjectionMatrix(_projScreen);
+
+    // ponytail: billboard quaternion = camera quaternion (all billboards face camera)
+    _billboardQuat.copy(camera.quaternion);
 
     for (let i = 0; i < UNIT_COUNT; i++) {
         const base = i * STRIDE;
@@ -552,7 +552,7 @@ export function updateFrame(data: Float32Array, delta: number) {
                     }
                 }
                 _iceInstanced.setMatrixAt(i, _deadMatrix);
-                _iceInstanced.instanceMatrix.needsUpdate = true;
+                _iceNeedsUpdate = true;
                 if (unit.currentEffectState > 0) {
                     spawnIceShatterFX(
                         scene,
@@ -575,41 +575,31 @@ export function updateFrame(data: Float32Array, delta: number) {
                         activeMat = stunMat;
                         _iceMatrix.makeTranslation(x, y + 0.5, z);
                         _iceInstanced.setMatrixAt(i, _iceMatrix);
-                        _iceInstanced.instanceMatrix.needsUpdate = true;
+                        _iceNeedsUpdate = true;
                     } else {
                         _iceInstanced.setMatrixAt(i, _iceDead);
-                        _iceInstanced.instanceMatrix.needsUpdate = true;
+                        _iceNeedsUpdate = true;
                         if (effect < 0)
                             activeMat =
                                 unit.team === TEAM_A ? buffMatA : buffMatB;
                     }
 
-                    // Apply ke visual kustom VAT material
-                    if (activeMat && vatInst.meshes[0]) {
-                        // Recreate material wrapper agar attribute VAT tetap menyala
-                        const assets =
-                            vatAssetCache[getCharacterNameForType(uType)];
-                        if (assets) {
-                            for (let m = 0; m < unit.meshes.length; m++) {
-                                // Buat material VAT baru dari material status tim/buff/stun
-                                const currentMat = vatInst.meshes[m].material;
-                                if (!Array.isArray(currentMat)) {
-                                    const newVatMat =
-                                        currentMat.clone() as THREE.MeshStandardMaterial;
-                                    newVatMat.color.copy(activeMat.color);
-                                    if (
-                                        (newVatMat as any).emissive &&
-                                        (activeMat as any).emissive
-                                    ) {
-                                        (newVatMat as any).emissive.copy(
-                                            (activeMat as any).emissive,
-                                        );
-                                        (newVatMat as any).emissiveIntensity =
-                                            (activeMat as any)
-                                                .emissiveIntensity || 0.0;
-                                    }
-                                    unit.meshes[m].material = newVatMat;
+                    // ponytail: mutate color/emissive in-place — no clone, no GC
+                    // VAT uniforms live in vatUniforms property, safe to mutate the material directly
+                    // color mutation does NOT need needsUpdate (only structural changes do)
+                    if (activeMat) {
+                        for (let m = 0; m < unit.meshes.length; m++) {
+                            const currentMat = vatInst.meshes[m].material;
+                            if (!Array.isArray(currentMat)) {
+                                (currentMat as THREE.MeshStandardMaterial).color.copy(activeMat.color);
+                                const em = (currentMat as any).emissive;
+                                const src = (activeMat as any).emissive;
+                                if (em && src) {
+                                    em.copy(src);
+                                    (currentMat as any).emissiveIntensity =
+                                        (activeMat as any).emissiveIntensity || 0.0;
                                 }
+                                // ponytail: no needsUpdate — color/emissive changes are picked up each frame
                             }
                         }
                     }
@@ -617,7 +607,7 @@ export function updateFrame(data: Float32Array, delta: number) {
                 } else if (effect > 0) {
                     _iceMatrix.makeTranslation(x, y + 0.5, z);
                     _iceInstanced.setMatrixAt(i, _iceMatrix);
-                    _iceInstanced.instanceMatrix.needsUpdate = true;
+                    _iceNeedsUpdate = true;
                 }
 
                 if (targetIdx !== -1) {
@@ -656,26 +646,21 @@ export function updateFrame(data: Float32Array, delta: number) {
                 const maxHp = data[base + IDX_MAX_HP];
                 const hpRatio = maxHp > 0 ? hp / maxHp : 0;
 
+                // ponytail: reuse pre-computed billboard quaternion — no lookAt per unit
                 dummy.position.set(meshX, billY, meshZ);
                 dummy.scale.set(1, 1, 1);
-                dummy.lookAt(camera.position);
+                dummy.quaternion.copy(_billboardQuat);
                 dummy.updateMatrix();
                 hpBarsBg.setMatrixAt(i, dummy.matrix);
 
-                const clampedScaleX = Math.max(0.01, hpRatio);
-                dummy.position.set(
-                    meshX - (1 - clampedScaleX) * 0.5,
-                    billY,
-                    meshZ,
-                );
-                dummy.scale.set(clampedScaleX, 1, 1);
-                dummy.lookAt(camera.position);
-                dummy.updateMatrix();
+                // HP bar foreground (Scale is kept at 1.0, width calculation done in shader)
                 hpBarsFg.setMatrixAt(i, dummy.matrix);
+                const teamId = i < TEAM_SIZE ? 0.0 : 1.0;
+                hpBarsFg.setColorAt(i, new THREE.Color(hpRatio, teamId, maxHp));
 
-                dummy.position.set(meshX, billY + 0.35, meshZ);
+                dummy.position.set(meshX, billY + 0.18, meshZ);
                 dummy.scale.set(1, 1, 1);
-                dummy.lookAt(camera.position);
+                dummy.quaternion.copy(_billboardQuat);
                 dummy.updateMatrix();
                 if (nameBarsA && nameBarsB) {
                     if (i < TEAM_SIZE) {
@@ -703,9 +688,18 @@ export function updateFrame(data: Float32Array, delta: number) {
         }
     }
 
+    // ponytail: flush ice matrix once after loop, not per-unit
+    if (_iceNeedsUpdate) {
+        _iceInstanced.instanceMatrix.needsUpdate = true;
+        _iceNeedsUpdate = false;
+    }
+
     if (needsMatrixUpload) {
         hpBarsBg.instanceMatrix.needsUpdate = true;
         hpBarsFg.instanceMatrix.needsUpdate = true;
+        if (hpBarsFg.instanceColor) {
+            hpBarsFg.instanceColor.needsUpdate = true;
+        }
         cdRings.instanceMatrix.needsUpdate = true;
         immuneRings.instanceMatrix.needsUpdate = true;
         if (nameBarsA && nameBarsB) {

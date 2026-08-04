@@ -5,7 +5,7 @@
  * ponytail: no framework, no DI, no event bus. Direct function calls.
  */
 
-import { BUFFER_BYTES, UNIT_COUNT } from "./simulation/constants";
+import { BUFFER_BYTES, UNIT_COUNT, TEAM_SIZE } from "./simulation/constants";
 import {
     setSharedData,
     startRenderLoop,
@@ -17,6 +17,7 @@ import {
 import { soundFX } from "./graphics/core/SoundFX";
 import { CharacterViewer } from "./graphics/viewer/CharacterViewer";
 import { WorkerDiagnostics } from "./simulation/WorkerDiagnostics";
+import { perfProfiler } from "./graphics/core/PerformanceProfiler";
 
 // ---- Shared Buffer (bridge antara main thread & worker) ----
 const sharedBuffer = new SharedArrayBuffer(BUFFER_BYTES);
@@ -210,6 +211,10 @@ function showBattleEnd(winner: "A" | "B", stats: typeof aggregatedStats) {
     }
     overlayMsg.textContent =
         winner === "A" ? "🔴 Tim A Menang!" : "🔵 Tim B Menang!";
+
+    // Hentikan recording & unduh report kinerja pertempuran otomatis
+    perfProfiler.stopLogging();
+    perfProfiler.exportReport();
 
     if (statsContainer) {
         statsContainer.innerHTML = `
@@ -549,6 +554,9 @@ btnStart.addEventListener("click", () => {
     isRunning = true;
     pendingTick = false;
     lastTime = performance.now();
+
+    // Mulai record performance profiling
+    perfProfiler.startLogging();
 });
 
 btnReset.addEventListener("click", () => {
@@ -869,7 +877,8 @@ function updateTotals() {
     if (totalASpan) totalASpan.textContent = totalA.toString();
     if (totalBSpan) totalBSpan.textContent = totalB.toString();
 
-    const invalid = totalA <= 0 || totalA > 100 || totalB <= 0 || totalB > 100;
+    // ponytail: validate using dynamic TEAM_SIZE constant
+    const invalid = totalA <= 0 || totalA > TEAM_SIZE || totalB <= 0 || totalB > TEAM_SIZE;
     if (invalid) {
         settingsWarning.classList.remove("hidden");
         btnSettingsSave.disabled = true;
@@ -903,16 +912,17 @@ function applyPreset(presetA: number[], presetB: number[]) {
 }
 
 presetBalanced.addEventListener("click", () =>
-    applyPreset([15, 20, 20, 5, 20, 20], [15, 20, 20, 5, 20, 20]),
+    // Scaled preset to total 50: [tank, archer, mage, healer, gunslinger, assassin]
+    applyPreset([7, 10, 10, 3, 10, 10], [7, 10, 10, 3, 10, 10]),
 );
 presetMagic.addEventListener("click", () =>
-    applyPreset([0, 0, 80, 20, 0, 0], [0, 0, 80, 20, 0, 0]),
+    applyPreset([0, 0, 40, 10, 0, 0], [0, 0, 40, 10, 0, 0]),
 );
 presetDefense.addEventListener("click", () =>
-    applyPreset([60, 30, 0, 10, 0, 0], [60, 30, 0, 10, 0, 0]),
+    applyPreset([30, 15, 0, 5, 0, 0], [30, 15, 0, 5, 0, 0]),
 );
 presetStealth.addEventListener("click", () =>
-    applyPreset([0, 20, 0, 0, 30, 50], [0, 20, 0, 0, 30, 50]),
+    applyPreset([0, 10, 0, 0, 15, 25], [0, 10, 0, 0, 15, 25]),
 );
 
 classes.forEach((cls) => {
@@ -935,6 +945,28 @@ btnSettings.addEventListener("click", () => {
         isRunning = false;
         resetWorkers();
     }
+    
+    // ponytail: Dynamicize max properties of sliders & UI labels to match TEAM_SIZE
+    const limitTexts = document.querySelectorAll(".limit-placeholder-text");
+    limitTexts.forEach((el) => {
+        el.textContent = ` / ${TEAM_SIZE} Unit`;
+    });
+    const subHeader = document.querySelector("#settings-overlay p.text-slate-400");
+    if (subHeader) {
+        subHeader.textContent = `Atur jumlah unit per kelas untuk setiap tim (Maks. ${TEAM_SIZE} unit per tim)`;
+    }
+    const warningEl = document.getElementById("settings-warning");
+    if (warningEl) {
+        warningEl.innerHTML = `⚠️ Total unit untuk salah satu tim melebihi ${TEAM_SIZE} atau kosong! Mohon sesuaikan kembali.`;
+    }
+
+    classes.forEach((cls) => {
+        const sliderA = document.getElementById(`slider-a-${cls}`) as HTMLInputElement;
+        const sliderB = document.getElementById(`slider-b-${cls}`) as HTMLInputElement;
+        if (sliderA) sliderA.max = TEAM_SIZE.toString();
+        if (sliderB) sliderB.max = TEAM_SIZE.toString();
+    });
+
     loadConfigToUI();
     settingsOverlay.style.display = "flex";
 });
