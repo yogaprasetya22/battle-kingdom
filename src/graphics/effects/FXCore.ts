@@ -58,6 +58,28 @@ export function pooledRing(
     return _ringGeoPool.get(key)!;
 }
 
+// Pooled cylinder geometry — avoids per-call allocations for Arrow Volley (60×) & Chain Lightning segments
+const _cylinderGeoPool = new Map<string, THREE.CylinderGeometry>();
+export function pooledCylinder(
+    radiusTop: number,
+    radiusBottom: number,
+    height: number,
+    radialSegments: number,
+): THREE.CylinderGeometry {
+    const key = `${radiusTop.toFixed(3)}_${radiusBottom.toFixed(3)}_${height.toFixed(2)}_${radialSegments}`;
+    if (!_cylinderGeoPool.has(key))
+        _cylinderGeoPool.set(
+            key,
+            new THREE.CylinderGeometry(
+                radiusTop,
+                radiusBottom,
+                height,
+                radialSegments,
+            ),
+        );
+    return _cylinderGeoPool.get(key)!;
+}
+
 // ═══════════════════════════════════════════════════════════════
 // Texture loading — once at module init
 // ═══════════════════════════════════════════════════════════════
@@ -118,16 +140,17 @@ export function getPooledMaterial(specs: MatSpecs): THREE.MeshBasicMaterial {
         return mat;
     }
 
-    return new THREE.MeshBasicMaterial({
-        color: specs.color,
-        map: specs.map,
-        transparent: specs.transparent,
-        opacity: specs.opacity,
-        blending: specs.blending,
-        depthWrite: specs.depthWrite,
-        depthTest: specs.depthTest,
-        side: specs.side,
-    });
+    const config: any = {};
+    if (specs.color !== undefined) config.color = specs.color;
+    if (specs.map !== undefined) config.map = specs.map;
+    if (specs.transparent !== undefined) config.transparent = specs.transparent;
+    if (specs.opacity !== undefined) config.opacity = specs.opacity;
+    if (specs.blending !== undefined) config.blending = specs.blending;
+    if (specs.depthWrite !== undefined) config.depthWrite = specs.depthWrite;
+    if (specs.depthTest !== undefined) config.depthTest = specs.depthTest;
+    if (specs.side !== undefined) config.side = specs.side;
+
+    return new THREE.MeshBasicMaterial(config);
 }
 
 export function releasePooledMaterial(mat: THREE.MeshBasicMaterial) {

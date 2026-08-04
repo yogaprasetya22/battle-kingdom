@@ -28,3 +28,5 @@ dist-ssr
 
 # Skilld references (recreated by `skilld install`)
 .skilld
+
+scripts/venv

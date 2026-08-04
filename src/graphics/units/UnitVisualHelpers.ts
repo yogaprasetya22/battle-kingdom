@@ -19,7 +19,7 @@ export const WEAPON_OFFSETS: Record<
 > = {
     sword_1handed: {
         pos: [-0.02, 0.08, 0.02],
-        rot: [0.038, -0.012, 1.738],
+        rot: [0.041, -0.012, 1.438],
         scale: [0.87, 1.0, 1.0],
     },
     axe_1handed: {
@@ -72,6 +72,42 @@ export const WEAPON_OFFSETS: Record<
         pos: [0.05, 0.0, 0.0],
         rot: [0, 0, Math.PI / 2],
         scale: [0.7, 0.7, 0.7],
+    },
+    // ---- Skeleton Weapons Offsets ----
+    Skeleton_Blade: {
+        pos: [-0.02, 0.08, 0.02],
+        rot: [0.038, -0.012, 1.738],
+        scale: [0.87, 1.0, 1.0],
+    },
+    Skeleton_Axe: {
+        pos: [0.08, 0.0, 0.0],
+        rot: [0, 0, Math.PI / 2],
+        scale: [1, 1, 1],
+    },
+    Skeleton_Crossbow: {
+        pos: [-0.04, -0.06, -0.03],
+        rot: [-1.532, -0.072, 1.518],
+        scale: [0.83, 0.92, 0.85],
+    },
+    Skeleton_Quiver: {
+        pos: [0.0, 0.15, -0.1],
+        rot: [0, 0, 0],
+        scale: [0.8, 0.8, 0.8],
+    },
+    Skeleton_Shield_Small_A: {
+        pos: [-0.07, 0.0, 0.0],
+        rot: [-0.342, -0.272, 0.618],
+        scale: [1.0, 1.0, 1.0],
+    },
+    Skeleton_Shield_Large_A: {
+        pos: [-0.07, 0.0, 0.0],
+        rot: [-0.342, -0.272, 0.618],
+        scale: [1.0, 1.0, 1.0],
+    },
+    Skeleton_Staff: {
+        pos: [0.0, 0.09, 0.02],
+        rot: [0.368, -0.512, 2.258],
+        scale: [0.74, 0.88, 0.72],
     },
 };
 
@@ -159,9 +195,9 @@ export function findBone(
             for (const bone of allBones) {
                 if (bone.name.toLowerCase().includes(fbPattern.toLowerCase())) {
                     found = bone;
-                    console.info(
-                        `[findBone] Fallback: "${pattern}" → found "${bone.name}"`,
-                    );
+                    // console.info(
+                    //     `[findBone] Fallback: "${pattern}" → found "${bone.name}"`,
+                    // );
                     break;
                 }
             }
@@ -169,12 +205,7 @@ export function findBone(
         }
     }
 
-    // Log debug info jika tidak ketemu
-    if (!found && allBones.length > 0) {
-        console.debug(
-            `[findBone] Pattern "${pattern}" not found. Available bones: [${allBones.map((b) => b.name).join(", ")}]`,
-        );
-    }
+
 
     return found;
 }

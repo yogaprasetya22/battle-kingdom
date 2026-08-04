@@ -44,6 +44,7 @@ import {
     getModelKey,
     getUnitScale,
 } from "../units/UnitVisualFactory";
+import { perfProfiler } from "./PerformanceProfiler";
 
 // ── Shared materials ──
 let teamMatA: THREE.MeshStandardMaterial | null = null;
@@ -84,6 +85,13 @@ const WEAPON_ASSETS = [
     { name: "dagger", path: "dagger.glb" },
     { name: "mug_full", path: "mug_full.glb" },
     { name: "spellbook_closed", path: "spellbook_closed.glb" },
+    { name: "Skeleton_Axe", path: "Skeleton_Axe.glb" },
+    { name: "Skeleton_Blade", path: "Skeleton_Blade.glb" },
+    { name: "Skeleton_Crossbow", path: "Skeleton_Crossbow.glb" },
+    { name: "Skeleton_Quiver", path: "Skeleton_Quiver.glb" },
+    { name: "Skeleton_Shield_Small_A", path: "Skeleton_Shield_Small_A.glb" },
+    { name: "Skeleton_Shield_Large_A", path: "Skeleton_Shield_Large_A.glb" },
+    { name: "Skeleton_Staff", path: "Skeleton_Staff.glb" },
 ];
 let weaponsCached = false;
 
@@ -114,6 +122,7 @@ const units: UnitVisual[] = [];
 /** Instance IUnitVisual untuk setiap unit (factory), untuk akses dispose() */
 const unitInstances: (IUnitVisual | null)[] = [];
 let modelLoaded = false;
+let isCurrentModelSkeleton = false;
 
 const logPanel = document.getElementById("log-panel");
 
@@ -164,6 +173,12 @@ function getModelsForMatchup(baseModel: string): {
         tank = "Knight";
         archer = "Ranger";
         mage = "Mage";
+    } else if (model.includes("skeleton")) {
+        tank = "Skeleton_Warrior";
+        archer = "Skeleton_Minion";
+        mage = "Skeleton_Mage";
+        gunslinger = "Skeleton_Rogue";
+        assassin = "Skeleton_Rogue";
     }
     return { tank, archer, mage, gunslinger, assassin };
 }
@@ -175,6 +190,7 @@ export function changeModel(
     onError?: () => void,
 ) {
     modelLoaded = false;
+    isCurrentModelSkeleton = modelName.toLowerCase().includes("skeleton");
 
     // Fase 5: Clean old units — gunakan IUnitVisual.dispose()
     unitInstances.forEach((inst) => {
@@ -346,33 +362,106 @@ export function changeModel(
                         assassin: gltfAssassin,
                     };
 
+                    const customPanel = document.getElementById(
+                        "custom-classes-panel",
+                    );
+                    const activeBadges = customPanel
+                        ? customPanel.querySelectorAll(".class-badge.active")
+                        : [];
+                    const customTypes: number[] = [];
+                    activeBadges.forEach((b: any) =>
+                        customTypes.push(parseInt(b.dataset.type || "0")),
+                    );
+                    const enabledTypes =
+                        customTypes.length > 0
+                            ? customTypes
+                            : [0, 1, 2, 3, 4, 5];
+
                     for (let i = 0; i < UNIT_COUNT; i++) {
                         const team = i < TEAM_SIZE ? TEAM_A : 1;
                         const localIdx = i < TEAM_SIZE ? i : i - TEAM_SIZE;
-                        let uType = localIdx % 6;
-                        const healerCount = Math.max(
-                            1,
-                            Math.round(TEAM_SIZE * 0.02),
-                        );
-                        if (localIdx < healerCount) {
-                            uType = 3;
-                        }
-                        if (matchup === "mage_vs_tank") {
-                            uType = team === TEAM_A ? 2 : 0;
-                        } else if (matchup === "archer_vs_tank") {
-                            uType = team === TEAM_A ? 1 : 0;
-                        } else if (matchup === "mage_vs_archer") {
-                            uType = team === TEAM_A ? 2 : 1;
-                        } else if (matchup === "only_mage") {
-                            uType = 2;
-                        } else if (matchup === "only_archer") {
-                            uType = 1;
-                        } else if (matchup === "only_tank") {
-                            uType = 0;
-                        } else if (matchup === "only_gunslinger") {
-                            uType = 4;
-                        } else if (matchup === "only_assassin") {
-                            uType = 5;
+                        let uType = 0;
+
+                        if (matchup === "custom_composition") {
+                            const configAStr =
+                                localStorage.getItem("teamAConfig");
+                            const configBStr =
+                                localStorage.getItem("teamBConfig");
+                            const defComp = {
+                                tank: 15,
+                                archer: 20,
+                                mage: 20,
+                                healer: 5,
+                                gunslinger: 20,
+                                assassin: 20,
+                            };
+                            const confA = configAStr
+                                ? JSON.parse(configAStr)
+                                : defComp;
+                            const confB = configBStr
+                                ? JSON.parse(configBStr)
+                                : defComp;
+
+                            const typesA: number[] = [];
+                            const typesB: number[] = [];
+                            const fillTypes = (arr: number[], config: any) => {
+                                for (let j = 0; j < (config.tank ?? 0); j++)
+                                    arr.push(0);
+                                for (let j = 0; j < (config.archer ?? 0); j++)
+                                    arr.push(1);
+                                for (let j = 0; j < (config.mage ?? 0); j++)
+                                    arr.push(2);
+                                for (let j = 0; j < (config.healer ?? 0); j++)
+                                    arr.push(3);
+                                for (
+                                    let j = 0;
+                                    j < (config.gunslinger ?? 0);
+                                    j++
+                                )
+                                    arr.push(4);
+                                for (let j = 0; j < (config.assassin ?? 0); j++)
+                                    arr.push(5);
+                            };
+                            fillTypes(typesA, confA);
+                            fillTypes(typesB, confB);
+
+                            const types = team === TEAM_A ? typesA : typesB;
+                            if (localIdx < types.length) {
+                                uType = types[localIdx];
+                            } else {
+                                uType = 0; // inactive fallback model setup (will be hidden by HP < -10)
+                            }
+                        } else {
+                            uType = localIdx % 6;
+                            const healerCount = Math.max(
+                                1,
+                                Math.round(TEAM_SIZE * 0.02),
+                            );
+                            if (localIdx < healerCount) {
+                                uType = 3;
+                            }
+                            if (matchup === "custom") {
+                                uType =
+                                    enabledTypes[
+                                        localIdx % enabledTypes.length
+                                    ];
+                            } else if (matchup === "mage_vs_tank") {
+                                uType = team === TEAM_A ? 2 : 0;
+                            } else if (matchup === "archer_vs_tank") {
+                                uType = team === TEAM_A ? 1 : 0;
+                            } else if (matchup === "mage_vs_archer") {
+                                uType = team === TEAM_A ? 2 : 1;
+                            } else if (matchup === "only_mage") {
+                                uType = 2;
+                            } else if (matchup === "only_archer") {
+                                uType = 1;
+                            } else if (matchup === "only_tank") {
+                                uType = 0;
+                            } else if (matchup === "only_gunslinger") {
+                                uType = 4;
+                            } else if (matchup === "only_assassin") {
+                                uType = 5;
+                            }
                         }
 
                         // Pilih material berdasarkan tim & tipe
@@ -385,15 +474,20 @@ export function changeModel(
                                   ? teamMatA!
                                   : teamMatB!;
 
-                        // Gunakan factory untuk membuat unit visual
+                        const isSkeleton = modelName.toLowerCase().includes("skeleton");
+
                         const srcGLTF = getModelKey(uType, gltfModels);
                         const unitVis = createUnitVisual(
                             uType,
                             srcGLTF,
                             mat,
                             animRigs,
+                            isSkeleton,
                         );
                         unitInstances[i] = unitVis;
+
+                        // Save original materials for skeleton units
+                        const originalMaterials = isSkeleton ? unitVis.meshes.map((m) => m.material) : undefined;
 
                         // Override scale sesuai tipe unit
                         const scale = getUnitScale(uType);
@@ -411,6 +505,7 @@ export function changeModel(
                             weapons: unitVis.weapons,
                             team,
                             accumulatedDelta: 0,
+                            originalMaterials,
                         });
                     }
 
@@ -459,10 +554,16 @@ const _forward = new THREE.Vector3();
 const _lookTarget = new THREE.Vector3();
 const _q1 = new THREE.Quaternion();
 let animFrameCount = 0;
-
-
+// ponytail: dirty flag — flush ice instanceMatrix once per frame, not per unit
+let _iceNeedsUpdate = false;
+// ponytail: pre-computed billboard quaternion (shared across all units in one frame)
+const _billboardQuat = new THREE.Quaternion();
 
 const LERP_SPEED = 12;
+
+// ── Animation batch optimization ──
+let animFrameBatch: number[] = []; // track units yang perlu mixer update
+const MAX_MIXER_UPDATES_PER_FRAME = 20; // batch limit untuk prevent frame drops
 
 const _frustum = new THREE.Frustum();
 const _projScreen = new THREE.Matrix4();
@@ -500,11 +601,20 @@ export function updateFrame(data: Float32Array, delta: number) {
     _forward.set(0, 0, 1).applyQuaternion(camera.quaternion);
     animFrameCount++;
 
+    // Reset mixer batch queue setiap frame
+    animFrameBatch.length = 0;
+
     _projScreen.multiplyMatrices(
         camera.projectionMatrix,
         camera.matrixWorldInverse,
     );
     _frustum.setFromProjectionMatrix(_projScreen);
+
+    // ponytail: billboard quaternion = camera quaternion (all billboards face camera)
+    _billboardQuat.copy(camera.quaternion);
+
+    let animTimeTotal = 0;
+    let billTimeTotal = 0;
 
     for (let i = 0; i < UNIT_COUNT; i++) {
         const base = i * STRIDE;
@@ -516,6 +626,7 @@ export function updateFrame(data: Float32Array, delta: number) {
         const state = data[base + IDX_ANIM];
         const uType = data[base + IDX_TYPE];
         const effect = data[base + IDX_EFFECT_STATE];
+        const isStealthed = effect >= 1000 && effect < 2000;
 
         const unit = units[i];
         if (!unit) continue;
@@ -527,6 +638,7 @@ export function updateFrame(data: Float32Array, delta: number) {
                 unit.root.scale.setScalar(0.0001);
                 (unit as any)._wasAlive = false;
 
+                const tBill0 = performance.now();
                 hpBarsBg.setMatrixAt(i, _deadMatrix);
                 hpBarsFg.setMatrixAt(i, _deadMatrix);
                 cdRings.setMatrixAt(i, _deadMatrix);
@@ -538,8 +650,37 @@ export function updateFrame(data: Float32Array, delta: number) {
                         nameBarsB.setMatrixAt(i - TEAM_SIZE, _deadMatrix);
                     }
                 }
+                billTimeTotal += performance.now() - tBill0;
             }
             continue;
+        }
+
+        // Handle death state and early continue for fully dead units
+        if (hp <= 0 && unit.deathTime) {
+            const elapsed = performance.now() - unit.deathTime;
+            if (elapsed > 2000) {
+                if (unit.root.visible || (unit as any)._wasAlive) {
+                    unit.root.position.set(x, -999, z);
+                    unit.root.scale.setScalar(0.0001);
+                    unit.root.visible = false;
+                    (unit as any)._wasAlive = false;
+
+                    const tBill1 = performance.now();
+                    hpBarsBg.setMatrixAt(i, _deadMatrix);
+                    hpBarsFg.setMatrixAt(i, _deadMatrix);
+                    cdRings.setMatrixAt(i, _deadMatrix);
+                    immuneRings.setMatrixAt(i, _deadMatrix);
+                    if (nameBarsA && nameBarsB) {
+                        if (i < TEAM_SIZE) {
+                            nameBarsA.setMatrixAt(i, _deadMatrix);
+                        } else {
+                            nameBarsB.setMatrixAt(i - TEAM_SIZE, _deadMatrix);
+                        }
+                    }
+                    billTimeTotal += performance.now() - tBill1;
+                }
+                continue; // CRITICAL OPTIMIZATION: skip updating fully dead units
+            }
         }
 
         const scale = getUnitScale(uType);
@@ -558,7 +699,7 @@ export function updateFrame(data: Float32Array, delta: number) {
         } else {
             _unitSphere.center.set(x, y, z);
             const inView = _frustum.intersectsSphere(_unitSphere);
-            unit.root.visible = inView;
+            unit.root.visible = inView && !isStealthed;
 
             const showMesh = distSq < UNIT_LOD_DIST_SQ;
 
@@ -566,10 +707,18 @@ export function updateFrame(data: Float32Array, delta: number) {
                 unit.meshes[m].visible = showMesh;
             }
 
-            // Fase 5: LOD culling for attached weapons
-            if (unit.weapons) {
+            // Fast path for weapon LOD
+            const weaponLodDist = uType === 5 ? 1225 : UNIT_LOD_DIST_SQ;
+            const showWeapons = distSq < weaponLodDist;
+
+            if (unit.weapons && unit.weapons.length > 0) {
                 for (let w = 0; w < unit.weapons.length; w++) {
-                    unit.weapons[w].visible = showMesh;
+                    unit.weapons[w].visible = showMesh && showWeapons;
+                }
+            } else if (uType === 5 && inView && showMesh) {
+                const assassinVisual = unit as any;
+                if (assassinVisual.getWeaponsForLOD) {
+                    assassinVisual.getWeaponsForLOD();
                 }
             }
 
@@ -632,139 +781,167 @@ export function updateFrame(data: Float32Array, delta: number) {
                 unit.root.scale.setScalar(scale);
             }
 
-        if (hp <= 0) {
-            if (hp >= -10) {
-                if (unit.currentAnimState !== 3) {
-                    fadeToAnimation(unit, "death");
-                    unit.currentAnimState = 3;
-                    unit.deathTime = performance.now();
-                    soundFX.playDeath(x, y, z, camera.position);
-                }
-            }
-            _iceInstanced.setMatrixAt(i, _iceDead);
-            _iceInstanced.instanceMatrix.needsUpdate = true;
-            if (unit.currentEffectState > 0) {
-                spawnIceShatterFX(
-                    scene,
-                    unit.root.position.x,
-                    unit.root.position.y + 0.5,
-                    unit.root.position.z,
-                );
-                unit.currentEffectState = 0;
-            }
-        } else {
-            if (unit.currentEffectState !== effect) {
-                let activeMat = unit.team === TEAM_A ? teamMatA : teamMatB;
-                if (uType === 3)
-                    activeMat = unit.team === TEAM_A ? healerMatA : healerMatB;
-                if (effect > 0) {
-                    activeMat = stunMat;
-                    _iceMatrix.makeTranslation(x, y + 0.5, z);
-                    _iceInstanced.setMatrixAt(i, _iceMatrix);
-                    _iceInstanced.instanceMatrix.needsUpdate = true;
-                } else {
-                    _iceInstanced.setMatrixAt(i, _iceDead);
-                    _iceInstanced.instanceMatrix.needsUpdate = true;
-                    if (effect < 0)
-                        activeMat = unit.team === TEAM_A ? buffMatA : buffMatB;
-                }
-                if (activeMat) {
-                    for (let m = 0; m < unit.meshes.length; m++) {
-                        unit.meshes[m].material = activeMat;
+            if (hp <= 0) {
+                if (hp >= -10) {
+                    if (unit.currentAnimState !== 3) {
+                        fadeToAnimation(unit, "death");
+                        unit.currentAnimState = 3;
+                        unit.deathTime = performance.now();
+                        soundFX.playDeath(x, y, z, camera.position);
                     }
                 }
-                unit.currentEffectState = effect;
-            } else if (effect > 0) {
-                _iceMatrix.makeTranslation(x, y + 0.5, z);
-                _iceInstanced.setMatrixAt(i, _iceMatrix);
-                _iceInstanced.instanceMatrix.needsUpdate = true;
-            }
+                _iceInstanced.setMatrixAt(i, _iceDead);
+                _iceNeedsUpdate = true;
+                if (unit.currentEffectState > 0) {
+                    spawnIceShatterFX(
+                        scene,
+                        unit.root.position.x,
+                        unit.root.position.y + 0.5,
+                        unit.root.position.z,
+                    );
+                    unit.currentEffectState = 0;
+                }
+            } else {
+                if (unit.currentEffectState !== effect) {
+                    let activeMat = unit.team === TEAM_A ? teamMatA : teamMatB;
+                    if (uType === 3)
+                        activeMat =
+                            unit.team === TEAM_A ? healerMatA : healerMatB;
+                    if (effect > 0) {
+                        activeMat = stunMat;
+                        _iceMatrix.makeTranslation(x, y + 0.5, z);
+                        _iceInstanced.setMatrixAt(i, _iceMatrix);
+                        _iceNeedsUpdate = true;
+                        if (activeMat) {
+                            for (let m = 0; m < unit.meshes.length; m++) {
+                                unit.meshes[m].material = activeMat;
+                            }
+                        }
+                    } else {
+                        _iceInstanced.setMatrixAt(i, _iceDead);
+                        _iceNeedsUpdate = true;
+                        if (effect < 0) {
+                            activeMat = unit.team === TEAM_A ? buffMatA : buffMatB;
+                            if (activeMat) {
+                                for (let m = 0; m < unit.meshes.length; m++) {
+                                    unit.meshes[m].material = activeMat;
+                                }
+                            }
+                        } else {
+                            if (unit.originalMaterials) {
+                                for (let m = 0; m < unit.meshes.length; m++) {
+                                    unit.meshes[m].material = unit.originalMaterials[m];
+                                }
+                            } else if (activeMat) {
+                                for (let m = 0; m < unit.meshes.length; m++) {
+                                    unit.meshes[m].material = activeMat;
+                                }
+                            }
+                        }
+                    }
+                    unit.currentEffectState = effect;
+                } else if (effect > 0) {
+                    _iceMatrix.makeTranslation(x, y + 0.5, z);
+                    _iceInstanced.setMatrixAt(i, _iceMatrix);
+                    _iceNeedsUpdate = true;
+                }
 
-            if (targetIdx !== -1) {
-                const tBase = targetIdx * STRIDE;
-                const tx = data[tBase + IDX_X];
-                const tz = data[tBase + IDX_Z];
-                _lookTarget.set(tx, y, tz);
-                _q1.copy(unit.root.quaternion);
-                unit.root.lookAt(_lookTarget);
-                unit.root.quaternion.slerp(_q1, 1 - Math.min(1, 10 * delta));
-            }
+                if (targetIdx !== -1) {
+                    const tBase = targetIdx * STRIDE;
+                    const tx = data[tBase + IDX_X];
+                    const tz = data[tBase + IDX_Z];
+                    _lookTarget.set(tx, y, tz);
+                    _q1.copy(unit.root.quaternion);
+                    unit.root.lookAt(_lookTarget);
+                    unit.root.quaternion.slerp(
+                        _q1,
+                        1 - Math.min(1, 10 * delta),
+                    );
+                }
 
-            if (unit.currentAnimState !== state) {
-                if (state === 0) fadeToAnimation(unit, "idle");
-                else if (state === 1) fadeToAnimation(unit, "run");
-                else if (state === 2) fadeToAnimation(unit, "attack");
-                unit.currentAnimState = state;
-            }
-        }
-
-        unit.accumulatedDelta += delta;
-
-        const isDying =
-            hp <= 0 &&
-            hp >= -10 &&
-            unit.deathTime &&
-            performance.now() - unit.deathTime < 2000;
-
-        // ponytail: throttle skeletal animation — 30fps for units beyond 45m
-        // use (animFrameCount + i) so half the far units update each frame, distributed evenly
-        const _mixerThrottle =
-            ((animFrameCount + i) & 1) === 0 || distSq < 2025;
-
-        if (isDying) {
-            unit.mixer.update(unit.accumulatedDelta);
-            unit.accumulatedDelta = 0;
-        } else if (hp > 0 && _mixerThrottle) {
-            if (effect <= 0) {
-                unit.mixer.update(unit.accumulatedDelta);
-            }
-            unit.accumulatedDelta = 0;
-        }
-
-        // Billboard positions — height based on unit scale
-        // Use interpolated mesh coordinates to avoid jitter from raw simulation ticks
-        const billY = unit.root.position.y + scale * 1.9 + 0.3;
-        const meshX = unit.root.position.x;
-        const meshZ = unit.root.position.z;
-        
-        // Distance culling: hide billboard beyond 80 world units
-        const tooFar = distSq > 6400;
-        if (hp > 0 && !tooFar) {
-            const maxHp = data[base + IDX_MAX_HP];
-            const hpRatio = maxHp > 0 ? hp / maxHp : 0;
-            
-            // HP bar background
-            dummy.position.set(meshX, billY, meshZ);
-            dummy.scale.set(1, 1, 1);
-            dummy.lookAt(camera.position);
-            dummy.updateMatrix();
-            hpBarsBg.setMatrixAt(i, dummy.matrix);
-
-            // HP bar foreground
-            const clampedScaleX = Math.max(0.01, hpRatio);
-            dummy.position.set(meshX - (1 - clampedScaleX) * 0.5, billY, meshZ);
-            dummy.scale.set(clampedScaleX, 1, 1);
-            dummy.lookAt(camera.position);
-            dummy.updateMatrix();
-            hpBarsFg.setMatrixAt(i, dummy.matrix);
-
-            // Name label — above HP bar
-            dummy.position.set(meshX, billY + 0.35, meshZ);
-            dummy.scale.set(1, 1, 1);
-            dummy.lookAt(camera.position);
-            dummy.updateMatrix();
-            if (nameBarsA && nameBarsB) {
-                if (i < TEAM_SIZE) {
-                    nameBarsA.setMatrixAt(i, dummy.matrix);
-                } else {
-                    nameBarsB.setMatrixAt(i - TEAM_SIZE, dummy.matrix);
+                if (unit.currentAnimState !== state) {
+                    if (state === 0) fadeToAnimation(unit, "idle");
+                    else if (state === 1) fadeToAnimation(unit, "run");
+                    else if (state === 2) fadeToAnimation(unit, "attack");
+                    unit.currentAnimState = state;
                 }
             }
 
-            cdRings.setMatrixAt(i, _deadMatrix);
-            immuneRings.setMatrixAt(i, _deadMatrix);
-        } else {
-                // Dead or too far — hide
+            const isDying =
+                hp <= 0 &&
+                hp >= -10 &&
+                unit.deathTime &&
+                performance.now() - unit.deathTime < 2000;
+
+            // ★ ANIMATION LOD
+            let skipFrames = 1;
+            if (distSq > 1600) {
+                skipFrames = 4;
+            } else if (distSq > 400) {
+                skipFrames = 2;
+            }
+            if (unit.animationFrameSkipCount === undefined) unit.animationFrameSkipCount = 0;
+            unit.animationFrameSkipCount++;
+
+            const assassinTooFar = uType === 5 && distSq > 1225;
+            const shouldUpdateMixer =
+                inView &&
+                showMesh &&
+                (isDying || (hp > 0 && effect <= 0)) &&
+                !assassinTooFar;
+
+            const tAnim0 = performance.now();
+            if (shouldUpdateMixer) {
+                unit.accumulatedDelta += delta;
+                if (unit.animationFrameSkipCount >= skipFrames) {
+                    unit.mixer.update(unit.accumulatedDelta);
+                    unit.accumulatedDelta = 0;
+                    unit.animationFrameSkipCount = 0;
+                }
+            } else {
+                unit.accumulatedDelta = 0;
+            }
+            animTimeTotal += performance.now() - tAnim0;
+
+            // Billboard positions
+            const tBill2 = performance.now();
+            const billY = unit.root.position.y + scale * 1.9 + 0.3;
+            const meshX = unit.root.position.x;
+            const meshZ = unit.root.position.z;
+
+            const tooFar = distSq > 6400;
+            const showBillboard = hp > 0 && !tooFar && inView && !isStealthed;
+
+            if (showBillboard) {
+                const maxHp = data[base + IDX_MAX_HP];
+                const hpRatio = maxHp > 0 ? hp / maxHp : 0;
+
+                dummy.position.set(meshX, billY, meshZ);
+                dummy.scale.set(1, 1, 1);
+                dummy.quaternion.copy(_billboardQuat);
+                dummy.updateMatrix();
+                hpBarsBg.setMatrixAt(i, dummy.matrix);
+
+                const teamId = i < TEAM_SIZE ? 0.0 : 1.0;
+                dummy.scale.set(hpRatio, teamId, maxHp);
+                dummy.updateMatrix();
+                hpBarsFg.setMatrixAt(i, dummy.matrix);
+
+                dummy.position.set(meshX, billY + 0.18, meshZ);
+                dummy.scale.set(1, 1, 1);
+                dummy.quaternion.copy(_billboardQuat);
+                dummy.updateMatrix();
+                if (nameBarsA && nameBarsB) {
+                    if (i < TEAM_SIZE) {
+                        nameBarsA.setMatrixAt(i, dummy.matrix);
+                    } else {
+                        nameBarsB.setMatrixAt(i - TEAM_SIZE, dummy.matrix);
+                    }
+                }
+
+                cdRings.setMatrixAt(i, _deadMatrix);
+                immuneRings.setMatrixAt(i, _deadMatrix);
+            } else {
                 hpBarsBg.setMatrixAt(i, _deadMatrix);
                 hpBarsFg.setMatrixAt(i, _deadMatrix);
                 cdRings.setMatrixAt(i, _deadMatrix);
@@ -777,9 +954,18 @@ export function updateFrame(data: Float32Array, delta: number) {
                     }
                 }
             }
+            billTimeTotal += performance.now() - tBill2;
         }
     }
 
+    perfProfiler.trackSystemTime("animations", animTimeTotal);
+    perfProfiler.trackSystemTime("billboards", billTimeTotal);
+
+    // ponytail: flush ice matrix once after loop, not per-unit
+    if (_iceNeedsUpdate) {
+        _iceInstanced.instanceMatrix.needsUpdate = true;
+        _iceNeedsUpdate = false;
+    }
 
     if (needsMatrixUpload) {
         hpBarsBg.instanceMatrix.needsUpdate = true;
@@ -800,13 +986,33 @@ export function resetUnitsVisual() {
         unit.accumulatedDelta = 0;
         unit.deathTime = undefined;
         _iceInstanced.setMatrixAt(i, _iceDead);
+
+        // Hide billboards on reset
+        hpBarsBg.setMatrixAt(i, _deadMatrix);
+        hpBarsFg.setMatrixAt(i, _deadMatrix);
+        cdRings.setMatrixAt(i, _deadMatrix);
+        immuneRings.setMatrixAt(i, _deadMatrix);
+        if (nameBarsA && nameBarsB) {
+            if (i < TEAM_SIZE) {
+                nameBarsA.setMatrixAt(i, _deadMatrix);
+            } else {
+                nameBarsB.setMatrixAt(i - TEAM_SIZE, _deadMatrix);
+            }
+        }
+
         const uType = sharedData ? sharedData[i * STRIDE + IDX_TYPE] : 0;
         let defaultMat = unit.team === TEAM_A ? teamMatA! : teamMatB!;
         if (uType === 3) {
             defaultMat = unit.team === TEAM_A ? healerMatA! : healerMatB!;
         }
-        for (let m = 0; m < unit.meshes.length; m++) {
-            unit.meshes[m].material = defaultMat;
+        if (unit.originalMaterials) {
+            for (let m = 0; m < unit.meshes.length; m++) {
+                unit.meshes[m].material = unit.originalMaterials[m];
+            }
+        } else {
+            for (let m = 0; m < unit.meshes.length; m++) {
+                unit.meshes[m].material = defaultMat;
+            }
         }
         if (unit.mixer) {
             unit.mixer.stopAllAction();
@@ -815,5 +1021,14 @@ export function resetUnitsVisual() {
             unit.actions.idle.play();
         }
     });
+
     _iceInstanced.instanceMatrix.needsUpdate = true;
+    hpBarsBg.instanceMatrix.needsUpdate = true;
+    hpBarsFg.instanceMatrix.needsUpdate = true;
+    cdRings.instanceMatrix.needsUpdate = true;
+    immuneRings.instanceMatrix.needsUpdate = true;
+    if (nameBarsA && nameBarsB) {
+        nameBarsA.instanceMatrix.needsUpdate = true;
+        nameBarsB.instanceMatrix.needsUpdate = true;
+    }
 }

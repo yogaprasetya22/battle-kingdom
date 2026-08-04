@@ -23,6 +23,7 @@ if (typeof window === "undefined") {
                 })
                 .catch((e) => {
                     console.error(e);
+                    throw e;
                 })
         );
     });

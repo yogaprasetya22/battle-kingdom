@@ -72,6 +72,36 @@ let battleTicks = 0;
 let startIndex = 0;
 let endIndex = UNIT_COUNT;
 
+// Option 1: Per-Worker State Tracking — store workerId as module-level variable
+let workerId = -1;
+let customClasses: number[] = [0, 1, 2, 3, 4, 5];
+
+interface TeamComposition {
+    tank: number;
+    archer: number;
+    mage: number;
+    healer: number;
+    gunslinger: number;
+    assassin: number;
+}
+let currentMatchup = "mix";
+let teamAConfig: TeamComposition = {
+    tank: 15,
+    archer: 20,
+    mage: 20,
+    healer: 5,
+    gunslinger: 20,
+    assassin: 20,
+};
+let teamBConfig: TeamComposition = {
+    tank: 15,
+    archer: 20,
+    mage: 20,
+    healer: 5,
+    gunslinger: 20,
+    assassin: 20,
+};
+
 // --- Spatial Hash Grid Configuration ---
 const cellSize = 6.0;
 const gridCols = Math.ceil((BOUND_X_MAX - BOUND_X_MIN) / cellSize);
@@ -112,6 +142,23 @@ function buildGrid(d: Float32Array) {
 
 // --- Spawn ---
 function initUnits(d: Float32Array, matchup: string = "mix") {
+    currentMatchup = matchup;
+
+    const typesA: number[] = [];
+    const typesB: number[] = [];
+    const fillTypes = (arr: number[], config: TeamComposition) => {
+        for (let j = 0; j < (config.tank ?? 0); j++) arr.push(TYPE_TANK);
+        for (let j = 0; j < (config.archer ?? 0); j++) arr.push(TYPE_ARCHER);
+        for (let j = 0; j < (config.mage ?? 0); j++) arr.push(TYPE_MAGE);
+        for (let j = 0; j < (config.healer ?? 0); j++) arr.push(TYPE_HEALER);
+        for (let j = 0; j < (config.gunslinger ?? 0); j++)
+            arr.push(TYPE_GUNSLINGER);
+        for (let j = 0; j < (config.assassin ?? 0); j++)
+            arr.push(TYPE_ASSASSIN);
+    };
+    fillTypes(typesA, teamAConfig);
+    fillTypes(typesB, teamBConfig);
+
     // Only initialize units assigned to this worker's range
     for (let i = startIndex; i < endIndex; i++) {
         const base = i * STRIDE;
@@ -120,29 +167,55 @@ function initUnits(d: Float32Array, matchup: string = "mix") {
         const row = Math.floor(localIdx / 10);
         const col = localIdx % 10;
 
-        // Tentukan kategori unit berdasarkan matchup: 6 tipe (0-5: Tank,Archer,Mage,Healer,Gunslinger,Assassin)
-        let unitType = localIdx % 6;
-        const healerCount = Math.max(1, Math.round(TEAM_SIZE * 0.02)); // 2% Healers/Acolyte
-        if (localIdx < healerCount) {
-            unitType = TYPE_HEALER;
+        let unitType = 0;
+        let isActive = true;
+
+        if (matchup === "custom_composition") {
+            const types = team === TEAM_A ? typesA : typesB;
+            if (localIdx < types.length) {
+                unitType = types[localIdx];
+            } else {
+                isActive = false;
+            }
+        } else {
+            // Tentukan kategori unit berdasarkan matchup: 6 tipe (0-5: Tank,Archer,Mage,Healer,Gunslinger,Assassin)
+            unitType = localIdx % 6;
+            const healerCount = Math.max(1, Math.round(TEAM_SIZE * 0.02)); // 2% Healers/Acolyte
+            if (localIdx < healerCount) {
+                unitType = TYPE_HEALER;
+            }
+            if (matchup === "custom") {
+                unitType = customClasses[localIdx % customClasses.length];
+            } else if (matchup === "mage_vs_tank") {
+                unitType = team === TEAM_A ? TYPE_MAGE : TYPE_TANK;
+            } else if (matchup === "archer_vs_tank") {
+                unitType = team === TEAM_A ? TYPE_ARCHER : TYPE_TANK;
+            } else if (matchup === "mage_vs_archer") {
+                unitType = team === TEAM_A ? TYPE_MAGE : TYPE_ARCHER;
+            } else if (matchup === "only_mage") {
+                unitType = TYPE_MAGE;
+            } else if (matchup === "only_archer") {
+                unitType = TYPE_ARCHER;
+            } else if (matchup === "only_tank") {
+                unitType = TYPE_TANK;
+            } else if (matchup === "only_gunslinger") {
+                unitType = TYPE_GUNSLINGER;
+            } else if (matchup === "only_assassin") {
+                unitType = TYPE_ASSASSIN;
+            }
         }
-        if (matchup === "mage_vs_tank") {
-            unitType = team === TEAM_A ? TYPE_MAGE : TYPE_TANK;
-        } else if (matchup === "archer_vs_tank") {
-            unitType = team === TEAM_A ? TYPE_ARCHER : TYPE_TANK;
-        } else if (matchup === "mage_vs_archer") {
-            unitType = team === TEAM_A ? TYPE_MAGE : TYPE_ARCHER;
-        } else if (matchup === "only_mage") {
-            unitType = TYPE_MAGE;
-        } else if (matchup === "only_archer") {
-            unitType = TYPE_ARCHER;
-        } else if (matchup === "only_tank") {
-            unitType = TYPE_TANK;
-        } else if (matchup === "only_gunslinger") {
-            unitType = TYPE_GUNSLINGER;
-        } else if (matchup === "only_assassin") {
-            unitType = TYPE_ASSASSIN;
+
+        if (!isActive) {
+            d[base + IDX_HP] = -1000; // inactive
+            d[base + IDX_MAX_HP] = 100;
+            d[base + IDX_TYPE] = 0;
+            d[base + IDX_TEAM] = team;
+            d[base + IDX_X] = -999;
+            d[base + IDX_Y] = -999;
+            d[base + IDX_Z] = -999;
+            continue;
         }
+
         d[base + IDX_TYPE] = unitType;
 
         const hp = HP_PER_TYPE[unitType] ?? 100;
@@ -189,7 +262,14 @@ function findNearestEnemy(d: Float32Array, i: number): number {
             let curr = gridHead[cellIdx];
             while (curr !== -1) {
                 const jBase = curr * STRIDE;
-                if (d[jBase + IDX_HP] > 0 && d[jBase + IDX_TEAM] !== myTeam) {
+                const isStealthed =
+                    d[jBase + IDX_EFFECT_STATE] >= 1000 &&
+                    d[jBase + IDX_EFFECT_STATE] < 2000;
+                if (
+                    d[jBase + IDX_HP] > 0 &&
+                    d[jBase + IDX_TEAM] !== myTeam &&
+                    !isStealthed
+                ) {
                     const dx = d[jBase + IDX_X] - myX;
                     const dz = d[jBase + IDX_Z] - myZ;
                     const dist = dx * dx + dz * dz;
@@ -222,7 +302,14 @@ function findNearestEnemy(d: Float32Array, i: number): number {
             let curr = gridHead[cellIdx];
             while (curr !== -1) {
                 const jBase = curr * STRIDE;
-                if (d[jBase + IDX_HP] > 0 && d[jBase + IDX_TEAM] !== myTeam) {
+                const isStealthed =
+                    d[jBase + IDX_EFFECT_STATE] >= 1000 &&
+                    d[jBase + IDX_EFFECT_STATE] < 2000;
+                if (
+                    d[jBase + IDX_HP] > 0 &&
+                    d[jBase + IDX_TEAM] !== myTeam &&
+                    !isStealthed
+                ) {
                     const dx = d[jBase + IDX_X] - myX;
                     const dz = d[jBase + IDX_Z] - myZ;
                     const dist = dx * dx + dz * dz;
@@ -245,6 +332,10 @@ function findNearestEnemy(d: Float32Array, i: number): number {
     for (let j = jStart; j < jEnd; j++) {
         const jBase = j * STRIDE;
         if (d[jBase + IDX_HP] <= 0) continue;
+        const isStealthed =
+            d[jBase + IDX_EFFECT_STATE] >= 1000 &&
+            d[jBase + IDX_EFFECT_STATE] < 2000;
+        if (isStealthed) continue;
         const dx = d[jBase + IDX_X] - myX;
         const dz = d[jBase + IDX_Z] - myZ;
         const dist = dx * dx + dz * dz;
@@ -343,10 +434,20 @@ function findLowestHpEnemy(d: Float32Array, i: number): number {
             while (curr !== -1) {
                 const jBase = curr * STRIDE;
                 if (d[jBase + IDX_HP] > 0 && d[jBase + IDX_TEAM] !== myTeam) {
-                    const hp = d[jBase + IDX_HP];
-                    if (hp < lowestHp) {
-                        lowestHp = hp;
-                        target = curr;
+                    const enemyType = d[jBase + IDX_TYPE];
+                    const isStealthed =
+                        d[jBase + IDX_EFFECT_STATE] >= 1000 &&
+                        d[jBase + IDX_EFFECT_STATE] < 2000;
+                    if (
+                        enemyType !== TYPE_TANK &&
+                        enemyType !== TYPE_ASSASSIN &&
+                        !isStealthed
+                    ) {
+                        const hp = d[jBase + IDX_HP];
+                        if (hp < lowestHp) {
+                            lowestHp = hp;
+                            target = curr;
+                        }
                     }
                 }
                 curr = gridNext[curr];
@@ -364,9 +465,16 @@ function findLowestHpEnemy(d: Float32Array, i: number): number {
         const jBase = j * STRIDE;
         const hp = d[jBase + IDX_HP];
         if (hp <= 0) continue;
-        if (hp < lowestHp) {
-            lowestHp = hp;
-            target = j;
+        const enemyType = d[jBase + IDX_TYPE];
+        const isStealthed =
+            d[jBase + IDX_EFFECT_STATE] >= 1000 &&
+            d[jBase + IDX_EFFECT_STATE] < 2000;
+        if (isStealthed) continue;
+        if (enemyType !== TYPE_TANK && enemyType !== TYPE_ASSASSIN) {
+            if (hp < lowestHp) {
+                lowestHp = hp;
+                target = j;
+            }
         }
     }
     return target;
@@ -519,6 +627,9 @@ function tick(d: Float32Array) {
     // 1. Build Spatial Grid for fast distance queries
     buildGrid(d);
 
+    // Batch skill FX events — send as single postMessage at end of tick
+    const skillFXBatch: any[] = [];
+
     // Update delayed damages
     for (let i = delayedDamages.length - 1; i >= 0; i--) {
         const dd = delayedDamages[i];
@@ -548,12 +659,31 @@ function tick(d: Float32Array) {
         if (animLockTicks[i] > 0) animLockTicks[i]--;
     }
 
+    let activeCountA = TEAM_SIZE;
+    let activeCountB = TEAM_SIZE;
+    if (currentMatchup === "custom_composition") {
+        activeCountA =
+            (teamAConfig.tank ?? 0) +
+            (teamAConfig.archer ?? 0) +
+            (teamAConfig.mage ?? 0) +
+            (teamAConfig.healer ?? 0) +
+            (teamAConfig.gunslinger ?? 0) +
+            (teamAConfig.assassin ?? 0);
+        activeCountB =
+            (teamBConfig.tank ?? 0) +
+            (teamBConfig.archer ?? 0) +
+            (teamBConfig.mage ?? 0) +
+            (teamBConfig.healer ?? 0) +
+            (teamBConfig.gunslinger ?? 0) +
+            (teamBConfig.assassin ?? 0);
+    }
+
     const unitsToSpawn =
         SPAWN_INITIAL +
         Math.floor(battleTicks / SPAWN_WAVE_INTERVAL) * SPAWN_PER_WAVE;
 
     // Spawn Team A units in range
-    const maxSpawnA = Math.min(TEAM_SIZE, unitsToSpawn);
+    const maxSpawnA = Math.min(activeCountA, unitsToSpawn);
     for (let i = startIndex; i < Math.min(endIndex, maxSpawnA); i++) {
         const base = i * STRIDE;
         if (d[base + IDX_HP] === -999) {
@@ -568,7 +698,7 @@ function tick(d: Float32Array) {
     }
 
     // Spawn Team B units in range
-    const maxSpawnB = Math.min(TEAM_SIZE, unitsToSpawn);
+    const maxSpawnB = Math.min(activeCountB, unitsToSpawn);
     const bStartIdx = TEAM_SIZE;
     for (
         let i = Math.max(startIndex, bStartIdx);
@@ -635,14 +765,26 @@ function tick(d: Float32Array) {
 
         const uType = d[base + IDX_TYPE];
         const cachedTarget = d[base + IDX_TARGET];
-        let target: number;
-        if (
-            cachedTarget >= 0 &&
-            battleTicks % 4 !== (i & 3) &&
-            d[cachedTarget * STRIDE + IDX_HP] > 0
-        ) {
-            target = cachedTarget; // keep existing target
-        } else {
+        let target = cachedTarget;
+
+        // Check if current target is invalid (dead, none, or stealthed)
+        let isTargetInvalid =
+            cachedTarget === -1 || d[cachedTarget * STRIDE + IDX_HP] <= 0;
+        if (!isTargetInvalid && cachedTarget >= 0) {
+            const tEffect = d[cachedTarget * STRIDE + IDX_EFFECT_STATE];
+            if (tEffect >= 1000 && tEffect < 2000) {
+                isTargetInvalid = true; // Target went into stealth!
+            }
+        }
+
+        // If target is invalid, throttle search to once every 8 ticks. If valid, re-evaluate target every 4 ticks.
+        const searchInterval = isTargetInvalid ? 8 : 4;
+        const shouldSearch = (battleTicks + i) % searchInterval === 0;
+
+        if (isTargetInvalid && !shouldSearch) {
+            target = -1;
+            d[base + IDX_TARGET] = -1;
+        } else if (isTargetInvalid || shouldSearch) {
             if (uType === TYPE_HEALER) {
                 target = findLowestHpAlly(d, i);
                 if (target === -1) {
@@ -667,7 +809,7 @@ function tick(d: Float32Array) {
             d[base + IDX_IMMUNE_CD] = TANK_SKILLS.bulwarkStance.immuneTicks;
             d[base + IDX_SKILL1_CD] = TANK_SKILLS.bulwarkStance.cooldown;
             skillActivated = true;
-            self.postMessage({
+            skillFXBatch.push({
                 type: "skillFX",
                 skill: "ironFortitude",
                 team: d[base + IDX_TEAM],
@@ -718,7 +860,7 @@ function tick(d: Float32Array) {
             }
             d[base + IDX_SKILL3_CD] = HEALER_SKILLS.holySanctuary.cooldown;
             skillActivated = true;
-            self.postMessage({
+            skillFXBatch.push({
                 type: "skillFX",
                 skill: "holySanctuary",
                 x: d[base + IDX_X],
@@ -755,7 +897,7 @@ function tick(d: Float32Array) {
                 d[tBase + IDX_TARGET] = i;
                 d[base + IDX_SKILL2_CD] = TANK_SKILLS.taunt.cooldown;
                 skillActivated = true;
-                self.postMessage({
+                skillFXBatch.push({
                     type: "skillFX",
                     skill: "taunt",
                     team: d[base + IDX_TEAM],
@@ -779,7 +921,7 @@ function tick(d: Float32Array) {
                     (dz / dist) * TANK_SKILLS.shieldBash.knockback;
                 d[base + IDX_SKILL3_CD] = TANK_SKILLS.shieldBash.cooldown;
                 skillActivated = true;
-                self.postMessage({
+                skillFXBatch.push({
                     type: "skillFX",
                     skill: "shieldBash",
                     team: d[base + IDX_TEAM],
@@ -798,7 +940,7 @@ function tick(d: Float32Array) {
                 queueDamage(target, ARCHER_SKILLS.doubleShot.damage, 18, i);
                 d[base + IDX_SKILL1_CD] = ARCHER_SKILLS.doubleShot.cooldown;
                 skillActivated = true;
-                self.postMessage({
+                skillFXBatch.push({
                     type: "skillFX",
                     skill: "doubleShot",
                     fx: d[base + IDX_X],
@@ -824,7 +966,7 @@ function tick(d: Float32Array) {
                 const toY = getTerrainHeight(d[base + IDX_X], d[base + IDX_Z]);
                 d[base + IDX_SKILL2_CD] = ARCHER_SKILLS.evasiveLeap.cooldown;
                 skillActivated = true;
-                self.postMessage({
+                skillFXBatch.push({
                     type: "skillFX",
                     skill: "evasiveLeap",
                     fx: fromX,
@@ -882,7 +1024,7 @@ function tick(d: Float32Array) {
 
                 d[base + IDX_SKILL3_CD] = ARCHER_SKILLS.arrowVolley.cooldown;
                 skillActivated = true;
-                self.postMessage({
+                skillFXBatch.push({
                     type: "skillFX",
                     skill: "arrowVolley",
                     team: d[base + IDX_TEAM],
@@ -966,7 +1108,7 @@ function tick(d: Float32Array) {
                 }
                 d[base + IDX_SKILL1_CD] = MAGE_SKILLS.frostNova.cooldown;
                 skillActivated = true;
-                self.postMessage({
+                skillFXBatch.push({
                     type: "skillFX",
                     skill: "frostNova",
                     x: novaX,
@@ -1064,7 +1206,7 @@ function tick(d: Float32Array) {
                 }
                 d[base + IDX_SKILL2_CD] = MAGE_SKILLS.chainLightning.cooldown;
                 skillActivated = true;
-                self.postMessage({
+                skillFXBatch.push({
                     type: "skillFX",
                     skill: "chainLightning",
                     team: d[base + IDX_TEAM],
@@ -1148,7 +1290,7 @@ function tick(d: Float32Array) {
                 }
                 d[base + IDX_SKILL3_CD] = MAGE_SKILLS.fireball.cooldown;
                 skillActivated = true;
-                self.postMessage({
+                skillFXBatch.push({
                     type: "skillFX",
                     skill: "fireball",
                     fx: d[base + IDX_X],
@@ -1167,7 +1309,7 @@ function tick(d: Float32Array) {
                 queueDamage(target, GUNSLINGER_SKILLS.highNoon.damage, 12, i);
                 d[base + IDX_SKILL1_CD] = GUNSLINGER_SKILLS.highNoon.cooldown;
                 skillActivated = true;
-                self.postMessage({
+                skillFXBatch.push({
                     type: "skillFX",
                     skill: "highNoon",
                     team: d[base + IDX_TEAM],
@@ -1187,7 +1329,7 @@ function tick(d: Float32Array) {
                     1000 + GUNSLINGER_SKILLS.smokeBomb.stealthTicks;
                 d[base + IDX_SKILL2_CD] = GUNSLINGER_SKILLS.smokeBomb.cooldown;
                 skillActivated = true;
-                self.postMessage({
+                skillFXBatch.push({
                     type: "skillFX",
                     skill: "smokeBomb",
                     team: d[base + IDX_TEAM],
@@ -1246,7 +1388,7 @@ function tick(d: Float32Array) {
                 }
                 d[base + IDX_SKILL3_CD] = GUNSLINGER_SKILLS.fanFire.cooldown;
                 skillActivated = true;
-                self.postMessage({
+                skillFXBatch.push({
                     type: "skillFX",
                     skill: "fanFire",
                     team: d[base + IDX_TEAM],
@@ -1273,7 +1415,7 @@ function tick(d: Float32Array) {
                 d[base + IDX_Y] = getTerrainHeight(behindX, behindZ);
                 d[base + IDX_SKILL1_CD] = ASSASSIN_SKILLS.shadowStep.cooldown;
                 skillActivated = true;
-                self.postMessage({
+                skillFXBatch.push({
                     type: "skillFX",
                     skill: "shadowStep",
                     fx: fromX,
@@ -1291,13 +1433,20 @@ function tick(d: Float32Array) {
                 // Check if attacking from behind (dot product of facing directions)
                 // Simplified: if assassin is close enough, considered behind target
                 const isBackstab = dist < 2.0;
-                const dmg = isBackstab
+                let dmg = isBackstab
                     ? ASSASSIN_SKILLS.backstab.damageBack
                     : ASSASSIN_SKILLS.backstab.damageFront;
+                const isAttackerStealthed =
+                    d[base + IDX_EFFECT_STATE] >= 1000 &&
+                    d[base + IDX_EFFECT_STATE] < 2000;
+                if (isAttackerStealthed) {
+                    dmg = 999; // CRIT EXECUTE DAMAGE
+                    d[base + IDX_EFFECT_STATE] = 0; // break stealth
+                }
                 queueDamage(target, dmg, 10, i);
                 d[base + IDX_SKILL2_CD] = ASSASSIN_SKILLS.backstab.cooldown;
                 skillActivated = true;
-                self.postMessage({
+                skillFXBatch.push({
                     type: "skillFX",
                     skill: "backstab",
                     team: d[base + IDX_TEAM],
@@ -1313,18 +1462,21 @@ function tick(d: Float32Array) {
             else if (d[base + IDX_SKILL3_CD] === 0 && dist <= myRange) {
                 d[base + IDX_ANIM] = 2;
                 animLockTicks[i] = 20;
-                queueDamage(
-                    target,
-                    ASSASSIN_SKILLS.poisonBlade.damagePerTick,
-                    10,
-                    i,
-                );
+                let dmg = ASSASSIN_SKILLS.poisonBlade.damagePerTick;
+                const isAttackerStealthed =
+                    d[base + IDX_EFFECT_STATE] >= 1000 &&
+                    d[base + IDX_EFFECT_STATE] < 2000;
+                if (isAttackerStealthed) {
+                    dmg = 999; // CRIT EXECUTE DAMAGE
+                    d[base + IDX_EFFECT_STATE] = 0; // break stealth
+                }
+                queueDamage(target, dmg, 10, i);
                 // Apply poison effect: base 2000 + duration ticks
                 d[tBase + IDX_EFFECT_STATE] =
                     2000 + ASSASSIN_SKILLS.poisonBlade.durationTicks;
                 d[base + IDX_SKILL3_CD] = ASSASSIN_SKILLS.poisonBlade.cooldown;
                 skillActivated = true;
-                self.postMessage({
+                skillFXBatch.push({
                     type: "skillFX",
                     skill: "poisonBlade",
                     team: d[base + IDX_TEAM],
@@ -1355,7 +1507,7 @@ function tick(d: Float32Array) {
                         HEALER_SKILLS.rejuvenation.cooldown;
                     skillActivated = true;
 
-                    self.postMessage({
+                    skillFXBatch.push({
                         type: "skillFX",
                         skill: "rejuvenation",
                         fx: d[base + IDX_X],
@@ -1376,7 +1528,7 @@ function tick(d: Float32Array) {
                         HEALER_SKILLS.divineShield.cooldown;
                     skillActivated = true;
 
-                    self.postMessage({
+                    skillFXBatch.push({
                         type: "skillFX",
                         skill: "divineShield",
                         fx: d[base + IDX_X],
@@ -1430,12 +1582,13 @@ function tick(d: Float32Array) {
                                     const force =
                                         (SEPARATION_RADIUS - distj) /
                                         SEPARATION_RADIUS;
+                                    const softDist = distj + 0.1;
                                     sepX +=
-                                        (dxj / distj) *
+                                        (dxj / softDist) *
                                         force *
                                         SEPARATION_STRENGTH;
                                     sepZ +=
-                                        (dzj / distj) *
+                                        (dzj / softDist) *
                                         force *
                                         SEPARATION_STRENGTH;
                                 }
@@ -1462,7 +1615,7 @@ function tick(d: Float32Array) {
                             animLockTicks[i] = 20;
                             applyHeal(d, target, baseDamage, i);
                             d[base + IDX_ATTACK_CD] = attackInterval;
-                            self.postMessage({
+                            skillFXBatch.push({
                                 type: "skillFX",
                                 skill: "basicHeal",
                                 fx: d[base + IDX_X],
@@ -1516,9 +1669,18 @@ function tick(d: Float32Array) {
                                     : uType === TYPE_GUNSLINGER
                                       ? 12
                                       : 22;
-                        queueDamage(target, baseDamage, attackDelay, i);
+
+                        let dmg = baseDamage;
+                        const isAttackerStealthed =
+                            d[base + IDX_EFFECT_STATE] >= 1000 &&
+                            d[base + IDX_EFFECT_STATE] < 2000;
+                        if (uType === TYPE_ASSASSIN && isAttackerStealthed) {
+                            dmg = 999; // CRIT EXECUTE DAMAGE
+                            d[base + IDX_EFFECT_STATE] = 0; // break stealth
+                        }
+                        queueDamage(target, dmg, attackDelay, i);
                         d[base + IDX_ATTACK_CD] = attackInterval; // set cooldown normal attack
-                        self.postMessage({
+                        skillFXBatch.push({
                             type: "skillFX",
                             skill: "basicAttack",
                             uType: uType,
@@ -1542,6 +1704,14 @@ function tick(d: Float32Array) {
                     const nz = dz / dist;
                     d[base + IDX_X] += nx * mySpeed;
                     d[base + IDX_Z] += nz * mySpeed;
+
+                    // Assassin stealth when running to target
+                    if (
+                        uType === TYPE_ASSASSIN &&
+                        d[base + IDX_EFFECT_STATE] < 1000
+                    ) {
+                        d[base + IDX_EFFECT_STATE] = 1000 + 150; // Stealth for 150 ticks
+                    }
                 }
             }
 
@@ -1555,6 +1725,11 @@ function tick(d: Float32Array) {
         if (d[base + IDX_Z] > BOUND_Z_MAX) d[base + IDX_Z] = BOUND_Z_MAX;
 
         d[base + IDX_Y] = getTerrainHeight(d[base + IDX_X], d[base + IDX_Z]);
+    }
+
+    // Send batched skill FX events
+    if (skillFXBatch.length > 0) {
+        self.postMessage({ type: "skillFXBatch", events: skillFXBatch });
     }
 }
 
@@ -1667,6 +1842,11 @@ self.onmessage = (e: MessageEvent) => {
     const { type } = e.data;
 
     if (type === "init") {
+        if (e.data.customClasses) {
+            customClasses = e.data.customClasses;
+        }
+        if (e.data.teamAConfig) teamAConfig = e.data.teamAConfig;
+        if (e.data.teamBConfig) teamBConfig = e.data.teamBConfig;
         buf = e.data.buffer as SharedArrayBuffer;
         data = new Float32Array(buf);
         int32Data = new Int32Array(buf);
@@ -1679,12 +1859,17 @@ self.onmessage = (e: MessageEvent) => {
         statsKills.fill(0);
         statsHealDone.fill(0);
         initUnits(data, e.data.matchup || "mix");
-        self.postMessage({ type: "ready" });
+
+        // Store workerId from init message (Option 1: Per-Worker State Tracking)
+        workerId = e.data.workerId ?? -1;
+        self.postMessage({ type: "ready", workerId });
     }
 
     if (type === "tick") {
         if (data) {
+            const tStart = performance.now();
             tick(data);
+            const tDuration = performance.now() - tStart;
             // Compute partial alive counts for this worker's range
             let aliveA = 0,
                 aliveB = 0,
@@ -1703,12 +1888,15 @@ self.onmessage = (e: MessageEvent) => {
                     }
                 }
             }
+            // Send workerId along with tick_done (Option 1: Per-Worker State Tracking)
             self.postMessage({
                 type: "tick_done",
+                workerId,
                 aliveA,
                 aliveB,
                 aliveOrUnspawnedA,
                 aliveOrUnspawnedB,
+                tickTimeMs: tDuration,
             });
         }
     }
@@ -1721,6 +1909,11 @@ self.onmessage = (e: MessageEvent) => {
     }
 
     if (type === "reset") {
+        if (e.data.customClasses) {
+            customClasses = e.data.customClasses;
+        }
+        if (e.data.teamAConfig) teamAConfig = e.data.teamAConfig;
+        if (e.data.teamBConfig) teamBConfig = e.data.teamBConfig;
         battleTicks = 0;
         delayedDamages.length = 0;
         animLockTicks.fill(0);

@@ -16,6 +16,8 @@ import {
 } from "./graphics/core/renderer";
 import { soundFX } from "./graphics/core/SoundFX";
 import { CharacterViewer } from "./graphics/viewer/CharacterViewer";
+import { WorkerDiagnostics } from "./simulation/WorkerDiagnostics";
+import { perfProfiler } from "./graphics/core/PerformanceProfiler";
 
 // ---- Shared Buffer (bridge antara main thread & worker) ----
 const sharedBuffer = new SharedArrayBuffer(BUFFER_BYTES);
@@ -52,15 +54,74 @@ const selectModel = document.getElementById(
 const selectMatchup = document.getElementById(
     "select-matchup",
 ) as HTMLSelectElement;
+const btnSettings = document.getElementById(
+    "btn-settings",
+) as HTMLButtonElement;
+
+interface TeamConfig {
+    tank: number;
+    archer: number;
+    mage: number;
+    healer: number;
+    gunslinger: number;
+    assassin: number;
+}
+let teamAConfig: TeamConfig = {
+    tank: 15,
+    archer: 20,
+    mage: 20,
+    healer: 5,
+    gunslinger: 20,
+    assassin: 20,
+};
+let teamBConfig: TeamConfig = {
+    tank: 15,
+    archer: 20,
+    mage: 20,
+    healer: 5,
+    gunslinger: 20,
+    assassin: 20,
+};
+
+const savedA = localStorage.getItem("teamAConfig");
+const savedB = localStorage.getItem("teamBConfig");
+if (savedA) {
+    try {
+        teamAConfig = JSON.parse(savedA);
+    } catch (e) {}
+}
+if (savedB) {
+    try {
+        teamBConfig = JSON.parse(savedB);
+    } catch (e) {}
+}
+
+// ---- Per-Worker State Tracking (Option 1: Synchronization Fix) ----
+interface WorkerTickState {
+    workerId: number;
+    currentTickId: number;
+    aliveA: number;
+    aliveB: number;
+    aliveOrUnspawnedA: number;
+    aliveOrUnspawnedB: number;
+}
 
 let tickCount = 0;
 export let isRunning = false;
 let pendingTick = false;
-let workersDoneCount = 0;
 let lastTime = performance.now();
 let readyWorkersCount = 0;
 let statsReceivedCount = 0;
 let battleWinner: "A" | "B" = "A";
+
+// Track current global tick ID (incremented each time we dispatch tick)
+let globalTickId = 0;
+
+// Per-worker state tracking: indexed by workerId (0, 1, 2, 3, ...)
+const workerTickStates: Map<number, WorkerTickState> = new Map();
+
+// Diagnostics for Option 1 synchronization (disabled by default, enable with workerDiagnostics.enable())
+const diagnostics = new WorkerDiagnostics(false);
 
 const aggregatedStats = {
     teamA: {
@@ -122,6 +183,7 @@ function enableControls() {
     btnReset.disabled = false;
     selectModel.disabled = false;
     selectMatchup.disabled = false;
+    btnSettings.disabled = false;
     if (btnViewer) btnViewer.disabled = false;
 }
 
@@ -130,6 +192,7 @@ function disableControls() {
     btnReset.disabled = true;
     selectModel.disabled = true;
     selectMatchup.disabled = true;
+    btnSettings.disabled = true;
 }
 
 const mergeStats = (ws: any) => {
@@ -148,6 +211,10 @@ function showBattleEnd(winner: "A" | "B", stats: typeof aggregatedStats) {
     }
     overlayMsg.textContent =
         winner === "A" ? "🔴 Tim A Menang!" : "🔵 Tim B Menang!";
+
+    // Hentikan recording & unduh report kinerja pertempuran otomatis
+    perfProfiler.stopLogging();
+    perfProfiler.exportReport();
 
     if (statsContainer) {
         statsContainer.innerHTML = `
@@ -340,6 +407,41 @@ function onTickComplete() {
     }
 }
 
+/**
+ * Check if all workers have completed the same tick ID.
+ * Returns true if all workers are synchronized on globalTickId.
+ */
+function allWorkersSyncedOnTick(): boolean {
+    if (workerTickStates.size !== NUM_WORKERS) {
+        return false;
+    }
+    for (const state of workerTickStates.values()) {
+        if (state.currentTickId !== globalTickId) {
+            return false;
+        }
+    }
+    return true;
+}
+
+/**
+ * Aggregate counts from all workers that are synced on the current tick.
+ */
+function aggregateWorkerCounts(): void {
+    accumAliveA = 0;
+    accumAliveB = 0;
+    accumAliveOrUnspawnedA = 0;
+    accumAliveOrUnspawnedB = 0;
+
+    for (const state of workerTickStates.values()) {
+        if (state.currentTickId === globalTickId) {
+            accumAliveA += state.aliveA;
+            accumAliveB += state.aliveB;
+            accumAliveOrUnspawnedA += state.aliveOrUnspawnedA;
+            accumAliveOrUnspawnedB += state.aliveOrUnspawnedB;
+        }
+    }
+}
+
 // ---- Worker message handlers ----
 for (let i = 0; i < NUM_WORKERS; i++) {
     workers[i].onmessage = (e: MessageEvent) => {
@@ -353,22 +455,41 @@ for (let i = 0; i < NUM_WORKERS; i++) {
         }
 
         if (type === "tick_done") {
-            workersDoneCount++;
-            // Accumulate partial alive counts from this worker
-            if (e.data.aliveA !== undefined) {
-                if (workersDoneCount === 1) {
-                    accumAliveA = e.data.aliveA;
-                    accumAliveB = e.data.aliveB;
-                    accumAliveOrUnspawnedA = e.data.aliveOrUnspawnedA;
-                    accumAliveOrUnspawnedB = e.data.aliveOrUnspawnedB;
-                } else {
-                    accumAliveA += e.data.aliveA;
-                    accumAliveB += e.data.aliveB;
-                    accumAliveOrUnspawnedA += e.data.aliveOrUnspawnedA;
-                    accumAliveOrUnspawnedB += e.data.aliveOrUnspawnedB;
-                }
+            const workerId = e.data.workerId ?? -1;
+
+            if (e.data.tickTimeMs !== undefined) {
+                // Gunakan latency simulasi worker untuk diagnostics profiling
+                perfProfiler.setWorkerTickTime(e.data.tickTimeMs);
             }
-            if (workersDoneCount === NUM_WORKERS) {
+
+            // Update per-worker state with current tick results
+            if (workerId >= 0 && e.data.aliveA !== undefined) {
+                workerTickStates.set(workerId, {
+                    workerId,
+                    currentTickId: globalTickId,
+                    aliveA: e.data.aliveA,
+                    aliveB: e.data.aliveB,
+                    aliveOrUnspawnedA: e.data.aliveOrUnspawnedA,
+                    aliveOrUnspawnedB: e.data.aliveOrUnspawnedB,
+                });
+            }
+
+            // Check if all workers have synced on the current tick
+            if (allWorkersSyncedOnTick()) {
+                aggregateWorkerCounts();
+
+                // Record diagnostic snapshot for this tick
+                diagnostics.recordTick(
+                    globalTickId,
+                    workerTickStates,
+                    NUM_WORKERS,
+                    true,
+                    accumAliveA,
+                    accumAliveB,
+                    accumAliveOrUnspawnedA,
+                    accumAliveOrUnspawnedB,
+                );
+
                 onTickComplete();
             }
         }
@@ -384,18 +505,50 @@ for (let i = 0; i < NUM_WORKERS; i++) {
         if (type === "skillFX") {
             spawnSkillFX(e.data);
         }
+
+        if (type === "skillFXBatch") {
+            const events: any[] = e.data.events;
+            if (events) {
+                for (let k = 0; k < events.length; k++) {
+                    spawnSkillFX(events[k]);
+                }
+            }
+        }
     };
+}
+
+function getCustomClasses(): number[] {
+    const badges = document.querySelectorAll(".class-badge");
+    const activeTypes: number[] = [];
+    badges.forEach((b: any) => {
+        if (b.classList.contains("active")) {
+            activeTypes.push(parseInt(b.dataset.type || "0"));
+        }
+    });
+    return activeTypes.length > 0 ? activeTypes : [0, 1, 2, 3, 4, 5];
 }
 
 function resetWorkers() {
     isRunning = false;
     pendingTick = false;
     tickCount = 0;
+    globalTickId = 0;
     readyWorkersCount = 0;
+    workerTickStates.clear();
     if (workerTicks) workerTicks.textContent = "0";
+    scoreA.textContent = TEAM_SIZE.toString();
+    scoreB.textContent = TEAM_SIZE.toString();
     resetUnitsVisual();
+
+    const customClasses = getCustomClasses();
     for (let i = 0; i < NUM_WORKERS; i++) {
-        workers[i].postMessage({ type: "reset", matchup: selectMatchup.value });
+        workers[i].postMessage({
+            type: "reset",
+            matchup: selectMatchup.value,
+            customClasses,
+            teamAConfig,
+            teamBConfig,
+        });
     }
 }
 
@@ -408,6 +561,9 @@ btnStart.addEventListener("click", () => {
     isRunning = true;
     pendingTick = false;
     lastTime = performance.now();
+
+    // Mulai record performance profiling
+    perfProfiler.startLogging();
 });
 
 btnReset.addEventListener("click", () => {
@@ -428,7 +584,7 @@ selectModel.addEventListener("change", () => {
     resetWorkers();
 
     // Muat model baru
-    changeModel(
+    loadModel(
         selectModel.value,
         selectMatchup.value,
         () => {
@@ -444,12 +600,18 @@ selectModel.addEventListener("change", () => {
 });
 
 selectMatchup.addEventListener("change", () => {
+    const customPanel = document.getElementById("custom-classes-panel");
+    if (customPanel) {
+        customPanel.style.display =
+            selectMatchup.value === "custom" ? "flex" : "none";
+    }
+
     disableControls();
     overlay.style.display = "none";
     resetWorkers();
 
     // Re-clone models to match the new matchup types
-    changeModel(selectModel.value, selectMatchup.value, () => {
+    loadModel(selectModel.value, selectMatchup.value, () => {
         enableControls();
     });
 });
@@ -564,6 +726,10 @@ document.addEventListener("click", (e) => {
 // ---- Init sequence ----
 setSharedData(sharedData);
 
+// Set initial HUD score from TEAM_SIZE — no hardcoded values in HTML
+scoreA.textContent = TEAM_SIZE.toString();
+scoreB.textContent = TEAM_SIZE.toString();
+
 // Inject worker tick dispatch into render loop (eliminates separate rAF)
 setBeforeRenderCb((_timestamp: number, _delta: number) => {
     if (!isRunning) return;
@@ -571,9 +737,25 @@ setBeforeRenderCb((_timestamp: number, _delta: number) => {
     const deltaTime = now - lastTime;
     if (deltaTime >= 15 && !pendingTick) {
         pendingTick = true;
-        workersDoneCount = 0;
+        globalTickId++;
+
+        // Reset worker states for this tick (mark all as pending)
         for (let i = 0; i < NUM_WORKERS; i++) {
-            workers[i].postMessage({ type: "tick" });
+            if (!workerTickStates.has(i)) {
+                workerTickStates.set(i, {
+                    workerId: i,
+                    currentTickId: globalTickId - 1,
+                    aliveA: 0,
+                    aliveB: 0,
+                    aliveOrUnspawnedA: 0,
+                    aliveOrUnspawnedB: 0,
+                });
+            }
+        }
+
+        // Dispatch tick to all workers
+        for (let i = 0; i < NUM_WORKERS; i++) {
+            workers[i].postMessage({ type: "tick", tickId: globalTickId });
         }
         lastTime = now - (deltaTime % 15);
     }
@@ -581,16 +763,308 @@ setBeforeRenderCb((_timestamp: number, _delta: number) => {
 
 startRenderLoop();
 
-// Kirim buffer ke worker
+// Kirim buffer ke worker dengan workerId untuk per-worker tracking
+// Distribute units evenly across ALL workers (not by team)
+const unitsPerWorker = Math.ceil(UNIT_COUNT / NUM_WORKERS);
+const customClasses = getCustomClasses();
 for (let i = 0; i < NUM_WORKERS; i++) {
+    const startIndex = i * unitsPerWorker;
+    const endIndex = Math.min((i + 1) * unitsPerWorker, UNIT_COUNT);
+
     workers[i].postMessage({
         type: "init",
+        workerId: i,
         buffer: sharedBuffer,
         matchup: selectMatchup.value,
-        startIndex: i === 0 ? 0 : TEAM_SIZE,
-        endIndex: i === 0 ? TEAM_SIZE : UNIT_COUNT,
+        customClasses,
+        teamAConfig,
+        teamBConfig,
+        startIndex,
+        endIndex,
     });
 }
 
+// ---- Settings UI Logic ----
+const settingsOverlay = document.getElementById(
+    "settings-overlay",
+) as HTMLDivElement;
+const btnSettingsClose = document.getElementById(
+    "btn-settings-close",
+) as HTMLButtonElement;
+const btnSettingsCancel = document.getElementById(
+    "btn-settings-cancel",
+) as HTMLButtonElement;
+const btnSettingsSave = document.getElementById(
+    "btn-settings-save",
+) as HTMLButtonElement;
+const settingsWarning = document.getElementById(
+    "settings-warning",
+) as HTMLDivElement;
+
+const presetBalanced = document.getElementById(
+    "preset-balanced",
+) as HTMLButtonElement;
+const presetMagic = document.getElementById(
+    "preset-magic",
+) as HTMLButtonElement;
+const presetDefense = document.getElementById(
+    "preset-defense",
+) as HTMLButtonElement;
+const presetStealth = document.getElementById(
+    "preset-stealth",
+) as HTMLButtonElement;
+
+const classes = ["tank", "archer", "mage", "healer", "gunslinger", "assassin"];
+
+function loadConfigToUI() {
+    classes.forEach((cls) => {
+        const sliderA = document.getElementById(
+            `slider-a-${cls}`,
+        ) as HTMLInputElement;
+        const chkA = document.getElementById(
+            `chk-a-${cls}`,
+        ) as HTMLInputElement;
+        const valA = document.getElementById(`val-a-${cls}`) as HTMLSpanElement;
+        const val = (teamAConfig as any)[cls] ?? 0;
+
+        sliderA.value = val.toString();
+        chkA.checked = val > 0;
+        sliderA.disabled = !chkA.checked;
+        valA.textContent = val.toString();
+
+        const sliderB = document.getElementById(
+            `slider-b-${cls}`,
+        ) as HTMLInputElement;
+        const chkB = document.getElementById(
+            `chk-b-${cls}`,
+        ) as HTMLInputElement;
+        const valB = document.getElementById(`val-b-${cls}`) as HTMLSpanElement;
+        const val2 = (teamBConfig as any)[cls] ?? 0;
+
+        sliderB.value = val2.toString();
+        chkB.checked = val2 > 0;
+        sliderB.disabled = !chkB.checked;
+        valB.textContent = val2.toString();
+    });
+    updateTotals();
+}
+
+function updateTotals() {
+    let totalA = 0;
+    let totalB = 0;
+
+    classes.forEach((cls) => {
+        const sliderA = document.getElementById(
+            `slider-a-${cls}`,
+        ) as HTMLInputElement;
+        const chkA = document.getElementById(
+            `chk-a-${cls}`,
+        ) as HTMLInputElement;
+        const valA = document.getElementById(`val-a-${cls}`) as HTMLSpanElement;
+        const countA = chkA.checked ? parseInt(sliderA.value) : 0;
+        totalA += countA;
+        valA.textContent = countA.toString();
+        sliderA.disabled = !chkA.checked;
+
+        const sliderB = document.getElementById(
+            `slider-b-${cls}`,
+        ) as HTMLInputElement;
+        const chkB = document.getElementById(
+            `chk-b-${cls}`,
+        ) as HTMLInputElement;
+        const valB = document.getElementById(`val-b-${cls}`) as HTMLSpanElement;
+        const countB = chkB.checked ? parseInt(sliderB.value) : 0;
+        totalB += countB;
+        valB.textContent = countB.toString();
+        sliderB.disabled = !chkB.checked;
+    });
+
+    const totalASpan = document.getElementById(
+        "total-a-units",
+    ) as HTMLSpanElement;
+    const totalBSpan = document.getElementById(
+        "total-b-units",
+    ) as HTMLSpanElement;
+    if (totalASpan) totalASpan.textContent = totalA.toString();
+    if (totalBSpan) totalBSpan.textContent = totalB.toString();
+
+    // ponytail: validate using dynamic TEAM_SIZE constant
+    const invalid = totalA <= 0 || totalA > TEAM_SIZE || totalB <= 0 || totalB > TEAM_SIZE;
+    if (invalid) {
+        settingsWarning.classList.remove("hidden");
+        btnSettingsSave.disabled = true;
+    } else {
+        settingsWarning.classList.add("hidden");
+        btnSettingsSave.disabled = false;
+    }
+}
+
+function applyPreset(presetA: number[], presetB: number[]) {
+    classes.forEach((cls, idx) => {
+        const sliderA = document.getElementById(
+            `slider-a-${cls}`,
+        ) as HTMLInputElement;
+        const chkA = document.getElementById(
+            `chk-a-${cls}`,
+        ) as HTMLInputElement;
+        sliderA.value = presetA[idx].toString();
+        chkA.checked = presetA[idx] > 0;
+
+        const sliderB = document.getElementById(
+            `slider-b-${cls}`,
+        ) as HTMLInputElement;
+        const chkB = document.getElementById(
+            `chk-b-${cls}`,
+        ) as HTMLInputElement;
+        sliderB.value = presetB[idx].toString();
+        chkB.checked = presetB[idx] > 0;
+    });
+    updateTotals();
+}
+
+presetBalanced.addEventListener("click", () =>
+    // Scaled preset to total 50: [tank, archer, mage, healer, gunslinger, assassin]
+    applyPreset([7, 10, 10, 3, 10, 10], [7, 10, 10, 3, 10, 10]),
+);
+presetMagic.addEventListener("click", () =>
+    applyPreset([0, 0, 40, 10, 0, 0], [0, 0, 40, 10, 0, 0]),
+);
+presetDefense.addEventListener("click", () =>
+    applyPreset([30, 15, 0, 5, 0, 0], [30, 15, 0, 5, 0, 0]),
+);
+presetStealth.addEventListener("click", () =>
+    applyPreset([0, 10, 0, 0, 15, 25], [0, 10, 0, 0, 15, 25]),
+);
+
+classes.forEach((cls) => {
+    document
+        .getElementById(`slider-a-${cls}`)
+        ?.addEventListener("input", updateTotals);
+    document
+        .getElementById(`chk-a-${cls}`)
+        ?.addEventListener("change", updateTotals);
+    document
+        .getElementById(`slider-b-${cls}`)
+        ?.addEventListener("input", updateTotals);
+    document
+        .getElementById(`chk-b-${cls}`)
+        ?.addEventListener("change", updateTotals);
+});
+
+btnSettings.addEventListener("click", () => {
+    if (isRunning) {
+        isRunning = false;
+        resetWorkers();
+    }
+    
+    // ponytail: Dynamicize max properties of sliders & UI labels to match TEAM_SIZE
+    const limitTexts = document.querySelectorAll(".limit-placeholder-text");
+    limitTexts.forEach((el) => {
+        el.textContent = ` / ${TEAM_SIZE} Unit`;
+    });
+    const subHeader = document.querySelector("#settings-overlay p.text-slate-400");
+    if (subHeader) {
+        subHeader.textContent = `Atur jumlah unit per kelas untuk setiap tim (Maks. ${TEAM_SIZE} unit per tim)`;
+    }
+    const warningEl = document.getElementById("settings-warning");
+    if (warningEl) {
+        warningEl.innerHTML = `⚠️ Total unit untuk salah satu tim melebihi ${TEAM_SIZE} atau kosong! Mohon sesuaikan kembali.`;
+    }
+
+    classes.forEach((cls) => {
+        const sliderA = document.getElementById(`slider-a-${cls}`) as HTMLInputElement;
+        const sliderB = document.getElementById(`slider-b-${cls}`) as HTMLInputElement;
+        if (sliderA) sliderA.max = TEAM_SIZE.toString();
+        if (sliderB) sliderB.max = TEAM_SIZE.toString();
+    });
+
+    loadConfigToUI();
+    settingsOverlay.style.display = "flex";
+});
+
+const closeSettings = () => {
+    settingsOverlay.style.display = "none";
+};
+btnSettingsClose.addEventListener("click", closeSettings);
+btnSettingsCancel.addEventListener("click", closeSettings);
+
+btnSettingsSave.addEventListener("click", () => {
+    classes.forEach((cls) => {
+        const sliderA = document.getElementById(
+            `slider-a-${cls}`,
+        ) as HTMLInputElement;
+        const chkA = document.getElementById(
+            `chk-a-${cls}`,
+        ) as HTMLInputElement;
+        (teamAConfig as any)[cls] = chkA.checked ? parseInt(sliderA.value) : 0;
+
+        const sliderB = document.getElementById(
+            `slider-b-${cls}`,
+        ) as HTMLInputElement;
+        const chkB = document.getElementById(
+            `chk-b-${cls}`,
+        ) as HTMLInputElement;
+        (teamBConfig as any)[cls] = chkB.checked ? parseInt(sliderB.value) : 0;
+    });
+
+    localStorage.setItem("teamAConfig", JSON.stringify(teamAConfig));
+    localStorage.setItem("teamBConfig", JSON.stringify(teamBConfig));
+
+    closeSettings();
+    selectMatchup.value = "custom_composition";
+
+    disableControls();
+    overlay.style.display = "none";
+    resetWorkers();
+    loadModel(selectModel.value, selectMatchup.value, () => {
+        enableControls();
+    });
+});
+
+// Expose diagnostics to browser console for debugging
+(window as any).workerDiagnostics = {
+    report: () => diagnostics.generateReport(),
+    recentTicks: (count?: number) => diagnostics.getRecentTicks(count),
+    checkSync: () => diagnostics.detectSyncIssues(),
+    checkCounts: () => diagnostics.verifyCountConsistency(),
+    enable: () => diagnostics.setEnabled(true),
+    disable: () => diagnostics.setEnabled(false),
+};
+
+function loadModel(
+    modelName: string,
+    matchup: string,
+    onSuccess?: () => void,
+    onError?: () => void,
+) {
+    perfProfiler.setSkeletonMode(modelName.toLowerCase().includes("skeleton"));
+    changeModel(modelName, matchup, onSuccess, onError);
+}
+
 // Load model awal secara dinamis
-changeModel("Knight", selectMatchup.value);
+loadModel(
+    "Knight",
+    selectMatchup.value,
+    () => {
+        enableControls();
+    },
+    () => {
+        enableControls();
+    },
+);
+
+// Click handler untuk class-badge kustom
+document.querySelectorAll(".class-badge").forEach((badge) => {
+    badge.addEventListener("click", () => {
+        // Toggle status aktif
+        badge.classList.toggle("active");
+
+        // Set ulang dan buat kembali model serta worker
+        disableControls();
+        overlay.style.display = "none";
+        resetWorkers();
+        loadModel(selectModel.value, selectMatchup.value, () => {
+            enableControls();
+        });
+    });
+});

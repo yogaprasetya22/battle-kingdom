@@ -118,6 +118,46 @@ const CHARACTERS: CharacterDef[] = [
             { id: "poisonBlade", label: "Poison Blade" },
         ],
     },
+    {
+        name: "Skeleton Warrior",
+        model: "Skeleton_Warrior",
+        uType: 0,
+        skills: [
+            { id: "ironFortitude", label: "Iron Fortitude" },
+            { id: "taunt", label: "Taunt" },
+            { id: "shieldBash", label: "Shield Bash" },
+        ],
+    },
+    {
+        name: "Skeleton Minion",
+        model: "Skeleton_Minion",
+        uType: 1,
+        skills: [
+            { id: "doubleShot", label: "Double Shot" },
+            { id: "arrowVolley", label: "Arrow Volley" },
+            { id: "evasiveLeap", label: "Evasive Leap" },
+        ],
+    },
+    {
+        name: "Skeleton Mage",
+        model: "Skeleton_Mage",
+        uType: 2,
+        skills: [
+            { id: "frostNova", label: "Frost Nova" },
+            { id: "chainLightning", label: "Chain Lightning" },
+            { id: "fireball", label: "Fireball" },
+        ],
+    },
+    {
+        name: "Skeleton Rogue",
+        model: "Skeleton_Rogue",
+        uType: 5,
+        skills: [
+            { id: "shadowStep", label: "Shadow Step" },
+            { id: "backstab", label: "Backstab" },
+            { id: "poisonBlade", label: "Poison Blade" },
+        ],
+    },
 ];
 
 // ── Daftar senjata (sama dengan UnitRenderer.ts) ──
@@ -133,6 +173,13 @@ const WEAPON_ASSETS = [
     { name: "dagger", path: "dagger.glb" },
     { name: "mug_full", path: "mug_full.glb" },
     { name: "spellbook_closed", path: "spellbook_closed.glb" },
+    { name: "Skeleton_Axe", path: "Skeleton_Axe.glb" },
+    { name: "Skeleton_Blade", path: "Skeleton_Blade.glb" },
+    { name: "Skeleton_Crossbow", path: "Skeleton_Crossbow.glb" },
+    { name: "Skeleton_Quiver", path: "Skeleton_Quiver.glb" },
+    { name: "Skeleton_Shield_Small_A", path: "Skeleton_Shield_Small_A.glb" },
+    { name: "Skeleton_Shield_Large_A", path: "Skeleton_Shield_Large_A.glb" },
+    { name: "Skeleton_Staff", path: "Skeleton_Staff.glb" },
 ];
 
 // ── Daftar animation rig ──
@@ -354,11 +401,13 @@ export class CharacterViewer {
         }
 
         // Panggil factory — ini otomatis attach senjata + setup animasi
+        const isSkeleton = def.model.toLowerCase().includes("skeleton");
         this.currentUnit = createUnitVisual(
             def.uType,
             sourceGLTF,
             this.unitMaterial,
             this.animRigs,
+            isSkeleton,
         );
 
         // Reset scale (factory & class constructor sudah set scale, kita override untuk viewer)

@@ -38,11 +38,14 @@ export class KnightVisual implements IUnitVisual {
     readonly weapons: THREE.Group[] = [];
 
     private _currentAnimState = 0;
+    readonly isSkeleton: boolean;
 
     constructor(
-        sourceGLTF: any, // gltf hasil load karakter Knight
+        sourceGLTF: any,
         teamMaterial: THREE.MeshStandardMaterial,
+        isSkeleton = false,
     ) {
+        this.isSkeleton = isSkeleton;
         // Clone scene agar tiap unit independen (tidak share transform/material)
         this.root = SkeletonUtils.clone(sourceGLTF.scene) as THREE.Group;
         this.root.scale.setScalar(0.85); // Knight sedikit lebih besar
@@ -50,7 +53,9 @@ export class KnightVisual implements IUnitVisual {
         // Kumpulkan semua mesh untuk material swapping
         this.root.traverse((child: any) => {
             if (child.isMesh) {
-                child.material = teamMaterial;
+                if (!isSkeleton) {
+                    child.material = teamMaterial;
+                }
                 this.meshes.push(child as THREE.Mesh);
             }
         });
@@ -70,33 +75,17 @@ export class KnightVisual implements IUnitVisual {
 
     /** Pasang pedang & perisai ke bone tangan */
     loadAssets(): void {
-        // Debug: cetak struktur bone yang tersedia
-        const bones: string[] = [];
-        this.root.traverse((obj: any) => {
-            if (obj instanceof THREE.Bone) {
-                bones.push(obj.name);
-            }
-        });
-        if (bones.length > 0) {
-            console.debug(
-                `[KnightVisual] Available bones: [${bones.join(", ")}]`,
-            );
-        }
+        const swordName = this.isSkeleton ? "Skeleton_Blade" : "sword_1handed";
+        const shieldName = this.isSkeleton ? "Skeleton_Shield_Small_A" : "shield_round_color";
 
-        const sword = attachWeapon(this.root, "sword_1handed", "hand_r");
+        const sword = attachWeapon(this.root, swordName, "hand_r");
         if (sword) {
             this.weapons.push(sword);
-            console.info("[KnightVisual] Sword attached successfully");
-        } else {
-            console.warn("[KnightVisual] Failed to attach sword");
         }
 
-        const shield = attachWeapon(this.root, "shield_round_color", "hand_l");
+        const shield = attachWeapon(this.root, shieldName, "hand_l");
         if (shield) {
             this.weapons.push(shield);
-            console.info("[KnightVisual] Shield attached successfully");
-        } else {
-            console.warn("[KnightVisual] Failed to attach shield");
         }
     }
 
