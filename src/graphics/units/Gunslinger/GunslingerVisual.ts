@@ -27,21 +27,13 @@ export class GunslingerVisual implements IUnitVisual {
     readonly meshes: THREE.Mesh[] = [];
     readonly weapons: THREE.Group[] = [];
     private _currentAnimState = 0;
-    readonly isSkeleton: boolean;
 
-    constructor(
-        sourceGLTF: any,
-        teamMaterial: THREE.MeshStandardMaterial,
-        isSkeleton = false,
-    ) {
-        this.isSkeleton = isSkeleton;
+    constructor(sourceGLTF: any, teamMaterial: THREE.MeshStandardMaterial) {
         this.root = SkeletonUtils.clone(sourceGLTF.scene) as THREE.Group;
         this.root.scale.setScalar(0.55);
         this.root.traverse((child: any) => {
             if (child.isMesh) {
-                if (!isSkeleton) {
-                    child.material = teamMaterial;
-                }
+                child.material = teamMaterial;
                 this.meshes.push(child as THREE.Mesh);
             }
         });
@@ -49,8 +41,7 @@ export class GunslingerVisual implements IUnitVisual {
     }
 
     loadAssets(): void {
-        const weaponName = this.isSkeleton ? "Skeleton_Crossbow" : "crossbow_1handed";
-        const xbow = attachWeapon(this.root, weaponName, "hand_r");
+        const xbow = attachWeapon(this.root, "crossbow_1handed", "hand_r");
         if (xbow) this.weapons.push(xbow);
     }
 

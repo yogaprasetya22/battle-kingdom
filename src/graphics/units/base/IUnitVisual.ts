@@ -26,9 +26,6 @@ export interface IUnitVisual {
     /** Daftar senjata yang ditempel (untuk LOD culling & disposal) */
     readonly weapons: THREE.Group[];
 
-    /** Flag unit spesial skeleton */
-    readonly isSkeleton?: boolean;
-
     // ── Lifecycle ──
 
     /** Dipanggil sekali setelah konstruksi. Memuat model dasar + attach senjata ke bone. */

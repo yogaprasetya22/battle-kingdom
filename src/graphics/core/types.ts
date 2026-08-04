@@ -18,5 +18,4 @@ export interface UnitVisual {
     accumulatedDelta: number;
     lastMixerUpdateTime?: number; // track last actual mixer update untuk smooth interpolation
     animationFrameSkipCount?: number; // count skipped frames for blending calculation
-    originalMaterials?: (THREE.Material | THREE.Material[])[];
 }

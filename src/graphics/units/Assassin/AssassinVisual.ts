@@ -35,21 +35,13 @@ export class AssassinVisual implements IUnitVisual {
     readonly weapons: THREE.Group[] = [];
     private _currentAnimState = 0;
     private _weaponsLoaded = false;
-    readonly isSkeleton: boolean;
 
-    constructor(
-        sourceGLTF: any,
-        teamMaterial: THREE.MeshStandardMaterial,
-        isSkeleton = false,
-    ) {
-        this.isSkeleton = isSkeleton;
+    constructor(sourceGLTF: any, teamMaterial: THREE.MeshStandardMaterial) {
         this.root = SkeletonUtils.clone(sourceGLTF.scene) as THREE.Group;
         this.root.scale.setScalar(0.5);
         this.root.traverse((child: any) => {
             if (child.isMesh) {
-                if (!isSkeleton) {
-                    child.material = teamMaterial;
-                }
+                child.material = teamMaterial;
                 this.meshes.push(child as THREE.Mesh);
             }
         });
@@ -65,10 +57,9 @@ export class AssassinVisual implements IUnitVisual {
         if (this._weaponsLoaded) return;
         this._weaponsLoaded = true;
 
-        const weaponName = this.isSkeleton ? "Skeleton_Blade" : "dagger";
-        const d1 = attachWeapon(this.root, weaponName, "hand_r");
+        const d1 = attachWeapon(this.root, "dagger", "hand_r");
         if (d1) this.weapons.push(d1);
-        const d2 = attachWeapon(this.root, weaponName, "hand_l");
+        const d2 = attachWeapon(this.root, "dagger", "hand_l");
         if (d2) this.weapons.push(d2);
     }
 

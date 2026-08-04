@@ -38,14 +38,11 @@ export class KnightVisual implements IUnitVisual {
     readonly weapons: THREE.Group[] = [];
 
     private _currentAnimState = 0;
-    readonly isSkeleton: boolean;
 
     constructor(
-        sourceGLTF: any,
+        sourceGLTF: any, // gltf hasil load karakter Knight
         teamMaterial: THREE.MeshStandardMaterial,
-        isSkeleton = false,
     ) {
-        this.isSkeleton = isSkeleton;
         // Clone scene agar tiap unit independen (tidak share transform/material)
         this.root = SkeletonUtils.clone(sourceGLTF.scene) as THREE.Group;
         this.root.scale.setScalar(0.85); // Knight sedikit lebih besar
@@ -53,9 +50,7 @@ export class KnightVisual implements IUnitVisual {
         // Kumpulkan semua mesh untuk material swapping
         this.root.traverse((child: any) => {
             if (child.isMesh) {
-                if (!isSkeleton) {
-                    child.material = teamMaterial;
-                }
+                child.material = teamMaterial;
                 this.meshes.push(child as THREE.Mesh);
             }
         });
@@ -75,15 +70,14 @@ export class KnightVisual implements IUnitVisual {
 
     /** Pasang pedang & perisai ke bone tangan */
     loadAssets(): void {
-        const swordName = this.isSkeleton ? "Skeleton_Blade" : "sword_1handed";
-        const shieldName = this.isSkeleton ? "Skeleton_Shield_Small_A" : "shield_round_color";
 
-        const sword = attachWeapon(this.root, swordName, "hand_r");
+
+        const sword = attachWeapon(this.root, "sword_1handed", "hand_r");
         if (sword) {
             this.weapons.push(sword);
         }
 
-        const shield = attachWeapon(this.root, shieldName, "hand_l");
+        const shield = attachWeapon(this.root, "shield_round_color", "hand_l");
         if (shield) {
             this.weapons.push(shield);
         }

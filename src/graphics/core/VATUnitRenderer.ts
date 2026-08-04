@@ -188,7 +188,7 @@ export function changeModel(
     for (let k = 0; k < UNIT_COUNT; k++) _iceInstanced.setMatrixAt(k, _iceDead);
     _iceInstanced.instanceMatrix.needsUpdate = true;
 
-    initNameBars(modelName);
+    // Name bars disabled — ponytail: re-enable by calling initNameBars(modelName) here
 
     logDiag("Loading VAT Assets parallelly...");
 
@@ -645,6 +645,7 @@ export function updateFrame(data: Float32Array, delta: number) {
             if (showBillboard) {
                 const maxHp = data[base + IDX_MAX_HP];
                 const hpRatio = maxHp > 0 ? hp / maxHp : 0;
+                const clampedScaleX = Math.max(0.01, hpRatio);
 
                 // ponytail: reuse pre-computed billboard quaternion — no lookAt per unit
                 dummy.position.set(meshX, billY, meshZ);
@@ -653,12 +654,18 @@ export function updateFrame(data: Float32Array, delta: number) {
                 dummy.updateMatrix();
                 hpBarsBg.setMatrixAt(i, dummy.matrix);
 
-                // HP bar foreground (Scale is kept at 1.0, width calculation done in shader)
+                const hpOffset = (1 - clampedScaleX) * 0.5;
+                dummy.position.set(
+                    meshX - _right.x * hpOffset,
+                    billY,
+                    meshZ - _right.z * hpOffset
+                );
+                dummy.scale.set(clampedScaleX, 1, 1);
+                dummy.quaternion.copy(_billboardQuat);
+                dummy.updateMatrix();
                 hpBarsFg.setMatrixAt(i, dummy.matrix);
-                const teamId = i < TEAM_SIZE ? 0.0 : 1.0;
-                hpBarsFg.setColorAt(i, new THREE.Color(hpRatio, teamId, maxHp));
 
-                dummy.position.set(meshX, billY + 0.18, meshZ);
+                dummy.position.set(meshX, billY + 0.35, meshZ);
                 dummy.scale.set(1, 1, 1);
                 dummy.quaternion.copy(_billboardQuat);
                 dummy.updateMatrix();
@@ -697,9 +704,6 @@ export function updateFrame(data: Float32Array, delta: number) {
     if (needsMatrixUpload) {
         hpBarsBg.instanceMatrix.needsUpdate = true;
         hpBarsFg.instanceMatrix.needsUpdate = true;
-        if (hpBarsFg.instanceColor) {
-            hpBarsFg.instanceColor.needsUpdate = true;
-        }
         cdRings.instanceMatrix.needsUpdate = true;
         immuneRings.instanceMatrix.needsUpdate = true;
         if (nameBarsA && nameBarsB) {

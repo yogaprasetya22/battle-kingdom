@@ -31,21 +31,13 @@ export class HealerVisual implements IUnitVisual {
     readonly meshes: THREE.Mesh[] = [];
     readonly weapons: THREE.Group[] = [];
     private _currentAnimState = 0;
-    readonly isSkeleton: boolean;
 
-    constructor(
-        sourceGLTF: any,
-        teamMaterial: THREE.MeshStandardMaterial,
-        isSkeleton = false,
-    ) {
-        this.isSkeleton = isSkeleton;
+    constructor(sourceGLTF: any, teamMaterial: THREE.MeshStandardMaterial) {
         this.root = SkeletonUtils.clone(sourceGLTF.scene) as THREE.Group;
         this.root.scale.setScalar(0.5);
         this.root.traverse((child: any) => {
             if (child.isMesh) {
-                if (!isSkeleton) {
-                    child.material = teamMaterial;
-                }
+                child.material = teamMaterial;
                 this.meshes.push(child as THREE.Mesh);
             }
         });
@@ -53,15 +45,10 @@ export class HealerVisual implements IUnitVisual {
     }
 
     loadAssets(): void {
-        const staffName = this.isSkeleton ? "Skeleton_Staff" : "wand";
-        const wand = attachWeapon(this.root, staffName, "hand_r");
+        const wand = attachWeapon(this.root, "wand", "hand_r");
         if (wand) this.weapons.push(wand);
-
-        // Don't attach shield/book if skeleton (has Staff which is 2H conceptually)
-        if (!this.isSkeleton) {
-            const book = attachWeapon(this.root, "spellbook_open", "hand_l");
-            if (book) this.weapons.push(book);
-        }
+        const book = attachWeapon(this.root, "spellbook_open", "hand_l");
+        if (book) this.weapons.push(book);
     }
 
     setupAnimations(animRigs: Record<string, THREE.AnimationClip[]>): void {
