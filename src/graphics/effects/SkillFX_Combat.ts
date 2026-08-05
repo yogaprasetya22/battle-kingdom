@@ -386,40 +386,37 @@ export function spawnEvasiveLeapFX(
 ) {
     const startY = fy;
     const endY = ty;
-    const cq = getCamQuad();
 
+    // ponytail: Use InstancedMesh for smoke puffs — one draw call vs 14
+    const PUFFS = Math.round(7 * fxQualityScale()); // reduced from 14
     const smokeGeo = pooledPlane(0.5, 0.5);
-    const smokeMat = new THREE.MeshBasicMaterial({
+    const smokeMat = getPooledMaterial({
         map: smokeTex,
         transparent: true,
         opacity: 0.7,
         depthWrite: false,
     });
-    const puffs: THREE.Mesh[] = [];
+    const smokeInst = new THREE.InstancedMesh(smokeGeo, smokeMat, PUFFS);
+    smokeInst.frustumCulled = false;
+    scene.add(smokeInst);
+
+    const pPositions: THREE.Vector3[] = [];
     const pVels: THREE.Vector3[] = [];
-    const PUFFS = Math.round(14 * fxQualityScale());
     for (let i = 0; i < PUFFS; i++) {
-        const m = new THREE.Mesh(smokeGeo, smokeMat);
-        m.position.set(
+        pPositions.push(new THREE.Vector3(
             fx + (Math.random() - 0.5) * 0.5,
             startY + 0.25,
             fz + (Math.random() - 0.5) * 0.5,
-        );
-        m.quaternion.copy(cq);
-        m.scale.setScalar(0.5 + Math.random() * 0.5);
-        scene.add(m);
-        puffs.push(m);
-        pVels.push(
-            new THREE.Vector3(
-                (Math.random() - 0.5) * 1.0,
-                Math.random() * 1.2 + 0.4,
-                (Math.random() - 0.5) * 1.0,
-            ),
-        );
+        ));
+        pVels.push(new THREE.Vector3(
+            (Math.random() - 0.5) * 1.0,
+            Math.random() * 1.2 + 0.4,
+            (Math.random() - 0.5) * 1.0,
+        ));
     }
 
     const dashGeo = pooledPlane(1.0, 4.0);
-    const dashMat = new THREE.MeshBasicMaterial({
+    const dashMat = getPooledMaterial({
         color: 0x88e0ff,
         transparent: true,
         opacity: 0.8,
@@ -444,23 +441,25 @@ export function spawnEvasiveLeapFX(
             age += delta;
             const t = Math.min(1, age / duration);
             if (t >= 1) {
-                puffs.forEach((m) => {
-                    scene.remove(m);
-                    (m.material as THREE.MeshBasicMaterial).dispose();
-                });
+                scene.remove(smokeInst);
                 scene.remove(dash);
-                smokeMat.dispose();
-                dashMat.dispose();
+                releasePooledMaterial(smokeMat);
+                releasePooledMaterial(dashMat);
+                smokeInst.dispose();
                 return false;
             }
             const et = easeOutCubic(t);
-            for (let i = 0; i < puffs.length; i++) {
-                puffs[i].position.addScaledVector(pVels[i], delta);
-                puffs[i].scale.addScalar(delta * 2.5);
-                puffs[i].quaternion.copy(camera.quaternion);
-                (puffs[i].material as THREE.MeshBasicMaterial).opacity =
-                    0.7 * (1 - et);
+            const cq = camera.quaternion;
+            for (let i = 0; i < PUFFS; i++) {
+                pPositions[i].addScaledVector(pVels[i], delta);
+                _tempObj.position.copy(pPositions[i]);
+                _tempObj.quaternion.copy(cq);
+                _tempObj.scale.setScalar(0.5 + t * 1.2);
+                _tempObj.updateMatrix();
+                smokeInst.setMatrixAt(i, _tempObj.matrix);
             }
+            smokeInst.instanceMatrix.needsUpdate = true;
+            smokeMat.opacity = 0.7 * (1 - et);
             dashMat.opacity = 0.5 * (1 - et);
             return true;
         },
