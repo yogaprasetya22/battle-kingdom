@@ -227,6 +227,18 @@ const mergeStats = (ws: any) => {
     }
 };
 
+function formatStatValue(val: number): string {
+    if (val >= 1000000) {
+        const mVal = val / 1000000;
+        return mVal.toFixed(mVal % 1 === 0 ? 0 : 1) + "M";
+    }
+    if (val >= 1000) {
+        const kVal = val / 1000;
+        return kVal.toFixed(kVal % 1 === 0 ? 0 : 1) + "k";
+    }
+    return val.toString();
+}
+
 function showBattleEnd(winner: "A" | "B", stats: typeof aggregatedStats) {
     if (winner === "A") {
         soundFX.playVictory();
@@ -253,45 +265,45 @@ function showBattleEnd(winner: "A" | "B", stats: typeof aggregatedStats) {
       </div>
       <div class="stats-grid">
         <div class="stats-class">🛡️ Tank</div>
-        <div class="stats-cell">${stats.teamA.tankDealt}</div>
-        <div class="stats-cell">${stats.teamA.tankTaken}</div>
+        <div class="stats-cell">${formatStatValue(stats.teamA.tankDealt)}</div>
+        <div class="stats-cell">${formatStatValue(stats.teamA.tankTaken)}</div>
         <div class="stats-cell">${stats.teamA.tankKills}</div>
-        <div class="stats-cell">${stats.teamA.tankHealed}</div>
+        <div class="stats-cell">${formatStatValue(stats.teamA.tankHealed)}</div>
       </div>
       <div class="stats-grid">
         <div class="stats-class">🏹 Archer</div>
-        <div class="stats-cell">${stats.teamA.archerDealt}</div>
-        <div class="stats-cell">${stats.teamA.archerTaken}</div>
+        <div class="stats-cell">${formatStatValue(stats.teamA.archerDealt)}</div>
+        <div class="stats-cell">${formatStatValue(stats.teamA.archerTaken)}</div>
         <div class="stats-cell">${stats.teamA.archerKills}</div>
-        <div class="stats-cell">${stats.teamA.archerHealed}</div>
+        <div class="stats-cell">${formatStatValue(stats.teamA.archerHealed)}</div>
       </div>
       <div class="stats-grid">
         <div class="stats-class">✨ Mage</div>
-        <div class="stats-cell">${stats.teamA.mageDealt}</div>
-        <div class="stats-cell">${stats.teamA.mageTaken}</div>
-        <div class="stats-cell">${stats.teamA.mageKills}</div>
-        <div class="stats-cell">${stats.teamA.mageHealed}</div>
+        <div class="stats-cell">${formatStatValue(stats.teamA.mageDealt)}</div>
+        <div class="stats-cell">${formatStatValue(stats.teamA.mageTaken)}</div>
+        <div class="stats-cell">${formatStatValue(stats.teamA.mageKills)}</div>
+        <div class="stats-cell">${formatStatValue(stats.teamA.mageHealed)}</div>
       </div>
       <div class="stats-grid">
         <div class="stats-class">💚 Healer</div>
-        <div class="stats-cell">${stats.teamA.healerDealt}</div>
-        <div class="stats-cell">${stats.teamA.healerTaken}</div>
-        <div class="stats-cell">${stats.teamA.healerKills}</div>
-        <div class="stats-cell">${stats.teamA.healerHealed}</div>
+        <div class="stats-cell">${formatStatValue(stats.teamA.healerDealt)}</div>
+        <div class="stats-cell">${formatStatValue(stats.teamA.healerTaken)}</div>
+        <div class="stats-cell">${formatStatValue(stats.teamA.healerKills)}</div>
+        <div class="stats-cell">${formatStatValue(stats.teamA.healerHealed)}</div>
       </div>
       <div class="stats-grid">
         <div class="stats-class">🔫 Gunslinger</div>
-        <div class="stats-cell">${stats.teamA.gunslingerDealt}</div>
-        <div class="stats-cell">${stats.teamA.gunslingerTaken}</div>
-        <div class="stats-cell">${stats.teamA.gunslingerKills}</div>
-        <div class="stats-cell">${stats.teamA.gunslingerHealed}</div>
+        <div class="stats-cell">${formatStatValue(stats.teamA.gunslingerDealt)}</div>
+        <div class="stats-cell">${formatStatValue(stats.teamA.gunslingerTaken)}</div>
+        <div class="stats-cell">${formatStatValue(stats.teamA.gunslingerKills)}</div>
+        <div class="stats-cell">${formatStatValue(stats.teamA.gunslingerHealed)}</div>
       </div>
       <div class="stats-grid">
         <div class="stats-class">🗡️ Assassin</div>
-        <div class="stats-cell">${stats.teamA.assassinDealt}</div>
-        <div class="stats-cell">${stats.teamA.assassinTaken}</div>
-        <div class="stats-cell">${stats.teamA.assassinKills}</div>
-        <div class="stats-cell">${stats.teamA.assassinHealed}</div>
+        <div class="stats-cell">${formatStatValue(stats.teamA.assassinDealt)}</div>
+        <div class="stats-cell">${formatStatValue(stats.teamA.assassinTaken)}</div>
+        <div class="stats-cell">${formatStatValue(stats.teamA.assassinKills)}</div>
+        <div class="stats-cell">${formatStatValue(stats.teamA.assassinHealed)}</div>
       </div>
     </div>
 
@@ -306,45 +318,45 @@ function showBattleEnd(winner: "A" | "B", stats: typeof aggregatedStats) {
       </div>
       <div class="stats-grid">
         <div class="stats-class">🛡️ Tank</div>
-        <div class="stats-cell">${stats.teamB.tankDealt}</div>
-        <div class="stats-cell">${stats.teamB.tankTaken}</div>
-        <div class="stats-cell">${stats.teamB.tankKills}</div>
-        <div class="stats-cell">${stats.teamB.tankHealed}</div>
+        <div class="stats-cell">${formatStatValue(stats.teamB.tankDealt)}</div>
+        <div class="stats-cell">${formatStatValue(stats.teamB.tankTaken)}</div>
+        <div class="stats-cell">${formatStatValue(stats.teamB.tankKills)}</div>
+        <div class="stats-cell">${formatStatValue(stats.teamB.tankHealed)}</div>
       </div>
       <div class="stats-grid">
         <div class="stats-class">🏹 Archer</div>
-        <div class="stats-cell">${stats.teamB.archerDealt}</div>
-        <div class="stats-cell">${stats.teamB.archerTaken}</div>
-        <div class="stats-cell">${stats.teamB.archerKills}</div>
-        <div class="stats-cell">${stats.teamB.archerHealed}</div>
+        <div class="stats-cell">${formatStatValue(stats.teamB.archerDealt)}</div>
+        <div class="stats-cell">${formatStatValue(stats.teamB.archerTaken)}</div>
+        <div class="stats-cell">${formatStatValue(stats.teamB.archerKills)}</div>
+        <div class="stats-cell">${formatStatValue(stats.teamB.archerHealed)}</div>
       </div>
       <div class="stats-grid">
         <div class="stats-class">✨ Mage</div>
-        <div class="stats-cell">${stats.teamB.mageDealt}</div>
-        <div class="stats-cell">${stats.teamB.mageTaken}</div>
-        <div class="stats-cell">${stats.teamB.mageKills}</div>
-        <div class="stats-cell">${stats.teamB.mageHealed}</div>
+        <div class="stats-cell">${formatStatValue(stats.teamB.mageDealt)}</div>
+        <div class="stats-cell">${formatStatValue(stats.teamB.mageTaken)}</div>
+        <div class="stats-cell">${formatStatValue(stats.teamB.mageKills)}</div>
+        <div class="stats-cell">${formatStatValue(stats.teamB.mageHealed)}</div>
       </div>
       <div class="stats-grid">
         <div class="stats-class">💚 Healer</div>
-        <div class="stats-cell">${stats.teamB.healerDealt}</div>
-        <div class="stats-cell">${stats.teamB.healerTaken}</div>
-        <div class="stats-cell">${stats.teamB.healerKills}</div>
-        <div class="stats-cell">${stats.teamB.healerHealed}</div>
+        <div class="stats-cell">${formatStatValue(stats.teamB.healerDealt)}</div>
+        <div class="stats-cell">${formatStatValue(stats.teamB.healerTaken)}</div>
+        <div class="stats-cell">${formatStatValue(stats.teamB.healerKills)}</div>
+        <div class="stats-cell">${formatStatValue(stats.teamB.healerHealed)}</div>
       </div>
       <div class="stats-grid">
         <div class="stats-class">🔫 Gunslinger</div>
-        <div class="stats-cell">${stats.teamB.gunslingerDealt}</div>
-        <div class="stats-cell">${stats.teamB.gunslingerTaken}</div>
-        <div class="stats-cell">${stats.teamB.gunslingerKills}</div>
-        <div class="stats-cell">${stats.teamB.gunslingerHealed}</div>
+        <div class="stats-cell">${formatStatValue(stats.teamB.gunslingerDealt)}</div>
+        <div class="stats-cell">${formatStatValue(stats.teamB.gunslingerTaken)}</div>
+        <div class="stats-cell">${formatStatValue(stats.teamB.gunslingerKills)}</div>
+        <div class="stats-cell">${formatStatValue(stats.teamB.gunslingerHealed)}</div>
       </div>
       <div class="stats-grid">
         <div class="stats-class">🗡️ Assassin</div>
-        <div class="stats-cell">${stats.teamB.assassinDealt}</div>
-        <div class="stats-cell">${stats.teamB.assassinTaken}</div>
-        <div class="stats-cell">${stats.teamB.assassinKills}</div>
-        <div class="stats-cell">${stats.teamB.assassinHealed}</div>
+        <div class="stats-cell">${formatStatValue(stats.teamB.assassinDealt)}</div>
+        <div class="stats-cell">${formatStatValue(stats.teamB.assassinTaken)}</div>
+        <div class="stats-cell">${formatStatValue(stats.teamB.assassinKills)}</div>
+        <div class="stats-cell">${formatStatValue(stats.teamB.assassinHealed)}</div>
       </div>
     </div>
   `;

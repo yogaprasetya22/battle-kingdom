@@ -84,9 +84,9 @@ const hpFgMat = new THREE.ShaderMaterial({
                 finalColor = mix(baseColor * 0.75, baseColor, vUv.y * 1.6);
             }
 
-            // Draw dividers (ticks) every 25 HP (optimized modulo check)
-            if (maxHp > 25.0) {
-                float tickSpacing = 25.0 / maxHp;
+            // Draw dividers (ticks) every 25,000 HP (optimized modulo check)
+            if (maxHp > 25000.0) {
+                float tickSpacing = 25000.0 / maxHp;
                 float absX = vUv.x * hpRatio;
                 float distToTick = mod(absX, tickSpacing);
                 
