@@ -9,6 +9,7 @@ import { Flowers } from './Flowers';
 import { SceneryWindLines } from './SceneryWindLines';
 import { Grass } from './Grass';
 import { Leaves } from './Leaves';
+import { invalidateTerrainCache } from '../../simulation/constants';
 
 export class World {
   floor: Floor;
@@ -26,6 +27,7 @@ export class World {
   };
 
   constructor(scene: THREE.Scene, gltfLoader: GLTFLoader) {
+    invalidateTerrainCache();
     this.floor        = new Floor(scene);
     this.waterSurface = new WaterSurface(scene, this.uniforms);
     this.trees        = new Trees(scene, gltfLoader);

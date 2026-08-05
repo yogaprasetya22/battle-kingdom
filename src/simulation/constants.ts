@@ -70,6 +70,10 @@ function smoothstep(edge0: number, edge1: number, x: number): number {
     return t * t * (3 - 2 * t);
 }
 
+function mixVal(a: number, b: number, t: number): number {
+    return a * (1.0 - t) + b * t;
+}
+
 // ── Lake definitions ──
 // Bowl-shaped depressions in forest zones outside the battlefield.
 // Each lake is a Gaussian depression: -depth * exp(-dist²/(2*r²))
@@ -82,12 +86,12 @@ export interface LakeDef {
 }
 
 export const LAKES: LakeDef[] = [
-    { cx: -68, cz: -62, rx: 15, rz: 10, depth: 1.4 }, // NW besar
-    { cx: 68, cz: -62, rx: 14, rz: 9, depth: 1.3 }, // NE besar
-    { cx: -68, cz: 62, rx: 13, rz: 10, depth: 1.2 }, // SW besar
-    { cx: 68, cz: 62, rx: 15, rz: 9, depth: 1.5 }, // SE besar
-    { cx: -88, cz: 0, rx: 9, rz: 7, depth: 1.0 }, // Barat jauh
-    { cx: 88, cz: 0, rx: 9, rz: 7, depth: 1.0 }, // Timur jauh
+    { cx: -68, cz: -62, rx: 22, rz: 15, depth: 1.4 }, // NW besar (was rx: 15, rz: 10)
+    { cx: 68, cz: -62, rx: 20, rz: 14, depth: 1.3 }, // NE besar (was rx: 14, rz: 9)
+    { cx: -68, cz: 62, rx: 19, rz: 15, depth: 1.2 }, // SW besar (was rx: 13, rz: 10)
+    { cx: 68, cz: 62, rx: 22, rz: 14, depth: 1.5 }, // SE besar (was rx: 15, rz: 9)
+    { cx: -88, cz: 0, rx: 14, rz: 11, depth: 1.0 }, // Barat jauh (was rx: 9, rz: 7)
+    { cx: 88, cz: 0, rx: 14, rz: 11, depth: 1.0 }, // Timur jauh (was rx: 9, rz: 7)
 ];
 
 function lakeBowlHeight(x: number, z: number): number {
@@ -123,13 +127,31 @@ export function getTerrainHeight(x: number, z: number): number {
     // Forest hills — organic sine/cosine terrain
     const h1 = Math.sin(x * 0.12 + 0.5) * Math.cos(z * 0.12) * 3.5;
     const h2 = Math.sin(x * 0.28) * Math.sin(z * 0.22 + 1.2) * 1.2;
-    const hills = h1 + h2;
+    let hills = h1 + h2;
 
-    // Lake bowl depressions
-    const bowls = lakeBowlHeight(x, z);
+    const WATER_LEVEL = -3.0;
 
-    // Forest terrain = hills with lake bowls carved in
-    const forestTerrain = hills + bowls;
+    // Calculate maximum wetness of any lake at this point
+    let maxWetness = 0;
+    let lakeBowlDepth = 0;
+    for (const lake of LAKES) {
+        const dx = (x - lake.cx) / lake.rx;
+        const dz = (z - lake.cz) / lake.rz;
+        const distSq = dx * dx + dz * dz;
+        const wet = Math.exp(-distSq * 0.5);
+        if (wet > maxWetness) {
+            maxWetness = wet;
+        }
+        // Carve down relative to the target water level (-3.0)
+        // Depth multiplied by 2.2 to make sure it goes deep below -3.0
+        lakeBowlDepth -= (lake.depth * 2.2) * wet;
+    }
+
+    // Interpolate hills down towards WATER_LEVEL (-3.0) near lakes
+    hills = mixVal(hills, WATER_LEVEL, smoothstep(0.0, 0.8, maxWetness));
+
+    // Forest terrain = hills (suppressed/lowered) + lake bowls carved further down
+    const forestTerrain = hills + lakeBowlDepth;
 
     // Blend: flat (0) on battlefield → full terrain in forest
     const result = forestTerrain * forestFactor;

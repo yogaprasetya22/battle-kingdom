@@ -30,6 +30,7 @@ import {
     cdRings,
     immuneRings,
     _deadMatrix,
+    _deadNameMatrix,
     dummy,
     nameBarsA,
     nameBarsB,
@@ -450,15 +451,15 @@ export function updateFrame(data: Float32Array, delta: number) {
                 (unit as any)._wasAlive = false;
 
                 const tBill0 = performance.now();
-                hpBarsBg.setMatrixAt(i, _deadMatrix);
-                hpBarsFg.setMatrixAt(i, _deadMatrix);
-                cdRings.setMatrixAt(i, _deadMatrix);
-                immuneRings.setMatrixAt(i, _deadMatrix);
+                hpBarsBg.setMatrixAt(i, _deadNameMatrix);
+                hpBarsFg.setMatrixAt(i, _deadNameMatrix);
+                cdRings.setMatrixAt(i, _deadNameMatrix);
+                immuneRings.setMatrixAt(i, _deadNameMatrix);
                 if (nameBarsA && nameBarsB) {
                     if (i < TEAM_SIZE) {
-                        nameBarsA.setMatrixAt(i, _deadMatrix);
+                        nameBarsA.setMatrixAt(i, _deadNameMatrix);
                     } else {
-                        nameBarsB.setMatrixAt(i - TEAM_SIZE, _deadMatrix);
+                        nameBarsB.setMatrixAt(i - TEAM_SIZE, _deadNameMatrix);
                     }
                 }
                 billTimeTotal += performance.now() - tBill0;
@@ -679,18 +680,18 @@ export function updateFrame(data: Float32Array, delta: number) {
                     }
                 }
 
-                cdRings.setMatrixAt(i, _deadMatrix);
-                immuneRings.setMatrixAt(i, _deadMatrix);
+                cdRings.setMatrixAt(i, _deadNameMatrix);
+                immuneRings.setMatrixAt(i, _deadNameMatrix);
             } else {
-                hpBarsBg.setMatrixAt(i, _deadMatrix);
-                hpBarsFg.setMatrixAt(i, _deadMatrix);
-                cdRings.setMatrixAt(i, _deadMatrix);
-                immuneRings.setMatrixAt(i, _deadMatrix);
+                hpBarsBg.setMatrixAt(i, _deadNameMatrix);
+                hpBarsFg.setMatrixAt(i, _deadNameMatrix);
+                cdRings.setMatrixAt(i, _deadNameMatrix);
+                immuneRings.setMatrixAt(i, _deadNameMatrix);
                 if (nameBarsA && nameBarsB) {
                     if (i < TEAM_SIZE) {
-                        nameBarsA.setMatrixAt(i, _deadMatrix);
+                        nameBarsA.setMatrixAt(i, _deadNameMatrix);
                     } else {
-                        nameBarsB.setMatrixAt(i - TEAM_SIZE, _deadMatrix);
+                        nameBarsB.setMatrixAt(i - TEAM_SIZE, _deadNameMatrix);
                     }
                 }
             }

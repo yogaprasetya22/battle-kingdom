@@ -161,10 +161,10 @@ export const _deadNameMatrix = new THREE.Matrix4().makeTranslation(0, -999, 0);
 // of arena), which causes ghost labels / bars to appear before battle starts.
 {
     for (let _i = 0; _i < UNIT_COUNT; _i++) {
-        hpBarsBg.setMatrixAt(_i, _deadMatrix);
-        hpBarsFg.setMatrixAt(_i, _deadMatrix);
-        cdRings.setMatrixAt(_i, _deadMatrix);
-        immuneRings.setMatrixAt(_i, _deadMatrix);
+        hpBarsBg.setMatrixAt(_i, _deadNameMatrix);
+        hpBarsFg.setMatrixAt(_i, _deadNameMatrix);
+        cdRings.setMatrixAt(_i, _deadNameMatrix);
+        immuneRings.setMatrixAt(_i, _deadNameMatrix);
     }
     hpBarsBg.instanceMatrix.needsUpdate = true;
     hpBarsFg.instanceMatrix.needsUpdate = true;

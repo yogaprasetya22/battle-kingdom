@@ -9,9 +9,9 @@ export class Castles {
     const baseUrl = import.meta.env.BASE_URL;
     gltfLoader.load(`${baseUrl}models/npc/tower.glb`, (gltf) => {
       this.castleA = gltf.scene;
-      this.castleA.position.set(-37.5, getTerrainHeight(-37.5, 0), 0);
+      this.castleA.position.set(-37.5, getTerrainHeight(-37.5, 0) - 0.2, 0);
       this.castleA.scale.setScalar(1.6);
-      this.castleA.rotation.y = Math.PI / 2;
+      this.castleA.rotation.y = Math.PI / 2 ;
       scene.add(this.castleA);
     });
 

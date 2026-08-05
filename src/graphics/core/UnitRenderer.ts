@@ -669,10 +669,10 @@ export function updateFrame(data: Float32Array, delta: number) {
                 unit.root.scale.setScalar(0.0001);
                 (unit as any)._wasAlive = false;
 
-                hpBarsBg.setMatrixAt(i, _deadMatrix);
-                hpBarsFg.setMatrixAt(i, _deadMatrix);
-                cdRings.setMatrixAt(i, _deadMatrix);
-                immuneRings.setMatrixAt(i, _deadMatrix);
+                hpBarsBg.setMatrixAt(i, _deadNameMatrix);
+                hpBarsFg.setMatrixAt(i, _deadNameMatrix);
+                cdRings.setMatrixAt(i, _deadNameMatrix);
+                immuneRings.setMatrixAt(i, _deadNameMatrix);
                 if (nameBarsA && nameBarsB) {
                     if (i < TEAM_SIZE) {
                         nameBarsA.setMatrixAt(i, _deadNameMatrix);
@@ -694,10 +694,10 @@ export function updateFrame(data: Float32Array, delta: number) {
                     unit.root.visible = false;
                     (unit as any)._wasAlive = false;
 
-                    hpBarsBg.setMatrixAt(i, _deadMatrix);
-                    hpBarsFg.setMatrixAt(i, _deadMatrix);
-                    cdRings.setMatrixAt(i, _deadMatrix);
-                    immuneRings.setMatrixAt(i, _deadMatrix);
+                    hpBarsBg.setMatrixAt(i, _deadNameMatrix);
+                    hpBarsFg.setMatrixAt(i, _deadNameMatrix);
+                    cdRings.setMatrixAt(i, _deadNameMatrix);
+                    immuneRings.setMatrixAt(i, _deadNameMatrix);
                     if (nameBarsA && nameBarsB) {
                         if (i < TEAM_SIZE) {
                             nameBarsA.setMatrixAt(i, _deadNameMatrix);
@@ -724,10 +724,10 @@ export function updateFrame(data: Float32Array, delta: number) {
             unit.root.visible = false;
             (unit as any)._wasAlive = false;
             // Sembunyikan semua billboard untuk unit yang belum spawn
-            hpBarsBg.setMatrixAt(i, _deadMatrix);
-            hpBarsFg.setMatrixAt(i, _deadMatrix);
-            cdRings.setMatrixAt(i, _deadMatrix);
-            immuneRings.setMatrixAt(i, _deadMatrix);
+            hpBarsBg.setMatrixAt(i, _deadNameMatrix);
+            hpBarsFg.setMatrixAt(i, _deadNameMatrix);
+            cdRings.setMatrixAt(i, _deadNameMatrix);
+            immuneRings.setMatrixAt(i, _deadNameMatrix);
             if (nameBarsA && nameBarsB) {
                 if (i < TEAM_SIZE) {
                     nameBarsA.setMatrixAt(i, _deadNameMatrix);
@@ -985,13 +985,13 @@ export function updateFrame(data: Float32Array, delta: number) {
                     }
                 }
 
-                cdRings.setMatrixAt(i, _deadMatrix);
-                immuneRings.setMatrixAt(i, _deadMatrix);
+                cdRings.setMatrixAt(i, _deadNameMatrix);
+                immuneRings.setMatrixAt(i, _deadNameMatrix);
             } else {
-                hpBarsBg.setMatrixAt(i, _deadMatrix);
-                hpBarsFg.setMatrixAt(i, _deadMatrix);
-                cdRings.setMatrixAt(i, _deadMatrix);
-                immuneRings.setMatrixAt(i, _deadMatrix);
+                hpBarsBg.setMatrixAt(i, _deadNameMatrix);
+                hpBarsFg.setMatrixAt(i, _deadNameMatrix);
+                cdRings.setMatrixAt(i, _deadNameMatrix);
+                immuneRings.setMatrixAt(i, _deadNameMatrix);
                 if (nameBarsA && nameBarsB) {
                     if (i < TEAM_SIZE) {
                         nameBarsA.setMatrixAt(i, _deadNameMatrix);
@@ -1033,10 +1033,10 @@ export function resetUnitsVisual() {
         _iceInstanced.setMatrixAt(i, _iceDead);
 
         // Hide billboards on reset
-        hpBarsBg.setMatrixAt(i, _deadMatrix);
-        hpBarsFg.setMatrixAt(i, _deadMatrix);
-        cdRings.setMatrixAt(i, _deadMatrix);
-        immuneRings.setMatrixAt(i, _deadMatrix);
+        hpBarsBg.setMatrixAt(i, _deadNameMatrix);
+        hpBarsFg.setMatrixAt(i, _deadNameMatrix);
+        cdRings.setMatrixAt(i, _deadNameMatrix);
+        immuneRings.setMatrixAt(i, _deadNameMatrix);
         if (nameBarsA && nameBarsB) {
             if (i < TEAM_SIZE) {
                 nameBarsA.setMatrixAt(i, _deadNameMatrix);
