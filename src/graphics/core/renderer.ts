@@ -24,7 +24,10 @@ import {
 } from "./UnitRenderer";
 import { perfProfiler } from "./PerformanceProfiler";
 
+import { damageHUDBatcher } from "../effects/DamageHUDBatcher";
+
 export { changeModel, resetUnitsVisual } from "./UnitRenderer";
+
 
 import {
     spawnLightningFX,
@@ -69,6 +72,10 @@ dayCycleManager.setDirectionalLight(sun);
 dayCycleManager.setAmbientLight(ambient);
 
 export function spawnSkillFX(event: { skill: string; [key: string]: any }) {
+    if (event.skill === "damage" || event.skill === "heal" || event.skill === "miss") {
+        damageHUDBatcher.spawn(event as any);
+        return;
+    }
     if (!canSpawnFX()) return;
     if (event.skill === "arrowVolley") {
         const groundY = getTerrainHeight(event.x, event.z);
@@ -289,6 +296,7 @@ export function startRenderLoop() {
         dayCycleManager.update();
 
         updateFX(delta);
+        damageHUDBatcher.update(delta);
         windEffect.update(delta);
 
         // HUD — profiler's rolling average so HUD matches logged data exactly

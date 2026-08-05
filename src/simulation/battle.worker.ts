@@ -444,7 +444,23 @@ function findLowestHpEnemy(d: Float32Array, i: number): number {
     const myCol = Math.floor((myX - BOUND_X_MIN) / cellSize);
     const myRow = Math.floor((myZ - BOUND_Z_MIN) / cellSize);
 
-    let lowestHp = Infinity;
+    // Count other assassins on our team already targeting this enemy
+    const getAssassinTargetCount = (enemyIdx: number): number => {
+        let count = 0;
+        const teamStart = myTeam === TEAM_A ? 0 : TEAM_SIZE;
+        const teamEnd = myTeam === TEAM_A ? TEAM_SIZE : UNIT_COUNT;
+        for (let u = teamStart; u < teamEnd; u++) {
+            if (u === i) continue;
+            const uBase = u * STRIDE;
+            const uType = d[uBase + IDX_TYPE] % 6;
+            if (uType === 5 && d[uBase + IDX_HP] > 0 && d[uBase + IDX_TARGET] === enemyIdx) {
+                count++;
+            }
+        }
+        return count;
+    };
+
+    let lowestScore = Infinity;
     let target = -1;
 
     // Scan enemies in 3x3 cells
@@ -467,8 +483,10 @@ function findLowestHpEnemy(d: Float32Array, i: number): number {
                         !isStealthed
                     ) {
                         const hp = d[jBase + IDX_HP];
-                        if (hp < lowestHp) {
-                            lowestHp = hp;
+                        const penalty = getAssassinTargetCount(curr) * 150000; // 150k HP soft penalty per locking assassin
+                        const score = hp + penalty;
+                        if (score < lowestScore) {
+                            lowestScore = score;
                             target = curr;
                         }
                     }
@@ -494,8 +512,10 @@ function findLowestHpEnemy(d: Float32Array, i: number): number {
             d[jBase + IDX_EFFECT_STATE] < 2000;
         if (isStealthed) continue;
         if (enemyType !== TYPE_TANK && enemyType !== TYPE_ASSASSIN) {
-            if (hp < lowestHp) {
-                lowestHp = hp;
+            const penalty = getAssassinTargetCount(j) * 150000;
+            const score = hp + penalty;
+            if (score < lowestScore) {
+                lowestScore = score;
                 target = j;
             }
         }
@@ -509,6 +529,8 @@ const statsDamageTaken = new Float32Array(UNIT_COUNT);
 const statsKills = new Int32Array(UNIT_COUNT);
 const statsHealDone = new Float32Array(UNIT_COUNT);
 
+let skillFXBatch: any[] = [];
+
 // Thread-safe applyDamage using Atomics on Casted Float32Array
 function applyDamage(
     d: Float32Array,
@@ -518,8 +540,19 @@ function applyDamage(
 ) {
     const tBase = targetIdx * STRIDE;
 
-    // Cek imunitas — jika sedang imun, abaikan seluruh damage
-    if (d[tBase + IDX_IMMUNE_CD] > 0) return;
+    const tx = d[tBase + IDX_X];
+    const ty = d[tBase + IDX_Y];
+    const tz = d[tBase + IDX_Z];
+
+    // Cek imunitas — jika sedang imun, abaikan seluruh damage dan report miss
+    if (d[tBase + IDX_IMMUNE_CD] > 0) {
+        skillFXBatch.push({
+            type: "skillFX",
+            skill: "miss",
+            position: [tx, ty, tz],
+        });
+        return;
+    }
 
     const tType = d[tBase + IDX_TYPE];
     const tEffect = d[tBase + IDX_EFFECT_STATE];
@@ -532,7 +565,29 @@ function applyDamage(
         damageMultiplier *= DEFENSE_BUFF_MULTIPLIER;
     }
 
-    const finalDamage = Math.max(1, Math.round(rawDamage * damageMultiplier));
+    // Determine critical hit status and apply critical damage multiplier
+    let isCrit = false;
+    let adjustedDamage = rawDamage;
+
+    if (attackerIdx !== undefined && attackerIdx >= 0) {
+        const attackerType = d[attackerIdx * STRIDE + IDX_TYPE];
+        const attr = ATTRIBUTES[attackerType] ?? DEFAULT_ATTRIBUTES;
+        if (Math.random() < attr.critChance) {
+            isCrit = true;
+            adjustedDamage = Math.round(rawDamage * attr.critDamage);
+        }
+
+        // Cap assassin critical/burst damage to maximum of 70,000
+        if (attackerType === 5 || attackerType === 11) {
+            if (isCrit && adjustedDamage > 70000) {
+                adjustedDamage = 70000;
+            } else if (!isCrit && adjustedDamage > 50000) {
+                adjustedDamage = 50000; // non-crit cap
+            }
+        }
+    }
+
+    const finalDamage = Math.max(1, Math.round(adjustedDamage * damageMultiplier));
 
     const int32 = int32Data!;
     const hpIndex = tBase + IDX_HP;
@@ -565,6 +620,18 @@ function applyDamage(
     if (attackerIdx !== undefined && attackerIdx >= 0) {
         statsDamageDealt[attackerIdx] += finalDamage;
     }
+
+    // Determine event metadata
+    const isMagic = attackerIdx !== undefined && (d[attackerIdx * STRIDE + IDX_TYPE] % 6 === 2); // Mage
+
+    skillFXBatch.push({
+        type: "skillFX",
+        skill: "damage",
+        value: finalDamage,
+        position: [tx, ty, tz],
+        isCrit,
+        isMagic,
+    });
 
     // Cek kematian unit dan catat kill
     if (newHp <= 0) {
@@ -614,6 +681,17 @@ function applyHeal(
     if (healerIdx !== undefined && healerIdx >= 0) {
         statsHealDone[healerIdx] += actualHealed;
     }
+
+    const tx = d[tBase + IDX_X];
+    const ty = d[tBase + IDX_Y];
+    const tz = d[tBase + IDX_Z];
+
+    skillFXBatch.push({
+        type: "skillFX",
+        skill: "heal",
+        value: actualHealed,
+        position: [tx, ty, tz],
+    });
 }
 
 interface DelayedDamage {
@@ -651,7 +729,7 @@ function tick(d: Float32Array) {
     buildGrid(d);
 
     // Batch skill FX events — send as single postMessage at end of tick
-    const skillFXBatch: any[] = [];
+    skillFXBatch = [];
 
     // Update delayed damages
     for (let i = delayedDamages.length - 1; i >= 0; i--) {
@@ -854,18 +932,19 @@ function tick(d: Float32Array) {
                 z: d[base + IDX_Z],
             });
         } else if (uType === TYPE_HEALER && d[base + IDX_SKILL3_CD] === 0) {
-            d[base + IDX_ANIM] = 2;
-            animLockTicks[i] = 20;
             const sanctuaryTeam = d[base + IDX_TEAM];
             const rangeSq =
                 HEALER_SKILLS.holySanctuary.radius *
                 HEALER_SKILLS.holySanctuary.radius;
-            let healCount = 0;
+
+            // Check if there is at least one nearby ally who actually needs healing
+            let anyoneNeedsHealing = false;
             const hCol = Math.floor((d[base + IDX_X] - BOUND_X_MIN) / cellSize);
             const hRow = Math.floor((d[base + IDX_Z] - BOUND_Z_MIN) / cellSize);
-            for (let r = hRow - 1; r <= hRow + 1; r++) {
+
+            for (let r = hRow - 1; r <= hRow + 1 && !anyoneNeedsHealing; r++) {
                 if (r < 0 || r >= gridRows) continue;
-                for (let c = hCol - 1; c <= hCol + 1; c++) {
+                for (let c = hCol - 1; c <= hCol + 1 && !anyoneNeedsHealing; c++) {
                     if (c < 0 || c >= gridCols) continue;
                     const cellIdx = r * gridCols + c;
                     let curr = gridHead[cellIdx];
@@ -873,36 +952,66 @@ function tick(d: Float32Array) {
                         const jBase = curr * STRIDE;
                         if (
                             d[jBase + IDX_HP] > 0 &&
+                            d[jBase + IDX_HP] < d[jBase + IDX_MAX_HP] &&
                             d[jBase + IDX_TEAM] === sanctuaryTeam
                         ) {
                             const jdx = d[jBase + IDX_X] - d[base + IDX_X];
                             const jdz = d[jBase + IDX_Z] - d[base + IDX_Z];
                             if (jdx * jdx + jdz * jdz <= rangeSq) {
-                                applyHeal(
-                                    d,
-                                    curr,
-                                    HEALER_SKILLS.holySanctuary.healAmount,
-                                    i,
-                                );
-                                healCount++;
-                                if (healCount >= 5) break;
+                                anyoneNeedsHealing = true;
+                                break;
                             }
                         }
                         curr = gridNext[curr];
                     }
+                }
+            }
+
+            if (anyoneNeedsHealing) {
+                d[base + IDX_ANIM] = 2;
+                animLockTicks[i] = 20;
+                let healCount = 0;
+                for (let r = hRow - 1; r <= hRow + 1; r++) {
+                    if (r < 0 || r >= gridRows) break;
+                    for (let c = hCol - 1; c <= hCol + 1; c++) {
+                        if (c < 0 || c >= gridCols) break;
+                        const cellIdx = r * gridCols + c;
+                        let curr = gridHead[cellIdx];
+                        while (curr !== -1) {
+                            const jBase = curr * STRIDE;
+                            if (
+                                d[jBase + IDX_HP] > 0 &&
+                                d[jBase + IDX_TEAM] === sanctuaryTeam
+                            ) {
+                                const jdx = d[jBase + IDX_X] - d[base + IDX_X];
+                                const jdz = d[jBase + IDX_Z] - d[base + IDX_Z];
+                                if (jdx * jdx + jdz * jdz <= rangeSq) {
+                                    applyHeal(
+                                        d,
+                                        curr,
+                                        HEALER_SKILLS.holySanctuary.healAmount,
+                                        i,
+                                    );
+                                    healCount++;
+                                    if (healCount >= 5) break;
+                                }
+                            }
+                            curr = gridNext[curr];
+                        }
+                        if (healCount >= 5) break;
+                    }
                     if (healCount >= 5) break;
                 }
-                if (healCount >= 5) break;
+                d[base + IDX_SKILL3_CD] = HEALER_SKILLS.holySanctuary.cooldown;
+                skillActivated = true;
+                skillFXBatch.push({
+                    type: "skillFX",
+                    skill: "holySanctuary",
+                    x: d[base + IDX_X],
+                    y: d[base + IDX_Y],
+                    z: d[base + IDX_Z],
+                });
             }
-            d[base + IDX_SKILL3_CD] = HEALER_SKILLS.holySanctuary.cooldown;
-            skillActivated = true;
-            skillFXBatch.push({
-                type: "skillFX",
-                skill: "holySanctuary",
-                x: d[base + IDX_X],
-                y: d[base + IDX_Y],
-                z: d[base + IDX_Z],
-            });
         }
 
         if (target === -1) {
@@ -1532,7 +1641,7 @@ function tick(d: Float32Array) {
                     d[base + IDX_EFFECT_STATE] >= 1000 &&
                     d[base + IDX_EFFECT_STATE] < 2000;
                 if (isAttackerStealthed) {
-                    dmg = 999; // CRIT EXECUTE DAMAGE
+                    dmg = Math.round(baseDamage * 1.5); // Balanced 1.5x base damage on stealth break
                     d[base + IDX_EFFECT_STATE] = 0; // break stealth
                 }
                 queueDamage(target, dmg, 10, i);
@@ -1559,7 +1668,7 @@ function tick(d: Float32Array) {
                     d[base + IDX_EFFECT_STATE] >= 1000 &&
                     d[base + IDX_EFFECT_STATE] < 2000;
                 if (isAttackerStealthed) {
-                    dmg = 999; // CRIT EXECUTE DAMAGE
+                    dmg = Math.round(baseDamage * 1.5); // Balanced 1.5x base damage on stealth break
                     d[base + IDX_EFFECT_STATE] = 0; // break stealth
                 }
                 queueDamage(target, dmg, 10, i);
@@ -1584,7 +1693,11 @@ function tick(d: Float32Array) {
             const isTargetAlly = d[tBase + IDX_TEAM] === d[base + IDX_TEAM];
 
             if (isTargetAlly) {
-                if (d[base + IDX_SKILL1_CD] === 0 && dist <= myRange) {
+                const targetHp = d[tBase + IDX_HP];
+                const targetMaxHp = d[tBase + IDX_MAX_HP];
+                const needsHealing = targetHp < targetMaxHp;
+
+                if (needsHealing && d[base + IDX_SKILL1_CD] === 0 && dist <= myRange) {
                     d[base + IDX_ANIM] = 2;
                     animLockTicks[i] = 20;
 
@@ -1609,7 +1722,7 @@ function tick(d: Float32Array) {
                         ty: d[tBase + IDX_Y] + 0.8,
                         tz: d[tBase + IDX_Z],
                     });
-                } else if (d[base + IDX_SKILL2_CD] === 0 && dist <= myRange) {
+                } else if (needsHealing && d[base + IDX_SKILL2_CD] === 0 && dist <= myRange) {
                     d[base + IDX_ANIM] = 2;
                     animLockTicks[i] = 20;
 
@@ -1768,7 +1881,7 @@ function tick(d: Float32Array) {
                             d[base + IDX_EFFECT_STATE] >= 1000 &&
                             d[base + IDX_EFFECT_STATE] < 2000;
                         if (uType === TYPE_ASSASSIN && isAttackerStealthed) {
-                            dmg = 999; // CRIT EXECUTE DAMAGE
+                            dmg = Math.round(baseDamage * 1.5); // Balanced 1.5x base damage on stealth break
                             d[base + IDX_EFFECT_STATE] = 0; // break stealth
                         }
                         queueDamage(target, dmg, attackDelay, i);

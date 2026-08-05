@@ -926,17 +926,17 @@ export function updateFrame(data: Float32Array, delta: number) {
             let skipFrames = 1;
             if (distSq > 1600) {
                 skipFrames = 4;
-            } else if (distSq > 400) {
+            } else if (distSq > 800) {
                 skipFrames = 2;
             }
             if (unit.animationFrameSkipCount === undefined) unit.animationFrameSkipCount = 0;
             unit.animationFrameSkipCount++;
 
-            const assassinTooFar = baseType === 5 && distSq > 1225;
+            const assassinTooFar = baseType === 5 && distSq > 12225;
             const shouldUpdateMixer =
                 inView &&
                 showMesh &&
-                (isDying || (hp > 0 && effect <= 0)) &&
+                (isDying || (hp > 0 && !(effect > 0 && effect < 1000))) &&
                 !assassinTooFar;
 
             if (shouldUpdateMixer) {
@@ -956,7 +956,7 @@ export function updateFrame(data: Float32Array, delta: number) {
             const meshZ = unit.root.position.z;
 
             const tooFar = distSq > 6400;
-            const showBillboard = hp > 0 && !tooFar && inView && !isStealthed;
+            const showBillboard = hp > 0 && !tooFar && inView;
 
             if (showBillboard) {
                 const maxHp = data[base + IDX_MAX_HP];
