@@ -20,7 +20,10 @@ import { WorkerDiagnostics } from "./simulation/WorkerDiagnostics";
 import { perfProfiler } from "./graphics/core/PerformanceProfiler";
 
 // ---- Shared Buffer (bridge antara main thread & worker) ----
-const sharedBuffer = new SharedArrayBuffer(BUFFER_BYTES);
+// Fallback to ArrayBuffer if SharedArrayBuffer is blocked by security extensions (e.g. Cyber Protect)
+const sharedBuffer = typeof SharedArrayBuffer !== "undefined"
+    ? new SharedArrayBuffer(BUFFER_BYTES)
+    : new ArrayBuffer(BUFFER_BYTES);
 const sharedData = new Float32Array(sharedBuffer);
 
 // ---- Web Workers ----

@@ -64,7 +64,7 @@ import {
     BOUND_Z_MAX,
 } from "./config";
 
-let buf: SharedArrayBuffer | null = null;
+let buf: SharedArrayBuffer | ArrayBuffer | null = null;
 let data: Float32Array | null = null;
 let int32Data: Int32Array | null = null;
 let battleTicks = 0;
@@ -2054,9 +2054,9 @@ self.onmessage = (e: MessageEvent) => {
         }
         if (e.data.teamAConfig) teamAConfig = e.data.teamAConfig;
         if (e.data.teamBConfig) teamBConfig = e.data.teamBConfig;
-        buf = e.data.buffer as SharedArrayBuffer;
-        data = new Float32Array(buf);
-        int32Data = new Int32Array(buf);
+        buf = e.data.buffer;
+        data = new Float32Array(buf!);
+        int32Data = new Int32Array(buf!);
         battleTicks = 0;
         startIndex = e.data.startIndex ?? 0;
         endIndex = e.data.endIndex ?? UNIT_COUNT;
