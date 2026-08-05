@@ -588,6 +588,9 @@ let animFrameCount = 0;
 let _iceNeedsUpdate = false;
 // ponytail: pre-computed billboard quaternion (shared across all units in one frame)
 const _billboardQuat = new THREE.Quaternion();
+const _billboardMatrix = new THREE.Matrix4();
+const _fgMatrix = new THREE.Matrix4();
+const _tempColor = new THREE.Color();
 
 const LERP_SPEED = 12;
 
@@ -625,7 +628,7 @@ export function updateFrame(data: Float32Array, delta: number) {
     if (cameraMoved) {
         _lastCameraMatrix.copy(camera.matrixWorld);
     }
-    const needsMatrixUpload = isRunning || cameraMoved;
+    let billboardUpdatedThisFrame = false;
 
     _right.set(1, 0, 0).applyQuaternion(camera.quaternion);
     _forward.set(0, 0, 1).applyQuaternion(camera.quaternion);
@@ -642,6 +645,7 @@ export function updateFrame(data: Float32Array, delta: number) {
 
     // ponytail: billboard quaternion = camera quaternion (all billboards face camera)
     _billboardQuat.copy(camera.quaternion);
+    _billboardMatrix.makeRotationFromQuaternion(_billboardQuat);
 
     let animTimeTotal = 0;
     let billTimeTotal = 0;
@@ -957,46 +961,90 @@ export function updateFrame(data: Float32Array, delta: number) {
 
             const tooFar = distSq > 6400;
             const showBillboard = hp > 0 && !tooFar && inView;
+            const maxHp = data[base + IDX_MAX_HP];
+            const hpRatio = maxHp > 0 ? hp / maxHp : 0;
 
             if (showBillboard) {
-                const maxHp = data[base + IDX_MAX_HP];
-                const hpRatio = maxHp > 0 ? hp / maxHp : 0;
 
-                dummy.position.set(meshX, billY, meshZ);
-                dummy.scale.set(1, 1, 1);
-                dummy.quaternion.copy(_billboardQuat);
-                dummy.updateMatrix();
-                hpBarsBg.setMatrixAt(i, dummy.matrix);
+                const lastState = (unit as any)._lastBBState;
+                const stateChanged = !lastState ||
+                    lastState.hp !== hp ||
+                    lastState.maxHp !== maxHp ||
+                    lastState.x !== meshX ||
+                    lastState.y !== billY ||
+                    lastState.z !== meshZ ||
+                    lastState.showBillboard !== showBillboard;
 
-                const teamId = i < TEAM_SIZE ? 0.0 : 1.0;
-                dummy.scale.set(hpRatio, teamId, maxHp);
-                dummy.updateMatrix();
-                hpBarsFg.setMatrixAt(i, dummy.matrix);
-
-                dummy.position.set(meshX, billY + 0.18, meshZ);
-                dummy.scale.set(1, 1, 1);
-                dummy.quaternion.copy(_billboardQuat);
-                dummy.updateMatrix();
-                if (nameBarsA && nameBarsB) {
-                    if (i < TEAM_SIZE) {
-                        nameBarsA.setMatrixAt(i, dummy.matrix);
+                if (cameraMoved || stateChanged) {
+                    billboardUpdatedThisFrame = true;
+                    if (!lastState) {
+                        (unit as any)._lastBBState = { hp, maxHp, x: meshX, y: billY, z: meshZ, showBillboard };
                     } else {
-                        nameBarsB.setMatrixAt(i - TEAM_SIZE, dummy.matrix);
+                        lastState.hp = hp;
+                        lastState.maxHp = maxHp;
+                        lastState.x = meshX;
+                        lastState.y = billY;
+                        lastState.z = meshZ;
+                        lastState.showBillboard = showBillboard;
                     }
-                }
 
-                cdRings.setMatrixAt(i, _deadNameMatrix);
-                immuneRings.setMatrixAt(i, _deadNameMatrix);
+                    // ponytail: optimized direct matrix elements modification (no dummy compose/decompose)
+                    _billboardMatrix.elements[12] = meshX;
+                    _billboardMatrix.elements[13] = billY;
+                    _billboardMatrix.elements[14] = meshZ;
+                    hpBarsBg.setMatrixAt(i, _billboardMatrix);
+
+                    const teamId = i < TEAM_SIZE ? 0.0 : 1.0;
+                    _fgMatrix.copy(_billboardMatrix);
+                    _fgMatrix.elements[0] *= hpRatio;
+                    _fgMatrix.elements[1] *= hpRatio;
+                    _fgMatrix.elements[2] *= hpRatio;
+
+                    _fgMatrix.elements[4] *= teamId;
+                    _fgMatrix.elements[5] *= teamId;
+                    _fgMatrix.elements[6] *= teamId;
+
+                    _fgMatrix.elements[8] *= maxHp;
+                    _fgMatrix.elements[9] *= maxHp;
+                    _fgMatrix.elements[10] *= maxHp;
+                    hpBarsFg.setMatrixAt(i, _fgMatrix);
+                    _tempColor.setRGB(hpRatio, teamId, maxHp);
+                    hpBarsFg.setColorAt(i, _tempColor);
+
+                    _billboardMatrix.elements[13] = billY + 0.18;
+                    if (nameBarsA && nameBarsB) {
+                        if (i < TEAM_SIZE) {
+                            nameBarsA.setMatrixAt(i, _billboardMatrix);
+                        } else {
+                            nameBarsB.setMatrixAt(i - TEAM_SIZE, _billboardMatrix);
+                        }
+                    }
+
+                    cdRings.setMatrixAt(i, _deadNameMatrix);
+                    immuneRings.setMatrixAt(i, _deadNameMatrix);
+                }
             } else {
-                hpBarsBg.setMatrixAt(i, _deadNameMatrix);
-                hpBarsFg.setMatrixAt(i, _deadNameMatrix);
-                cdRings.setMatrixAt(i, _deadNameMatrix);
-                immuneRings.setMatrixAt(i, _deadNameMatrix);
-                if (nameBarsA && nameBarsB) {
-                    if (i < TEAM_SIZE) {
-                        nameBarsA.setMatrixAt(i, _deadNameMatrix);
+                const lastState = (unit as any)._lastBBState;
+                const stateChanged = !lastState || lastState.showBillboard !== showBillboard;
+
+                if (stateChanged) {
+                    billboardUpdatedThisFrame = true;
+                    if (!lastState) {
+                        (unit as any)._lastBBState = { hp, maxHp, x: meshX, y: billY, z: meshZ, showBillboard };
                     } else {
-                        nameBarsB.setMatrixAt(i - TEAM_SIZE, _deadNameMatrix);
+                        lastState.showBillboard = showBillboard;
+                    }
+
+                    hpBarsBg.setMatrixAt(i, _deadNameMatrix);
+                    hpBarsFg.setMatrixAt(i, _deadNameMatrix);
+                    cdRings.setMatrixAt(i, _deadNameMatrix);
+                    immuneRings.setMatrixAt(i, _deadNameMatrix);
+                    if (nameBarsA && nameBarsB) {
+                        if (i < TEAM_SIZE) {
+                            nameBarsA.setMatrixAt(i, _deadNameMatrix);
+                        } else {
+                            nameBarsB.setMatrixAt(i - TEAM_SIZE, _deadNameMatrix);
+                        }
                     }
                 }
             }
@@ -1012,9 +1060,12 @@ export function updateFrame(data: Float32Array, delta: number) {
         _iceNeedsUpdate = false;
     }
 
-    if (needsMatrixUpload) {
+    if (cameraMoved || billboardUpdatedThisFrame) {
         hpBarsBg.instanceMatrix.needsUpdate = true;
         hpBarsFg.instanceMatrix.needsUpdate = true;
+        if (hpBarsFg.instanceColor) {
+            hpBarsFg.instanceColor.needsUpdate = true;
+        }
         cdRings.instanceMatrix.needsUpdate = true;
         immuneRings.instanceMatrix.needsUpdate = true;
         if (nameBarsA && nameBarsB) {
