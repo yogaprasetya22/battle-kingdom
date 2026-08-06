@@ -103,6 +103,7 @@ export const scorchTex = loadTex(
 export const lightTex = loadTex("particle-pack/PNG (Transparent)/light_02.png");
 export const magicTex = loadTex("particle-pack/PNG (Transparent)/magic_01.png");
 export const star2Tex = loadTex("particle-pack/PNG (Transparent)/star_08.png");
+export const muzzleTex = loadTex("particle-pack/PNG (Transparent)/Rotated/muzzle_01_rotated.png");
 
 // ═══════════════════════════════════════════════════════════════
 // Shared uniform for shader-based effects

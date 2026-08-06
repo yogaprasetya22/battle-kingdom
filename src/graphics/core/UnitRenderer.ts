@@ -20,6 +20,10 @@ import {
     IDX_EFFECT_STATE,
     UNIT_LOD_DIST_SQ,
     WEAPON_LOD_DIST_SQ,
+    TURRET_A_X,
+    TURRET_B_X,
+    TURRET_Z,
+    TARGET_TURRET,
 } from "../../simulation/constants";
 
 import type { UnitVisual } from "./types";
@@ -39,7 +43,7 @@ import {
     nameBarsB,
     initNameBars,
 } from "../ui/ui_billboards";
-import { spawnIceShatterFX } from "../effects/SkillFX";
+import { spawnIceShatterFX } from "../effects/SkillFX_Misc";
 import { weaponCache } from "../units/UnitVisualHelpers";
 import {
     createUnitVisual,
@@ -95,6 +99,7 @@ const WEAPON_ASSETS = [
     { name: "Skeleton_Shield_Small_A", path: "Skeleton_Shield_Small_A.glb" },
     { name: "Skeleton_Shield_Large_A", path: "Skeleton_Shield_Large_A.glb" },
     { name: "Skeleton_Staff", path: "Skeleton_Staff.glb" },
+    { name: "axe_2handed", path: "axe_2handed.glb" },
 ];
 let weaponsCached = false;
 
@@ -249,7 +254,7 @@ export function changeModel(
     preloadWeapons()
         .then(() =>
             Promise.all([
-                loadGLB(classModels.tank),
+                loadGLB("Barbarian"), // Load Barbarian model for Barbarian unit
                 loadGLB(classModels.archer),
                 loadGLB(classModels.mage),
                 loadGLB(classModels.gunslinger),
@@ -264,11 +269,12 @@ export function changeModel(
                 loadAnimGLB("Rig_Medium_CombatMelee"),
                 loadAnimGLB("Rig_Medium_CombatRanged"),
                 loadAnimGLB("Rig_Medium_Tools"),
+                loadGLB("Knight"), // Load Knight model
             ]),
         )
         .then(
             ([
-                gltfTank,
+                gltfBarbarian,
                 gltfArcher,
                 gltfMage,
                 gltfGunslinger,
@@ -283,6 +289,7 @@ export function changeModel(
                 animCombat,
                 animCombatRanged,
                 animTools,
+                gltfKnight,
             ]) => {
                 // Build anim rig lookup by type
                 const animRigs: Record<string, THREE.AnimationClip[]> = {
@@ -297,7 +304,7 @@ export function changeModel(
                 logDiag("Model berhasil dimuat. Menginisialisasi visual...");
 
                 let originalMat: THREE.MeshStandardMaterial | null = null;
-                gltfTank.scene.traverse((child: any) => {
+                gltfBarbarian.scene.traverse((child: any) => {
                     if (!originalMat && child.isMesh) {
                         originalMat =
                             child.material as THREE.MeshStandardMaterial;
@@ -380,7 +387,7 @@ export function changeModel(
 
                 try {
                     const gltfModels: Record<number, any> = {
-                        0: gltfTank,
+                        0: gltfBarbarian, // Barbarian
                         1: gltfArcher,
                         2: gltfMage,
                         3: gltfMage, // Healer uses Mage model
@@ -392,6 +399,7 @@ export function changeModel(
                         9: gltfSkelMage,
                         10: gltfSkelRogue,
                         11: gltfSkelRogue,
+                        12: gltfKnight, // Knight
                     };
 
                     const customPanel = document.getElementById(
@@ -420,7 +428,8 @@ export function changeModel(
                             const configBStr =
                                 localStorage.getItem("teamBConfig");
                             const defComp = {
-                                tank: 15,
+                                tank: 7,
+                                knight: 8,
                                 archer: 20,
                                 mage: 20,
                                 healer: 5,
@@ -443,6 +452,8 @@ export function changeModel(
                                 for (let j = 0; j < (config.healer ?? 0); j++) arr.push(3);
                                 for (let j = 0; j < (config.gunslinger ?? 0); j++) arr.push(4);
                                 for (let j = 0; j < (config.assassin ?? 0); j++) arr.push(5);
+                                for (let j = 0; j < (config.knight ?? 0); j++) arr.push(12);
+                                // Skeleton Special Roles (types 6 to 11):
                                 for (let j = 0; j < (config.skel_tank ?? 0); j++) arr.push(6);
                                 for (let j = 0; j < (config.skel_archer ?? 0); j++) arr.push(7);
                                 for (let j = 0; j < (config.skel_mage ?? 0); j++) arr.push(8);
@@ -492,7 +503,7 @@ export function changeModel(
                             }
                         }
 
-                        const baseType = uType % 6;
+                        const baseType = uType === 12 ? 12 : uType % 6;
 
                         // Pilih material berdasarkan tim & tipe
                         const mat =
@@ -504,7 +515,7 @@ export function changeModel(
                                   ? teamMatA!
                                   : teamMatB!;
 
-                        const isSkeleton = uType >= 6 || modelName.toLowerCase().includes("skeleton");
+                        const isSkeleton = (uType >= 6 && uType <= 11) || modelName.toLowerCase().includes("skeleton");
 
                         const srcGLTF = gltfModels[uType];
                         const unitVis = createUnitVisual(
@@ -517,13 +528,20 @@ export function changeModel(
                         unitInstances[i] = unitVis;
 
                         // Save original materials for skeleton units
-                        const originalMaterials = isSkeleton ? unitVis.meshes.map((m) => m.material) : undefined;
+                        const originalMaterials = unitVis.meshes.map((m) => m.material);
 
                         // Override scale sesuai tipe unit
                         const scale = getUnitScale(baseType);
                         unitVis.root.scale.setScalar(scale);
 
                         scene.add(unitVis.root);
+
+                        // CRITICAL: Disable frustum culling on ALL meshes in the unit.
+                        // SkinnedMesh bounding boxes are NOT auto-updated during skeleton animation.
+                        // Three.js will incorrectly cull units that have moved far from spawn position.
+                        unitVis.root.traverse((child: any) => {
+                            child.frustumCulled = false;
+                        });
 
                         units.push({
                             root: unitVis.root,
@@ -583,6 +601,8 @@ const _right = new THREE.Vector3();
 const _forward = new THREE.Vector3();
 const _lookTarget = new THREE.Vector3();
 const _q1 = new THREE.Quaternion();
+const _upVector = new THREE.Vector3(0, 1, 0);
+const _lookQuat = new THREE.Quaternion();
 let animFrameCount = 0;
 // ponytail: dirty flag — flush ice instanceMatrix once per frame, not per unit
 let _iceNeedsUpdate = false;
@@ -742,13 +762,13 @@ export function updateFrame(data: Float32Array, delta: number) {
 
         } else {
             _unitSphere.center.set(x, y, z);
-            const inView = _frustum.intersectsSphere(_unitSphere);
+            const inView = true;
             unit.root.visible = inView;
 
-            const showMesh = distSq < UNIT_LOD_DIST_SQ;
+            const showMesh = true; // always show mesh, Three.js handles its own culling
 
             for (let m = 0; m < unit.meshes.length; m++) {
-                unit.meshes[m].visible = showMesh;
+                unit.meshes[m].visible = true;
             }
 
             // Fast path for weapon LOD
@@ -768,6 +788,19 @@ export function updateFrame(data: Float32Array, delta: number) {
 
             if (hp > 0 && !(unit as any)._wasAlive) {
                 (unit as any)._wasAlive = true;
+                unit.currentEffectState = 0;
+                if (unit.originalMaterials) {
+                    for (let m = 0; m < unit.meshes.length; m++) {
+                        unit.meshes[m].material = unit.originalMaterials[m];
+                    }
+                }
+                
+                // Snap instantly to spawn coordinates to prevent flying up / jittering from y = -999
+                unit.root.position.set(x, y, z);
+                unit.root.scale.setScalar(scale);
+
+                _iceInstanced.setMatrixAt(i, _iceDead);
+                _iceNeedsUpdate = true;
                 soundFX.playSpawn(x, y, z, camera.position);
             }
 
@@ -900,16 +933,31 @@ export function updateFrame(data: Float32Array, delta: number) {
                 }
 
                 if (targetIdx !== -1) {
-                    const tBase = targetIdx * STRIDE;
-                    const tx = data[tBase + IDX_X];
-                    const tz = data[tBase + IDX_Z];
-                    _lookTarget.set(tx, y, tz);
-                    _q1.copy(unit.root.quaternion);
-                    unit.root.lookAt(_lookTarget);
-                    unit.root.quaternion.slerp(
-                        _q1,
-                        1 - Math.min(1, 10 * delta),
-                    );
+                    let tx = 0;
+                    let tz = 0;
+                    if (targetIdx === TARGET_TURRET) {
+                        const turretX = unit.team === TEAM_A ? TURRET_B_X : TURRET_A_X;
+                        tx = turretX;
+                        tz = TURRET_Z;
+                    } else {
+                        const tBase = targetIdx * STRIDE;
+                        tx = data[tBase + IDX_X];
+                        tz = data[tBase + IDX_Z];
+                    }
+
+                    const tDx = tx - x;
+                    const tDz = tz - z;
+                    const tDistSq = tDx * tDx + tDz * tDz;
+
+                    // Use pure Y-axis rotation to prevent any pitch/roll tilting (tilted models)
+                    if (tDistSq > 0.01) {
+                        const targetAngle = Math.atan2(tDx, tDz);
+                        _lookQuat.setFromAxisAngle(_upVector, targetAngle);
+                        unit.root.quaternion.slerp(
+                            _lookQuat,
+                            Math.min(1, 10 * delta),
+                        );
+                    }
                 }
 
                 if (unit.currentAnimState !== state) {
@@ -927,6 +975,7 @@ export function updateFrame(data: Float32Array, delta: number) {
                 performance.now() - unit.deathTime < 2000;
 
             // ★ ANIMATION LOD
+            const t0Anim = performance.now();
             let skipFrames = 1;
             if (distSq > 1600) {
                 skipFrames = 4;
@@ -953,13 +1002,15 @@ export function updateFrame(data: Float32Array, delta: number) {
             } else {
                 unit.accumulatedDelta = 0;
             }
+            animTimeTotal += performance.now() - t0Anim;
 
             // Billboard positions
             const billY = unit.root.position.y + scale * 1.9 + 0.3;
             const meshX = unit.root.position.x;
             const meshZ = unit.root.position.z;
 
-            const tooFar = distSq > 6400;
+            const t0Bill = performance.now();
+            const tooFar = distSq > 90000;
             const showBillboard = hp > 0 && !tooFar && inView;
             const maxHp = data[base + IDX_MAX_HP];
             const hpRatio = maxHp > 0 ? hp / maxHp : 0;
@@ -1048,11 +1099,12 @@ export function updateFrame(data: Float32Array, delta: number) {
                     }
                 }
             }
+            billTimeTotal += performance.now() - t0Bill;
         }
     }
 
-    perfProfiler.trackSystemTime("animations", delta * 1000 * 0.4); // Simplified estimation
-    perfProfiler.trackSystemTime("billboards", delta * 1000 * 0.2); // Simplified estimation
+    perfProfiler.trackSystemTime("animations", animTimeTotal);
+    perfProfiler.trackSystemTime("billboards", billTimeTotal);
 
     // ponytail: flush ice matrix once after loop, not per-unit
     if (_iceNeedsUpdate) {

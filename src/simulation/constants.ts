@@ -22,12 +22,12 @@ export const IDX_EFFECT_STATE = 13;
 export const IDX_IMMUNE_CD = 14; // Countdown imun Tank (> 0 = imun, tidak bisa menerima damage)
 
 // LOD Culling Distance for unit meshes (larger visual range)
-export const UNIT_LOD_DIST_SQ = 7225; // ~85 units
+export const UNIT_LOD_DIST_SQ = 90000; // ~300 units (entire map)
 export const WEAPON_LOD_DIST_SQ = 3600; // ~60 units
 
 // Class Types
-export const TYPE_TANK = 0;
-export const TYPE_KNIGHT = 0; // alias — tank
+export const TYPE_BARBARIAN = 0;
+export const TYPE_TANK = 0; // alias back compat
 export const TYPE_ARCHER = 1;
 export const TYPE_MAGE = 2;
 export const TYPE_HEALER = 3;
@@ -36,10 +36,23 @@ export const TYPE_GUNSLINGER = 4;
 export const TYPE_ASSASSIN = 5;
 export const TYPE_MERCHANT = 6;
 export const TYPE_DRUID = 7;
+export const TYPE_KNIGHT = 12; // New separate unit type
 
 // Teams
 export const TEAM_A = 0;
 export const TEAM_B = 1;
+
+// Turret (Tower Defense)
+export const TURRET_A_X = -37.5; // posisi X turret Tim A (kiri)
+export const TURRET_B_X = 37.5;  // posisi X turret Tim B (kanan)
+export const TURRET_Z = 0;        // posisi Z turret (tengah)
+export const TURRET_MAX_HP = 5000000;
+export const TURRET_ATTACK_RANGE = 40; // jangkauan tembak turret (unit dunia)
+export const TURRET_ATTACK_RANGE_SQ = TURRET_ATTACK_RANGE * TURRET_ATTACK_RANGE;
+export const TURRET_DAMAGE = 15000;       // damage turret per tembakan
+export const TURRET_ATTACK_INTERVAL = 8;  // ticks antar tembakan (ASPD 193 ~7.5 kali per detik @60tps)
+export const TARGET_TURRET = -2; // sentinel: unit menyerang turret musuh (bukan unit)
+
 
 // Combat values moved to config.ts — ATTRIBUTES, ARMOR, HP_PER_TYPE, etc.
 

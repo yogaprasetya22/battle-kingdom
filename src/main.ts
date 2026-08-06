@@ -13,6 +13,7 @@ import {
     changeModel,
     spawnSkillFX,
     resetUnitsVisual,
+    world,
 } from "./graphics/core/renderer";
 import { soundFX } from "./graphics/core/SoundFX";
 import { CharacterViewer } from "./graphics/viewer/CharacterViewer";
@@ -69,6 +70,7 @@ const btnSettings = document.getElementById(
 
 interface TeamConfig {
     tank: number;
+    knight: number;
     archer: number;
     mage: number;
     healer: number;
@@ -82,7 +84,8 @@ interface TeamConfig {
     skel_assassin: number;
 }
 let teamAConfig: TeamConfig = {
-    tank: 15,
+    tank: 7,
+    knight: 8,
     archer: 15,
     mage: 10,
     healer: 5,
@@ -96,7 +99,8 @@ let teamAConfig: TeamConfig = {
     skel_assassin: 0,
 };
 let teamBConfig: TeamConfig = {
-    tank: 15,
+    tank: 7,
+    knight: 8,
     archer: 15,
     mage: 10,
     healer: 5,
@@ -156,6 +160,10 @@ const aggregatedStats = {
         tankTaken: 0,
         tankKills: 0,
         tankHealed: 0,
+        knightDealt: 0,
+        knightTaken: 0,
+        knightKills: 0,
+        knightHealed: 0,
         archerDealt: 0,
         archerTaken: 0,
         archerKills: 0,
@@ -182,6 +190,10 @@ const aggregatedStats = {
         tankTaken: 0,
         tankKills: 0,
         tankHealed: 0,
+        knightDealt: 0,
+        knightTaken: 0,
+        knightKills: 0,
+        knightHealed: 0,
         archerDealt: 0,
         archerTaken: 0,
         archerKills: 0,
@@ -267,11 +279,18 @@ function showBattleEnd(winner: "A" | "B", stats: typeof aggregatedStats) {
         <div>Heals</div>
       </div>
       <div class="stats-grid">
-        <div class="stats-class">🛡️ Tank</div>
+        <div class="stats-class">🪓 Barbarian</div>
         <div class="stats-cell">${formatStatValue(stats.teamA.tankDealt)}</div>
         <div class="stats-cell">${formatStatValue(stats.teamA.tankTaken)}</div>
         <div class="stats-cell">${stats.teamA.tankKills}</div>
         <div class="stats-cell">${formatStatValue(stats.teamA.tankHealed)}</div>
+      </div>
+      <div class="stats-grid">
+        <div class="stats-class">🛡️ Knight</div>
+        <div class="stats-cell">${formatStatValue(stats.teamA.knightDealt)}</div>
+        <div class="stats-cell">${formatStatValue(stats.teamA.knightTaken)}</div>
+        <div class="stats-cell">${stats.teamA.knightKills}</div>
+        <div class="stats-cell">${formatStatValue(stats.teamA.knightHealed)}</div>
       </div>
       <div class="stats-grid">
         <div class="stats-class">🏹 Archer</div>
@@ -320,11 +339,18 @@ function showBattleEnd(winner: "A" | "B", stats: typeof aggregatedStats) {
         <div>Heals</div>
       </div>
       <div class="stats-grid">
-        <div class="stats-class">🛡️ Tank</div>
+        <div class="stats-class">🪓 Barbarian</div>
         <div class="stats-cell">${formatStatValue(stats.teamB.tankDealt)}</div>
         <div class="stats-cell">${formatStatValue(stats.teamB.tankTaken)}</div>
         <div class="stats-cell">${formatStatValue(stats.teamB.tankKills)}</div>
         <div class="stats-cell">${formatStatValue(stats.teamB.tankHealed)}</div>
+      </div>
+      <div class="stats-grid">
+        <div class="stats-class">🛡️ Knight</div>
+        <div class="stats-cell">${formatStatValue(stats.teamB.knightDealt)}</div>
+        <div class="stats-cell">${formatStatValue(stats.teamB.knightTaken)}</div>
+        <div class="stats-cell">${stats.teamB.knightKills}</div>
+        <div class="stats-cell">${formatStatValue(stats.teamB.knightHealed)}</div>
       </div>
       <div class="stats-grid">
         <div class="stats-class">🏹 Archer</div>
@@ -375,6 +401,77 @@ let accumAliveB = 0;
 let accumAliveOrUnspawnedA = 0;
 let accumAliveOrUnspawnedB = 0;
 
+function triggerBattleEnd(winner: "A" | "B") {
+    if (!isRunning) return;
+    isRunning = false;
+
+    // Reset and prepare statistics aggregation
+    statsReceivedCount = 0;
+    battleWinner = winner;
+
+    aggregatedStats.teamA.tankDealt = 0;
+    aggregatedStats.teamA.tankTaken = 0;
+    aggregatedStats.teamA.tankKills = 0;
+    aggregatedStats.teamA.tankHealed = 0;
+    aggregatedStats.teamA.knightDealt = 0;
+    aggregatedStats.teamA.knightTaken = 0;
+    aggregatedStats.teamA.knightKills = 0;
+    aggregatedStats.teamA.knightHealed = 0;
+    aggregatedStats.teamA.archerDealt = 0;
+    aggregatedStats.teamA.archerTaken = 0;
+    aggregatedStats.teamA.archerKills = 0;
+    aggregatedStats.teamA.archerHealed = 0;
+    aggregatedStats.teamA.mageDealt = 0;
+    aggregatedStats.teamA.mageTaken = 0;
+    aggregatedStats.teamA.mageKills = 0;
+    aggregatedStats.teamA.mageHealed = 0;
+    aggregatedStats.teamA.healerDealt = 0;
+    aggregatedStats.teamA.healerTaken = 0;
+    aggregatedStats.teamA.healerKills = 0;
+    aggregatedStats.teamA.healerHealed = 0;
+    aggregatedStats.teamA.gunslingerDealt = 0;
+    aggregatedStats.teamA.gunslingerTaken = 0;
+    aggregatedStats.teamA.gunslingerKills = 0;
+    aggregatedStats.teamA.gunslingerHealed = 0;
+    aggregatedStats.teamA.assassinDealt = 0;
+    aggregatedStats.teamA.assassinTaken = 0;
+    aggregatedStats.teamA.assassinKills = 0;
+    aggregatedStats.teamA.assassinHealed = 0;
+
+    aggregatedStats.teamB.tankDealt = 0;
+    aggregatedStats.teamB.tankTaken = 0;
+    aggregatedStats.teamB.tankKills = 0;
+    aggregatedStats.teamB.tankHealed = 0;
+    aggregatedStats.teamB.knightDealt = 0;
+    aggregatedStats.teamB.knightTaken = 0;
+    aggregatedStats.teamB.knightKills = 0;
+    aggregatedStats.teamB.knightHealed = 0;
+    aggregatedStats.teamB.archerDealt = 0;
+    aggregatedStats.teamB.archerTaken = 0;
+    aggregatedStats.teamB.archerKills = 0;
+    aggregatedStats.teamB.archerHealed = 0;
+    aggregatedStats.teamB.mageDealt = 0;
+    aggregatedStats.teamB.mageTaken = 0;
+    aggregatedStats.teamB.mageKills = 0;
+    aggregatedStats.teamB.mageHealed = 0;
+    aggregatedStats.teamB.healerDealt = 0;
+    aggregatedStats.teamB.healerTaken = 0;
+    aggregatedStats.teamB.healerKills = 0;
+    aggregatedStats.teamB.healerHealed = 0;
+    aggregatedStats.teamB.gunslingerDealt = 0;
+    aggregatedStats.teamB.gunslingerTaken = 0;
+    aggregatedStats.teamB.gunslingerKills = 0;
+    aggregatedStats.teamB.gunslingerHealed = 0;
+    aggregatedStats.teamB.assassinDealt = 0;
+    aggregatedStats.teamB.assassinTaken = 0;
+    aggregatedStats.teamB.assassinKills = 0;
+    aggregatedStats.teamB.assassinHealed = 0;
+
+    for (let i = 0; i < NUM_WORKERS; i++) {
+        workers[i].postMessage({ type: "get_stats" });
+    }
+}
+
 function onTickComplete() {
     pendingTick = false;
     tickCount++;
@@ -382,68 +479,6 @@ function onTickComplete() {
 
     scoreA.textContent = accumAliveA.toString();
     scoreB.textContent = accumAliveB.toString();
-
-    if (accumAliveOrUnspawnedA === 0 || accumAliveOrUnspawnedB === 0) {
-        isRunning = false;
-
-        // Reset and prepare statistics aggregation
-        statsReceivedCount = 0;
-        battleWinner = accumAliveOrUnspawnedA > 0 ? "A" : "B";
-
-        aggregatedStats.teamA.tankDealt = 0;
-        aggregatedStats.teamA.tankTaken = 0;
-        aggregatedStats.teamA.tankKills = 0;
-        aggregatedStats.teamA.tankHealed = 0;
-        aggregatedStats.teamA.archerDealt = 0;
-        aggregatedStats.teamA.archerTaken = 0;
-        aggregatedStats.teamA.archerKills = 0;
-        aggregatedStats.teamA.archerHealed = 0;
-        aggregatedStats.teamA.mageDealt = 0;
-        aggregatedStats.teamA.mageTaken = 0;
-        aggregatedStats.teamA.mageKills = 0;
-        aggregatedStats.teamA.mageHealed = 0;
-        aggregatedStats.teamA.healerDealt = 0;
-        aggregatedStats.teamA.healerTaken = 0;
-        aggregatedStats.teamA.healerKills = 0;
-        aggregatedStats.teamA.healerHealed = 0;
-        aggregatedStats.teamA.gunslingerDealt = 0;
-        aggregatedStats.teamA.gunslingerTaken = 0;
-        aggregatedStats.teamA.gunslingerKills = 0;
-        aggregatedStats.teamA.gunslingerHealed = 0;
-        aggregatedStats.teamA.assassinDealt = 0;
-        aggregatedStats.teamA.assassinTaken = 0;
-        aggregatedStats.teamA.assassinKills = 0;
-        aggregatedStats.teamA.assassinHealed = 0;
-
-        aggregatedStats.teamB.tankDealt = 0;
-        aggregatedStats.teamB.tankTaken = 0;
-        aggregatedStats.teamB.tankKills = 0;
-        aggregatedStats.teamB.tankHealed = 0;
-        aggregatedStats.teamB.archerDealt = 0;
-        aggregatedStats.teamB.archerTaken = 0;
-        aggregatedStats.teamB.archerKills = 0;
-        aggregatedStats.teamB.archerHealed = 0;
-        aggregatedStats.teamB.mageDealt = 0;
-        aggregatedStats.teamB.mageTaken = 0;
-        aggregatedStats.teamB.mageKills = 0;
-        aggregatedStats.teamB.mageHealed = 0;
-        aggregatedStats.teamB.healerDealt = 0;
-        aggregatedStats.teamB.healerTaken = 0;
-        aggregatedStats.teamB.healerKills = 0;
-        aggregatedStats.teamB.healerHealed = 0;
-        aggregatedStats.teamB.gunslingerDealt = 0;
-        aggregatedStats.teamB.gunslingerTaken = 0;
-        aggregatedStats.teamB.gunslingerKills = 0;
-        aggregatedStats.teamB.gunslingerHealed = 0;
-        aggregatedStats.teamB.assassinDealt = 0;
-        aggregatedStats.teamB.assassinTaken = 0;
-        aggregatedStats.teamB.assassinKills = 0;
-        aggregatedStats.teamB.assassinHealed = 0;
-
-        for (let i = 0; i < NUM_WORKERS; i++) {
-            workers[i].postMessage({ type: "get_stats" });
-        }
-    }
 }
 
 /**
@@ -549,7 +584,25 @@ for (let i = 0; i < NUM_WORKERS; i++) {
             const events: any[] = e.data.events;
             if (events) {
                 for (let k = 0; k < events.length; k++) {
-                    spawnSkillFX(events[k]);
+                    const ev = events[k];
+                    if (ev.type === "turretDamage") {
+                        const isDestroyed = world.turrets.takeDamage(ev.team, ev.damage);
+                        if (isDestroyed && isRunning) {
+                            // If Tim A's turret is destroyed (team === 0), Tim B wins. Otherwise Tim A wins.
+                            triggerBattleEnd(ev.team === 0 ? "B" : "A");
+                        }
+                    } else {
+                        if (ev.skill === "turretShoot") {
+                            world.turrets.shoot(ev.team, ev.tx, ev.ty, ev.tz);
+                            const muzzlePos = world.turrets.getMuzzlePosition(ev.team);
+                            if (muzzlePos) {
+                                ev.fx = muzzlePos.x;
+                                ev.fy = muzzlePos.y;
+                                ev.fz = muzzlePos.z;
+                            }
+                        }
+                        spawnSkillFX(ev);
+                    }
                 }
             }
         }
@@ -578,6 +631,7 @@ function resetWorkers() {
     scoreA.textContent = TEAM_SIZE.toString();
     scoreB.textContent = TEAM_SIZE.toString();
     resetUnitsVisual();
+    world.turrets.reset();
 
     const customClasses = getCustomClasses();
     for (let i = 0; i < NUM_WORKERS; i++) {
@@ -855,6 +909,7 @@ const presetStealth = document.getElementById(
 
 const classes = [
     "tank",
+    "knight",
     "archer",
     "mage",
     "healer",
@@ -975,17 +1030,17 @@ function applyPreset(presetA: number[], presetB: number[]) {
 }
 
 presetBalanced.addEventListener("click", () =>
-    // Scaled preset to total 50: [tank, archer, mage, healer, gunslinger, assassin, ...skel]
-    applyPreset([7, 10, 10, 3, 10, 10, 0, 0, 0, 0, 0, 0], [7, 10, 10, 3, 10, 10, 0, 0, 0, 0, 0, 0]),
+    // Scaled preset to total 50: [tank, knight, archer, mage, healer, gunslinger, assassin, ...skel]
+    applyPreset([3, 4, 10, 10, 3, 10, 10, 0, 0, 0, 0, 0, 0], [3, 4, 10, 10, 3, 10, 10, 0, 0, 0, 0, 0, 0]),
 );
 presetMagic.addEventListener("click", () =>
-    applyPreset([0, 0, 40, 10, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 40, 10, 0, 0, 0, 0, 0, 0, 0, 0]),
+    applyPreset([0, 0, 0, 40, 10, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 40, 10, 0, 0, 0, 0, 0, 0, 0, 0]),
 );
 presetDefense.addEventListener("click", () =>
-    applyPreset([30, 15, 0, 5, 0, 0, 0, 0, 0, 0, 0, 0], [30, 15, 0, 5, 0, 0, 0, 0, 0, 0, 0, 0]),
+    applyPreset([15, 15, 15, 0, 5, 0, 0, 0, 0, 0, 0, 0, 0], [15, 15, 15, 0, 5, 0, 0, 0, 0, 0, 0, 0, 0]),
 );
 presetStealth.addEventListener("click", () =>
-    applyPreset([0, 10, 0, 0, 15, 25, 0, 0, 0, 0, 0, 0], [0, 10, 0, 0, 15, 25, 0, 0, 0, 0, 0, 0]),
+    applyPreset([0, 0, 10, 0, 0, 15, 25, 0, 0, 0, 0, 0, 0], [0, 0, 10, 0, 0, 15, 25, 0, 0, 0, 0, 0, 0]),
 );
 
 classes.forEach((cls) => {

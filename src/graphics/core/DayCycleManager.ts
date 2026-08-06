@@ -86,6 +86,7 @@ export class DayCycleManager {
     private skyCanvas: HTMLCanvasElement;
     private skyContext: CanvasRenderingContext2D;
     private skyTexture: THREE.CanvasTexture;
+    private lastSkyUpdateTime: number = 0;
 
     constructor(scene: THREE.Scene, cycleDurationSeconds: number = 60) {
         this.scene = scene;
@@ -231,17 +232,26 @@ export class DayCycleManager {
             this.scene.fog.far = targetFar;
         }
 
-        // Update langit gradient dinamis agar menyatu dengan fog horizon
-        const gradient = this.skyContext.createLinearGradient(0, 0, 0, 256);
-        gradient.addColorStop(0.0, "#" + this.fogColorB.getHexString()); // Bagian atas langit
-        gradient.addColorStop(0.6, "#" + this.fogColorA.getHexString()); // Bagian tengah/cakrawala
-        // Campuran warna cakrawala bawah agar blend dengan warna kabut
-        const horizonColor = this.fogColorA.clone().lerp(this.fogColorB, 0.15);
-        gradient.addColorStop(1.0, "#" + horizonColor.getHexString());
+        // Update langit gradient dinamis agar menyatu dengan fog horizon (throttled to 100ms / 10Hz to prevent GPU upload stalls)
+        const now = performance.now();
+        if (now - this.lastSkyUpdateTime > 100) {
+            this.lastSkyUpdateTime = now;
 
-        this.skyContext.fillStyle = gradient;
-        this.skyContext.fillRect(0, 0, 2, 256);
-        this.skyTexture.needsUpdate = true;
+            const gradient = this.skyContext.createLinearGradient(0, 0, 0, 256);
+            gradient.addColorStop(0.0, "#" + this.fogColorB.getHexString()); // Bagian atas langit
+            gradient.addColorStop(0.6, "#" + this.fogColorA.getHexString()); // Bagian tengah/cakrawala
+
+            // Interpolate colors directly on components to avoid GC allocation/clone overhead
+            const r = this.fogColorA.r + (this.fogColorB.r - this.fogColorA.r) * 0.15;
+            const g = this.fogColorA.g + (this.fogColorB.g - this.fogColorA.g) * 0.15;
+            const b = this.fogColorA.b + (this.fogColorB.b - this.fogColorA.b) * 0.15;
+            const hex = ((1 << 24) + (Math.round(r * 255) << 16) + (Math.round(g * 255) << 8) + Math.round(b * 255)).toString(16).slice(1);
+            gradient.addColorStop(1.0, "#" + hex);
+
+            this.skyContext.fillStyle = gradient;
+            this.skyContext.fillRect(0, 0, 2, 256);
+            this.skyTexture.needsUpdate = true;
+        }
     }
 
     /**

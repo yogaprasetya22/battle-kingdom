@@ -28,6 +28,8 @@ const C_MAGIC_DIGIT  = new THREE.Color("#00e5ff"); // Electric cyan for magic/sk
 const C_HEAL_DIGIT   = new THREE.Color("#33ff66"); // Lime green for heals
 const C_DEBUFF_DIGIT = new THREE.Color("#00e5ff"); // Cyan for debuffs/negatives
 const C_MISS_DIGIT   = new THREE.Color("#90a4ae"); // Light slate grey for misses
+const C_TURRET_NORMAL_DIGIT = new THREE.Color("#ff7300"); // Bright orange for turret hits
+const C_TURRET_CRIT_DIGIT   = new THREE.Color("#ff007f"); // Neon pink/magenta for turret critical hits
 
 const IDX_PLUS  = 10;
 const IDX_MINUS = 11;
@@ -354,7 +356,7 @@ export class DamageHUDBatcher {
         }
     }
 
-    public spawn(event: { skill: string; value?: number; position: number[]; isCrit?: boolean; isMagic?: boolean }) {
+    public spawn(event: { skill: string; value?: number; position: number[]; isCrit?: boolean; isMagic?: boolean; isTurret?: boolean }) {
         if (!event || !Array.isArray(event.position) || !Number.isFinite(event.position[0])) return;
 
         const isMiss   = event.skill === "miss";
@@ -362,6 +364,7 @@ export class DamageHUDBatcher {
         const isMagic  = !isMiss && !!event.isMagic;
         const isHeal   = event.skill === "heal";
         const isDebuff = !isMiss && !isHeal && (event.value !== undefined && event.value < 0);
+        const isTurret = !isMiss && !!event.isTurret;
 
         let totalChars = 0;
         let SW  = isCrit ? 0.85 : 0.72;
@@ -448,6 +451,13 @@ export class DamageHUDBatcher {
         if      (isMiss)   e.digitColor.copy(C_MISS_DIGIT);
         else if (isHeal)   e.digitColor.copy(C_HEAL_DIGIT);
         else if (isDebuff) e.digitColor.copy(C_DEBUFF_DIGIT);
+        else if (isTurret) {
+            if (isCrit) {
+                e.digitColor.copy(C_TURRET_CRIT_DIGIT);
+            } else {
+                e.digitColor.copy(C_TURRET_NORMAL_DIGIT);
+            }
+        }
         else if (isCrit)   e.digitColor.copy(C_CRIT_DIGIT);
         else if (isMagic)  e.digitColor.copy(C_MAGIC_DIGIT);
         else               e.digitColor.copy(C_NORMAL_DIGIT);
