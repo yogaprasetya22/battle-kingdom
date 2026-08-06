@@ -521,7 +521,7 @@ export function changeModel(
                         unitInstances[i] = unitVis;
 
                         // Save original materials for skeleton units
-                        const originalMaterials = isSkeleton ? unitVis.meshes.map((m) => m.material) : undefined;
+                        const originalMaterials = unitVis.meshes.map((m) => m.material);
 
                         // Override scale sesuai tipe unit
                         const scale = getUnitScale(baseType);
@@ -781,6 +781,14 @@ export function updateFrame(data: Float32Array, delta: number) {
 
             if (hp > 0 && !(unit as any)._wasAlive) {
                 (unit as any)._wasAlive = true;
+                unit.currentEffectState = 0;
+                if (unit.originalMaterials) {
+                    for (let m = 0; m < unit.meshes.length; m++) {
+                        unit.meshes[m].material = unit.originalMaterials[m];
+                    }
+                }
+                _iceInstanced.setMatrixAt(i, _iceDead);
+                _iceNeedsUpdate = true;
                 soundFX.playSpawn(x, y, z, camera.position);
             }
 

@@ -956,9 +956,16 @@ function tick(d: Float32Array) {
                 d[base + IDX_X],
                 d[base + IDX_Z],
             );
+            d[base + IDX_EFFECT_STATE] = 0;
+            d[base + IDX_ATTACK_CD] = 0;
+            d[base + IDX_SKILL1_CD] = 0;
+            d[base + IDX_SKILL2_CD] = 0;
+            d[base + IDX_SKILL3_CD] = 0;
+            d[base + IDX_TARGET] = -1;
+            d[base + IDX_IMMUNE_CD] = 0;
         }
     }
-
+ 
     // Spawn Team B units in range
     const maxSpawnB = Math.min(activeCountB, unitsToSpawn);
     const bStartIdx = TEAM_SIZE;
@@ -976,6 +983,13 @@ function tick(d: Float32Array) {
                 d[base + IDX_X],
                 d[base + IDX_Z],
             );
+            d[base + IDX_EFFECT_STATE] = 0;
+            d[base + IDX_ATTACK_CD] = 0;
+            d[base + IDX_SKILL1_CD] = 0;
+            d[base + IDX_SKILL2_CD] = 0;
+            d[base + IDX_SKILL3_CD] = 0;
+            d[base + IDX_TARGET] = -1;
+            d[base + IDX_IMMUNE_CD] = 0;
         }
     }
 
@@ -1008,7 +1022,7 @@ function tick(d: Float32Array) {
         if (effect >= 2000) {
             // Poison DoT — take damage each tick, can still act
             d[base + IDX_EFFECT_STATE]--;
-            applyDamage(d, i, 6); // poison tick damage
+            applyDamage(d, i, ASSASSIN_SKILLS.poisonBlade.damagePerTick); // poison tick damage
             if (d[base + IDX_EFFECT_STATE] < 2000)
                 d[base + IDX_EFFECT_STATE] = 0;
         } else if (effect >= 1000) {
@@ -1116,10 +1130,27 @@ function tick(d: Float32Array) {
                 HEALER_SKILLS.holySanctuary.radius *
                 HEALER_SKILLS.holySanctuary.radius;
 
-            // Check if there is at least one nearby ally who actually needs healing
+            // Target sanctuary center at the targeted ally or the most injured ally
+            let centerIdx = -1;
+            if (target >= 0) {
+                centerIdx = target;
+            } else {
+                centerIdx = findLowestHpAlly(d, i);
+            }
+
+            let centerX = d[base + IDX_X];
+            let centerZ = d[base + IDX_Z];
+            let centerY = d[base + IDX_Y];
+            if (centerIdx >= 0) {
+                centerX = d[centerIdx * STRIDE + IDX_X];
+                centerZ = d[centerIdx * STRIDE + IDX_Z];
+                centerY = d[centerIdx * STRIDE + IDX_Y];
+            }
+
+            // Check if there is at least one nearby ally who actually needs healing in the target area
             let anyoneNeedsHealing = false;
-            const hCol = Math.floor((d[base + IDX_X] - BOUND_X_MIN) / cellSize);
-            const hRow = Math.floor((d[base + IDX_Z] - BOUND_Z_MIN) / cellSize);
+            const hCol = Math.floor((centerX - BOUND_X_MIN) / cellSize);
+            const hRow = Math.floor((centerZ - BOUND_Z_MIN) / cellSize);
 
             for (let r = hRow - 1; r <= hRow + 1 && !anyoneNeedsHealing; r++) {
                 if (r < 0 || r >= gridRows) continue;
@@ -1134,8 +1165,8 @@ function tick(d: Float32Array) {
                             d[jBase + IDX_HP] < d[jBase + IDX_MAX_HP] &&
                             d[jBase + IDX_TEAM] === sanctuaryTeam
                         ) {
-                            const jdx = d[jBase + IDX_X] - d[base + IDX_X];
-                            const jdz = d[jBase + IDX_Z] - d[base + IDX_Z];
+                            const jdx = d[jBase + IDX_X] - centerX;
+                            const jdz = d[jBase + IDX_Z] - centerZ;
                             if (jdx * jdx + jdz * jdz <= rangeSq) {
                                 anyoneNeedsHealing = true;
                                 break;
@@ -1162,8 +1193,8 @@ function tick(d: Float32Array) {
                                 d[jBase + IDX_HP] > 0 &&
                                 d[jBase + IDX_TEAM] === sanctuaryTeam
                             ) {
-                                const jdx = d[jBase + IDX_X] - d[base + IDX_X];
-                                const jdz = d[jBase + IDX_Z] - d[base + IDX_Z];
+                                const jdx = d[jBase + IDX_X] - centerX;
+                                const jdz = d[jBase + IDX_Z] - centerZ;
                                 if (jdx * jdx + jdz * jdz <= rangeSq) {
                                     applyHeal(
                                         d,
@@ -1186,9 +1217,9 @@ function tick(d: Float32Array) {
                 skillFXBatch.push({
                     type: "skillFX",
                     skill: "holySanctuary",
-                    x: d[base + IDX_X],
-                    y: d[base + IDX_Y],
-                    z: d[base + IDX_Z],
+                    x: centerX,
+                    y: centerY,
+                    z: centerZ,
                 });
             }
         }
@@ -1308,8 +1339,22 @@ function tick(d: Float32Array) {
         if (target < 0) continue;
 
         const tBase = target * STRIDE;
-        const dx = d[tBase + IDX_X] - d[base + IDX_X];
-        const dz = d[tBase + IDX_Z] - d[base + IDX_Z];
+        let tx = 0;
+        let ty = 0;
+        let tz = 0;
+        if (target === TARGET_TURRET) {
+            const myTeam = d[base + IDX_TEAM];
+            tx = myTeam === TEAM_A ? TURRET_B_X : TURRET_A_X;
+            ty = 0;
+            tz = TURRET_Z;
+        } else if (target >= 0) {
+            tx = d[tBase + IDX_X];
+            ty = d[tBase + IDX_Y];
+            tz = d[tBase + IDX_Z];
+        }
+
+        const dx = tx - d[base + IDX_X];
+        const dz = tz - d[base + IDX_Z];
         const dist = Math.sqrt(dx * dx + dz * dz) || 0.001;
 
         // --- TARGETED SKILLS (require enemy in range) ---
@@ -1329,9 +1374,9 @@ function tick(d: Float32Array) {
                     x: d[base + IDX_X],
                     y: d[base + IDX_Y],
                     z: d[base + IDX_Z],
-                    tx: d[tBase + IDX_X],
-                    ty: d[tBase + IDX_Y],
-                    tz: d[tBase + IDX_Z],
+                    tx: tx,
+                    ty: ty,
+                    tz: tz,
                 });
             } else if (
                 d[base + IDX_SKILL3_CD] === 0 &&
@@ -1340,10 +1385,12 @@ function tick(d: Float32Array) {
                 d[base + IDX_ANIM] = 2; // play attack animation
                 animLockTicks[i] = 20; // lock animation
                 queueDamage(target, TANK_SKILLS.shieldBash.damage, 15, i);
-                d[tBase + IDX_X] +=
-                    (dx / dist) * TANK_SKILLS.shieldBash.knockback;
-                d[tBase + IDX_Z] +=
-                    (dz / dist) * TANK_SKILLS.shieldBash.knockback;
+                if (target >= 0) {
+                    d[tBase + IDX_X] +=
+                        (dx / dist) * TANK_SKILLS.shieldBash.knockback;
+                    d[tBase + IDX_Z] +=
+                        (dz / dist) * TANK_SKILLS.shieldBash.knockback;
+                }
                 d[base + IDX_SKILL3_CD] = TANK_SKILLS.shieldBash.cooldown;
                 skillActivated = true;
                 skillFXBatch.push({
@@ -1353,13 +1400,13 @@ function tick(d: Float32Array) {
                     x: d[base + IDX_X],
                     y: d[base + IDX_Y],
                     z: d[base + IDX_Z],
-                    tx: d[tBase + IDX_X],
-                    ty: d[tBase + IDX_Y],
-                    tz: d[tBase + IDX_Z],
+                    tx: tx,
+                    ty: ty,
+                    tz: tz,
                 });
             }
         } else if (uType === TYPE_ARCHER) {
-            if (d[base + IDX_SKILL1_CD] === 0 && dist <= myRange) {
+            if (target >= 0 && d[base + IDX_SKILL1_CD] === 0 && dist <= myRange) {
                 d[base + IDX_ANIM] = 2; // play attack animation
                 animLockTicks[i] = 20; // lock animation
                 queueDamage(target, ARCHER_SKILLS.doubleShot.damage, 18, i);
@@ -1371,11 +1418,12 @@ function tick(d: Float32Array) {
                     fx: d[base + IDX_X],
                     fy: d[base + IDX_Y] + 0.8,
                     fz: d[base + IDX_Z],
-                    tx: d[tBase + IDX_X],
-                    ty: d[tBase + IDX_Y] + 0.8,
-                    tz: d[tBase + IDX_Z],
+                    tx: tx,
+                    ty: ty + 0.8,
+                    tz: tz,
                 });
             } else if (
+                target >= 0 &&
                 d[base + IDX_SKILL2_CD] === 0 &&
                 dist <= ARCHER_SKILLS.evasiveLeap.range
             ) {
@@ -1401,14 +1449,14 @@ function tick(d: Float32Array) {
                     ty: toY,
                     tz: d[base + IDX_Z],
                 });
-            } else if (d[base + IDX_SKILL3_CD] === 0 && dist <= myRange) {
+            } else if (target >= 0 && d[base + IDX_SKILL3_CD] === 0 && dist <= myRange) {
                 d[base + IDX_ANIM] = 2; // play attack animation
                 animLockTicks[i] = 20; // lock animation
                 const myX = d[base + IDX_X];
                 const myY = d[base + IDX_Y];
                 const myZ = d[base + IDX_Z];
-                const targetX = d[tBase + IDX_X];
-                const targetZ = d[tBase + IDX_Z];
+                const targetX = tx;
+                const targetZ = tz;
                 const myTeam = d[base + IDX_TEAM];
 
                 // Query 3x3 cells around target instead of full scan
@@ -1462,11 +1510,11 @@ function tick(d: Float32Array) {
             }
         } else if (uType === TYPE_MAGE) {
             // Skill 1: Frost Nova — AoE kecil, stun semua musuh dalam radius
-            if (d[base + IDX_SKILL1_CD] === 0 && dist <= myRange) {
+            if (target >= 0 && d[base + IDX_SKILL1_CD] === 0 && dist <= myRange) {
                 d[base + IDX_ANIM] = 2; // play attack animation
                 animLockTicks[i] = 20; // lock animation
-                const novaX = d[tBase + IDX_X];
-                const novaZ = d[tBase + IDX_Z];
+                const novaX = tx;
+                const novaZ = tz;
                 const novaRadiusSq =
                     MAGE_SKILLS.frostNova.radius * MAGE_SKILLS.frostNova.radius;
                 const myTeamNova = d[base + IDX_TEAM];
@@ -1537,7 +1585,7 @@ function tick(d: Float32Array) {
                     type: "skillFX",
                     skill: "frostNova",
                     x: novaX,
-                    y: d[tBase + IDX_Y],
+                    y: ty,
                     z: novaZ,
                 });
             }
@@ -1642,8 +1690,8 @@ function tick(d: Float32Array) {
             else if (d[base + IDX_SKILL3_CD] === 0 && dist <= myRange && target >= 0) {
                 d[base + IDX_ANIM] = 2; // play attack animation
                 animLockTicks[i] = 20; // lock animation
-                const fbX = d[tBase + IDX_X];
-                const fbZ = d[tBase + IDX_Z];
+                const fbX = tx;
+                const fbZ = tz;
                 const fbRadiusSq =
                     MAGE_SKILLS.fireball.radius * MAGE_SKILLS.fireball.radius;
                 const myTeamFb = d[base + IDX_TEAM];
@@ -1722,13 +1770,13 @@ function tick(d: Float32Array) {
                     fy: d[base + IDX_Y] + 1.0,
                     fz: d[base + IDX_Z],
                     tx: fbX,
-                    ty: d[tBase + IDX_Y] + 1.0,
+                    ty: ty + 1.0,
                     tz: fbZ,
                 });
             }
         } else if (uType === TYPE_GUNSLINGER) {
             // Skill 1: High Noon — single target nuke
-            if (d[base + IDX_SKILL1_CD] === 0 && dist <= myRange) {
+            if (target >= 0 && d[base + IDX_SKILL1_CD] === 0 && dist <= myRange) {
                 d[base + IDX_ANIM] = 2;
                 animLockTicks[i] = 20;
                 queueDamage(target, GUNSLINGER_SKILLS.highNoon.damage, 12, i);
@@ -1741,13 +1789,13 @@ function tick(d: Float32Array) {
                     fx: d[base + IDX_X],
                     fy: d[base + IDX_Y] + 0.8,
                     fz: d[base + IDX_Z],
-                    tx: d[tBase + IDX_X],
-                    ty: d[tBase + IDX_Y] + 0.8,
-                    tz: d[tBase + IDX_Z],
+                    tx: tx,
+                    ty: ty + 0.8,
+                    tz: tz,
                 });
             }
             // Skill 2: Smoke Bomb — targeted stealth + damage reduction
-            else if (d[base + IDX_SKILL2_CD] === 0 && dist <= myRange) {
+            else if (target >= 0 && d[base + IDX_SKILL2_CD] === 0 && dist <= myRange) {
                 d[base + IDX_ANIM] = 2;
                 animLockTicks[i] = 15;
                 d[base + IDX_EFFECT_STATE] =
@@ -1827,10 +1875,10 @@ function tick(d: Float32Array) {
                 d[base + IDX_ANIM] = 1;
                 animLockTicks[i] = 10;
                 const behindX =
-                    d[tBase + IDX_X] -
+                    tx -
                     (dx / dist) * ASSASSIN_SKILLS.shadowStep.teleportRange;
                 const behindZ =
-                    d[tBase + IDX_Z] -
+                    tz -
                     (dz / dist) * ASSASSIN_SKILLS.shadowStep.teleportRange;
                 const fromX = d[base + IDX_X];
                 const fromY = d[base + IDX_Y];
@@ -1852,7 +1900,7 @@ function tick(d: Float32Array) {
                 });
             }
             // Skill 2: Backstab — bonus damage if behind target
-            else if (d[base + IDX_SKILL2_CD] === 0 && dist <= myRange) {
+            else if (target >= 0 && d[base + IDX_SKILL2_CD] === 0 && dist <= myRange) {
                 d[base + IDX_ANIM] = 2;
                 animLockTicks[i] = 20;
                 // Check if attacking from behind (dot product of facing directions)
@@ -1878,13 +1926,13 @@ function tick(d: Float32Array) {
                     fx: d[base + IDX_X],
                     fy: d[base + IDX_Y] + 0.8,
                     fz: d[base + IDX_Z],
-                    tx: d[tBase + IDX_X],
-                    ty: d[tBase + IDX_Y] + 0.8,
-                    tz: d[tBase + IDX_Z],
+                    tx: tx,
+                    ty: ty + 0.8,
+                    tz: tz,
                 });
             }
             // Skill 3: Poison Blade — DoT + initial damage
-            else if (d[base + IDX_SKILL3_CD] === 0 && dist <= myRange) {
+            else if (target >= 0 && d[base + IDX_SKILL3_CD] === 0 && dist <= myRange) {
                 d[base + IDX_ANIM] = 2;
                 animLockTicks[i] = 20;
                 let dmg = ASSASSIN_SKILLS.poisonBlade.damagePerTick;
@@ -1897,8 +1945,10 @@ function tick(d: Float32Array) {
                 }
                 queueDamage(target, dmg, 10, i);
                 // Apply poison effect: base 2000 + duration ticks
-                d[tBase + IDX_EFFECT_STATE] =
-                    2000 + ASSASSIN_SKILLS.poisonBlade.durationTicks;
+                if (target >= 0) {
+                    d[tBase + IDX_EFFECT_STATE] =
+                        2000 + ASSASSIN_SKILLS.poisonBlade.durationTicks;
+                }
                 d[base + IDX_SKILL3_CD] = ASSASSIN_SKILLS.poisonBlade.cooldown;
                 skillActivated = true;
                 skillFXBatch.push({
@@ -1908,13 +1958,13 @@ function tick(d: Float32Array) {
                     fx: d[base + IDX_X],
                     fy: d[base + IDX_Y] + 0.8,
                     fz: d[base + IDX_Z],
-                    tx: d[tBase + IDX_X],
-                    ty: d[tBase + IDX_Y] + 0.8,
-                    tz: d[tBase + IDX_Z],
+                    tx: tx,
+                    ty: ty + 0.8,
+                    tz: tz,
                 });
             }
         } else if (uType === TYPE_HEALER) {
-            const isTargetAlly = d[tBase + IDX_TEAM] === d[base + IDX_TEAM];
+            const isTargetAlly = target >= 0 && d[tBase + IDX_TEAM] === d[base + IDX_TEAM];
 
             if (isTargetAlly) {
                 const targetHp = d[tBase + IDX_HP];
@@ -1942,9 +1992,9 @@ function tick(d: Float32Array) {
                         fx: d[base + IDX_X],
                         fy: d[base + IDX_Y] + 0.8,
                         fz: d[base + IDX_Z],
-                        tx: d[tBase + IDX_X],
-                        ty: d[tBase + IDX_Y] + 0.8,
-                        tz: d[tBase + IDX_Z],
+                        tx: tx,
+                        ty: ty + 0.8,
+                        tz: tz,
                     });
                 } else if (needsHealing && d[base + IDX_SKILL2_CD] === 0 && dist <= myRange) {
                     d[base + IDX_ANIM] = 2;
@@ -1963,9 +2013,9 @@ function tick(d: Float32Array) {
                         fx: d[base + IDX_X],
                         fy: d[base + IDX_Y] + 0.8,
                         fz: d[base + IDX_Z],
-                        tx: d[tBase + IDX_X],
-                        ty: d[tBase + IDX_Y] + 0.8,
-                        tz: d[tBase + IDX_Z],
+                        tx: tx,
+                        ty: ty + 0.8,
+                        tz: tz,
                     });
                 }
                 // Skill 3: Holy Sanctuary — now fires from self-buff block above
@@ -2029,13 +2079,27 @@ function tick(d: Float32Array) {
             }
 
             const sepMag = Math.sqrt(sepX * sepX + sepZ * sepZ);
-            const limitMax = Math.min(SEPARATION_MAX, mySpeed); // Solusi 2: Batasi max separation agar tidak melebihi kecepatan maju
+            const limitMax = Math.min(SEPARATION_MAX, mySpeed);
             if (sepMag > limitMax) {
                 sepX = (sepX / sepMag) * limitMax;
                 sepZ = (sepZ / sepMag) * limitMax;
             }
 
-            const isTargetAlly = d[tBase + IDX_TEAM] === d[base + IDX_TEAM];
+            let tx = 0;
+            let ty = 0;
+            let tz = 0;
+            if (target === TARGET_TURRET) {
+                const myTeam = d[base + IDX_TEAM];
+                tx = myTeam === TEAM_A ? TURRET_B_X : TURRET_A_X;
+                ty = 0;
+                tz = TURRET_Z;
+            } else if (target >= 0) {
+                tx = d[tBase + IDX_X];
+                ty = d[tBase + IDX_Y];
+                tz = d[tBase + IDX_Z];
+            }
+
+            const isTargetAlly = target >= 0 && d[tBase + IDX_TEAM] === d[base + IDX_TEAM];
 
             if (uType === TYPE_HEALER) {
                 // Cek jarak ke musuh terdekat (termasuk turret)
@@ -2055,7 +2119,7 @@ function tick(d: Float32Array) {
                 const tdx = turretX - d[base + IDX_X];
                 const tdz = TURRET_Z - d[base + IDX_Z];
                 const tdist = Math.sqrt(tdx * tdx + tdz * tdz);
-                if (tdist < 15.0) {
+                if (tdist < 25.0) {
                     enemyTooClose = true;
                 }
 
@@ -2111,7 +2175,7 @@ function tick(d: Float32Array) {
                     }
                 } else {
                     // No injured ally — target is enemy/turret, march forward if safe!
-                    if (dist <= myRange) {
+                    if (target >= 0 && dist <= myRange) {
                         if (d[base + IDX_ATTACK_CD] === 0) {
                             d[base + IDX_ANIM] = 2;
                             animLockTicks[i] = 20;
@@ -2124,9 +2188,9 @@ function tick(d: Float32Array) {
                                 fx: d[base + IDX_X],
                                 fy: d[base + IDX_Y] + 0.8,
                                 fz: d[base + IDX_Z],
-                                tx: d[tBase + IDX_X],
-                                ty: d[tBase + IDX_Y] + 0.8,
-                                tz: d[tBase + IDX_Z],
+                                tx: tx,
+                                ty: ty + 0.8,
+                                tz: tz,
                             });
                         } else if (animLockTicks[i] === 0) {
                             d[base + IDX_ANIM] = 0; // idle at turret
@@ -2146,7 +2210,7 @@ function tick(d: Float32Array) {
                     }
                 }
             } else {
-                if (dist <= myRange) {
+                if (target >= 0 && dist <= myRange) {
                     if (d[base + IDX_ATTACK_CD] === 0) {
                         d[base + IDX_ANIM] = 2; // animasi serang
                         animLockTicks[i] = 20; // lock animation
@@ -2178,9 +2242,9 @@ function tick(d: Float32Array) {
                             fx: d[base + IDX_X],
                             fy: d[base + IDX_Y] + 0.8,
                             fz: d[base + IDX_Z],
-                            tx: d[tBase + IDX_X],
-                            ty: d[tBase + IDX_Y] + 0.8,
-                            tz: d[tBase + IDX_Z],
+                            tx: tx,
+                            ty: ty + 0.8,
+                            tz: tz,
                         });
                     } else {
                         if (animLockTicks[i] === 0) {
