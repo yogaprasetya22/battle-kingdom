@@ -43,7 +43,7 @@ import {
     nameBarsB,
     initNameBars,
 } from "../ui/ui_billboards";
-import { spawnIceShatterFX } from "../effects/SkillFX";
+import { spawnIceShatterFX } from "../effects/SkillFX_Misc";
 import { weaponCache } from "../units/UnitVisualHelpers";
 import {
     createUnitVisual,

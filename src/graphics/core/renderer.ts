@@ -27,32 +27,8 @@ import { perfProfiler } from "./PerformanceProfiler";
 import { damageHUDBatcher } from "../effects/DamageHUDBatcher";
 
 export { changeModel, resetUnitsVisual } from "./UnitRenderer";
-
-
-import {
-    spawnLightningFX,
-    spawnArrowVolleyFX,
-    spawnFireballFX,
-    spawnDoubleShotFX,
-    spawnTauntFX,
-    spawnShieldBashFX,
-    spawnEvasiveLeapFX,
-    spawnFrostNovaBurstFX,
-    spawnIronFortitudeAuraFX,
-    spawnBasicAttackFX,
-    spawnHealFX,
-    spawnDivineShieldFX,
-    spawnHolySanctuaryFX,
-    spawnHighNoonFX,
-    spawnSmokeBombFX,
-    spawnFanFireFX,
-    spawnShadowStepFX,
-    spawnBackstabFX,
-    spawnPoisonBladeFX,
-    updateFX,
-    canSpawnFX,
-    effectUniforms,
-} from "../effects/SkillFX";
+import { updateFX, effectUniforms } from "../effects/FXCore";
+import { dispatchSkillFX } from "../effects/FXRouter";
 
 let sharedData: Float32Array | null = null;
 
@@ -76,182 +52,56 @@ export function spawnSkillFX(event: { skill: string; [key: string]: any }) {
         damageHUDBatcher.spawn(event as any);
         return;
     }
-    if (!canSpawnFX()) return;
-    if (event.skill === "arrowVolley") {
-        const groundY = getTerrainHeight(event.x, event.z);
-        const sx = event.fx ?? event.x;
-        const sy = event.fy ?? groundY;
-        const sz = event.fz ?? event.z;
-        soundFX.playArrowVolley(sx, sy, sz, camera.position);
-        spawnArrowVolleyFX(scene, event.x, event.z, groundY, 3.5, event.team);
-    } else if (event.skill === "chainLightning") {
-        const pos: THREE.Vector3[] = [];
-        const arr: number[] = event.positions;
-        for (let i = 0; i + 2 < arr.length; i += 3) {
-            pos.push(new THREE.Vector3(arr[i], arr[i + 1], arr[i + 2]));
+
+    // Play procedural/spatial sound FX based on skill
+    switch (event.skill) {
+        case "arrowVolley": {
+            const groundY = getTerrainHeight(event.x, event.z);
+            const sx = event.fx ?? event.x;
+            const sy = event.fy ?? groundY;
+            const sz = event.fz ?? event.z;
+            soundFX.playArrowVolley(sx, sy, sz, camera.position);
+            break;
         }
-        spawnLightningFX(scene, pos, event.team);
-    } else if (event.skill === "ironFortitude") {
-        spawnIronFortitudeAuraFX(scene, event.x, event.y, event.z, event.team);
-    } else if (event.skill === "taunt") {
-        spawnTauntFX(
-            scene,
-            event.x,
-            event.y,
-            event.z,
-            event.tx,
-            event.ty,
-            event.tz,
-            event.team,
-        );
-    } else if (event.skill === "shieldBash") {
-        soundFX.playShieldBash(event.x, event.y, event.z, camera.position);
-        spawnShieldBashFX(
-            scene,
-            event.x,
-            event.y,
-            event.z,
-            event.tx,
-            event.ty,
-            event.tz,
-            event.team,
-        );
-    } else if (event.skill === "doubleShot" || event.skill === "turretShoot") {
-        soundFX.playBow(event.fx, event.fy, event.fz, camera.position);
-        spawnDoubleShotFX(
-            scene,
-            event.fx,
-            event.fy,
-            event.fz,
-            event.tx,
-            event.ty,
-            event.tz,
-            event.skill === "turretShoot",
-        );
-    } else if (event.skill === "evasiveLeap") {
-        soundFX.playDash(event.fx, event.fy, event.fz, camera.position);
-        const fy =
-            event.fy !== undefined
-                ? event.fy
-                : getTerrainHeight(event.fx, event.fz);
-        const ty =
-            event.ty !== undefined
-                ? event.ty
-                : getTerrainHeight(event.tx, event.tz);
-        spawnEvasiveLeapFX(
-            scene,
-            event.fx,
-            fy,
-            event.fz,
-            event.tx,
-            ty,
-            event.tz,
-        );
-    } else if (event.skill === "fireball") {
-        soundFX.playFireball(event.fx, event.fy, event.fz, camera.position);
-        spawnFireballFX(
-            scene,
-            event.fx,
-            event.fy,
-            event.fz,
-            event.tx,
-            event.ty,
-            event.tz,
-        );
-    } else if (event.skill === "frostNova") {
-        spawnFrostNovaBurstFX(scene, event.x, event.y, event.z);
-    } else if (event.skill === "basicAttack") {
-        spawnBasicAttackFX(
-            scene,
-            event.uType,
-            event.fx,
-            event.fy,
-            event.fz,
-            event.tx,
-            event.ty,
-            event.tz,
-        );
-    } else if (event.skill === "basicHeal") {
-        soundFX.playHeal(event.fx, event.fy, event.fz, camera.position);
-        spawnHealFX(
-            scene,
-            new THREE.Vector3(event.fx, event.fy, event.fz),
-            new THREE.Vector3(event.tx, event.ty, event.tz),
-            false,
-        );
-    } else if (event.skill === "rejuvenation") {
-        soundFX.playHeal(event.fx, event.fy, event.fz, camera.position);
-        spawnHealFX(
-            scene,
-            new THREE.Vector3(event.fx, event.fy, event.fz),
-            new THREE.Vector3(event.tx, event.ty, event.tz),
-            true,
-        );
-    } else if (event.skill === "divineShield") {
-        soundFX.playHeal(event.fx, event.fy, event.fz, camera.position);
-        spawnDivineShieldFX(
-            scene,
-            new THREE.Vector3(event.tx, event.ty, event.tz),
-        );
-    } else if (event.skill === "holySanctuary") {
-        soundFX.playHeal(event.x, event.y, event.z, camera.position);
-        spawnHolySanctuaryFX(
-            scene,
-            new THREE.Vector3(event.x, event.y, event.z),
-        );
-    } else if (event.skill === "highNoon") {
-        soundFX.playBow(event.fx, event.fy, event.fz, camera.position);
-        spawnHighNoonFX(
-            scene,
-            event.fx,
-            event.fy,
-            event.fz,
-            event.tx,
-            event.ty,
-            event.tz,
-            event.team,
-        );
-    } else if (event.skill === "smokeBomb") {
-        soundFX.playDash(event.x, event.y, event.z, camera.position);
-        spawnSmokeBombFX(scene, event.x, event.y, event.z, event.team);
-    } else if (event.skill === "fanFire") {
-        soundFX.playArrowVolley(event.x, 0, event.z, camera.position);
-        spawnFanFireFX(
-            scene,
-            event.x,
-            event.z,
-            getTerrainHeight(event.x, event.z),
-            3.0,
-            event.team,
-        );
-    } else if (event.skill === "shadowStep") {
-        soundFX.playDash(event.fx, event.fy, event.fz, camera.position);
-        spawnShadowStepFX(
-            scene,
-            event.fx,
-            event.fy,
-            event.fz,
-            event.tx,
-            event.ty,
-            event.tz,
-            event.team,
-        );
-    } else if (event.skill === "backstab") {
-        soundFX.playSlash(event.fx, event.fy, event.fz, camera.position);
-        spawnBackstabFX(
-            scene,
-            event.fx,
-            event.fy,
-            event.fz,
-            event.tx,
-            event.ty,
-            event.tz,
-            event.team,
-        );
-    } else if (event.skill === "poisonBlade") {
-        soundFX.playSlash(event.fx, event.fy, event.fz, camera.position);
-        spawnPoisonBladeFX(scene, event.tx, event.ty, event.tz);
+        case "shieldBash":
+            soundFX.playShieldBash(event.x, event.y, event.z, camera.position);
+            break;
+        case "doubleShot":
+        case "turretShoot":
+            soundFX.playBow(event.fx, event.fy, event.fz, camera.position);
+            break;
+        case "evasiveLeap":
+        case "shadowStep":
+            soundFX.playDash(event.fx, event.fy, event.fz, camera.position);
+            break;
+        case "smokeBomb":
+            soundFX.playDash(event.x, event.y, event.z, camera.position);
+            break;
+        case "fireball":
+            soundFX.playFireball(event.fx, event.fy, event.fz, camera.position);
+            break;
+        case "basicHeal":
+        case "rejuvenation":
+        case "divineShield":
+            soundFX.playHeal(event.fx, event.fy, event.fz, camera.position);
+            break;
+        case "holySanctuary":
+            soundFX.playHeal(event.x, event.y, event.z, camera.position);
+            break;
+        case "highNoon":
+            soundFX.playBow(event.fx, event.fy, event.fz, camera.position);
+            break;
+        case "fanFire":
+            soundFX.playArrowVolley(event.x, 0, event.z, camera.position);
+            break;
+        case "backstab":
+        case "poisonBlade":
+            soundFX.playSlash(event.fx, event.fy, event.fz, camera.position);
+            break;
     }
+
+    // Dispatch particle effects via high-performance router
+    dispatchSkillFX(scene, event);
 }
 
 // ▸ Render Loop

@@ -367,6 +367,41 @@ export function spawnDoubleShotFX(
     const start = new THREE.Vector3(fx, fy, fz);
     const end = new THREE.Vector3(tx, ty, tz);
 
+    if (isTurret) {
+        // Spawn a procedural glowing energy pop at the barrel tip (no PNG texture)
+        const muzzleGeo = new THREE.SphereGeometry(0.22, 8, 8);
+        const muzzleMat = new THREE.MeshBasicMaterial({
+            color: 0xffaa33,
+            transparent: true,
+            opacity: 1.0,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false,
+        });
+
+        const muzzleMesh = new THREE.Mesh(muzzleGeo, muzzleMat);
+        muzzleMesh.position.copy(start);
+        scene.add(muzzleMesh);
+
+        let muzzleAge = 0;
+        const muzzleDur = 0.05;
+        activeFX.push({
+            update(delta) {
+                muzzleAge += delta;
+                const mt = Math.min(1, muzzleAge / muzzleDur);
+                if (mt >= 1) {
+                    scene.remove(muzzleMesh);
+                    muzzleGeo.dispose();
+                    muzzleMat.dispose();
+                    return false;
+                }
+                // Quick puff expansion and fade
+                muzzleMesh.scale.setScalar(0.5 + mt * 2.0);
+                muzzleMat.opacity = 1 - mt;
+                return true;
+            }
+        });
+    }
+
     const shootArrow = (delay: number) => {
         let age = -delay;
         const flight = 0.28;
@@ -378,9 +413,12 @@ export function spawnDoubleShotFX(
                 age += delta;
                 if (age < 0) return true;
                 if (!mesh) {
-                    const geo = new THREE.CylinderGeometry(0.12, 0.12, 1.2, 8);
+                    // Turret: small bullet shape. Archer: larger arrow-laser shape
+                    const geo = isTurret
+                        ? new THREE.CylinderGeometry(0.04, 0.04, 0.32, 6)
+                        : new THREE.CylinderGeometry(0.12, 0.12, 1.2, 8);
                     mat = new THREE.MeshBasicMaterial({
-                        color: 0xffdd44,
+                        color: isTurret ? 0xffaa33 : 0xffdd44,
                         transparent: true,
                         opacity: 0.9,
                         blending: THREE.AdditiveBlending,
@@ -412,5 +450,7 @@ export function spawnDoubleShotFX(
     };
 
     shootArrow(0);
-    shootArrow(0.12);
+    if (!isTurret) {
+        shootArrow(0.12);
+    }
 }

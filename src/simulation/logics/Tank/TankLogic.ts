@@ -57,21 +57,6 @@ export function updateTank(
 
     let skillActivated = false;
 
-    // Barbarian Skill 1: Rage (Self Buff / Speed & Immune)
-    if (d[base + IDX_SKILL1_CD] === 0) {
-        d[base + IDX_IMMUNE_CD] = BARBARIAN_SKILLS.rage.immuneTicks;
-        d[base + IDX_SKILL1_CD] = BARBARIAN_SKILLS.rage.cooldown;
-        skillActivated = true;
-        skillFXBatch.push({
-            type: "skillFX",
-            skill: "ironFortitude", // Visual equivalent for Barbarian rage
-            team: d[base + IDX_TEAM],
-            x: d[base + IDX_X],
-            y: d[base + IDX_Y],
-            z: d[base + IDX_Z],
-        });
-    }
-
     if (target === -1) {
         if (animLockTicks[i] === 0) {
             d[base + IDX_ANIM] = 0; // idle
@@ -98,7 +83,22 @@ export function updateTank(
             computeSeparation(d, i, mySpeed, tempSep);
             applySteering(d, i, dtx, dtz, dtDist, mySpeed, tempSep);
         } else {
-            if (d[base + IDX_ATTACK_CD] === 0) {
+            // Trigger Rage (Skill 1) if ready when engaging the turret
+            if (d[base + IDX_SKILL1_CD] === 0) {
+                d[base + IDX_IMMUNE_CD] = BARBARIAN_SKILLS.rage.immuneTicks;
+                d[base + IDX_SKILL1_CD] = BARBARIAN_SKILLS.rage.cooldown;
+                skillActivated = true;
+                skillFXBatch.push({
+                    type: "skillFX",
+                    skill: "ironFortitude",
+                    team: myTeam,
+                    x: d[base + IDX_X],
+                    y: d[base + IDX_Y],
+                    z: d[base + IDX_Z],
+                });
+            }
+
+            if (!skillActivated && d[base + IDX_ATTACK_CD] === 0) {
                 d[base + IDX_ANIM] = 2; // attack
                 animLockTicks[i] = 15;
                 d[base + IDX_ATTACK_CD] = attr.attackInterval;
@@ -130,8 +130,22 @@ export function updateTank(
 
     // --- TARGETED SKILLS ---
     if (!skillActivated) {
+        // Barbarian Skill 1: Rage (Self Buff) - only when engaging target in combat range
+        if (d[base + IDX_SKILL1_CD] === 0 && dist <= attr.attackRange + 2.0) {
+            d[base + IDX_IMMUNE_CD] = BARBARIAN_SKILLS.rage.immuneTicks;
+            d[base + IDX_SKILL1_CD] = BARBARIAN_SKILLS.rage.cooldown;
+            skillActivated = true;
+            skillFXBatch.push({
+                type: "skillFX",
+                skill: "ironFortitude",
+                team: d[base + IDX_TEAM],
+                x: d[base + IDX_X],
+                y: d[base + IDX_Y],
+                z: d[base + IDX_Z],
+            });
+        }
         // Barbarian Skill 2: Battle Cry (Challenge/Taunt)
-        if (d[base + IDX_SKILL2_CD] === 0 && dist <= BARBARIAN_SKILLS.battleCry.range) {
+        else if (d[base + IDX_SKILL2_CD] === 0 && dist <= BARBARIAN_SKILLS.battleCry.range) {
             d[tBase + IDX_TARGET] = i;
             d[base + IDX_SKILL2_CD] = BARBARIAN_SKILLS.battleCry.cooldown;
             skillActivated = true;

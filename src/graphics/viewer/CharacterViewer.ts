@@ -28,17 +28,23 @@ import { debugBoneStructure } from "./GenericBoneDebug";
 
 // ── FX imports (untuk trigger skill) ──
 import {
-    spawnTauntFX,
-    spawnShieldBashFX,
     spawnIronFortitudeAuraFX,
     spawnFrostNovaBurstFX,
-    spawnFireballFX,
-    spawnLightningFX,
-    spawnArrowVolleyFX,
-    spawnDoubleShotFX,
-    spawnEvasiveLeapFX,
-    spawnHealFX,
     spawnDivineShieldFX,
+} from "../effects/SkillFX_Buffs";
+
+import {
+    spawnTauntFX,
+    spawnShieldBashFX,
+    spawnEvasiveLeapFX,
+} from "../effects/SkillFX_Combat";
+
+import {
+    spawnLightningFX,
+} from "../effects/SkillFX_Lightning";
+
+import {
+    spawnHealFX,
     spawnHolySanctuaryFX,
     spawnHighNoonFX,
     spawnSmokeBombFX,
@@ -46,8 +52,15 @@ import {
     spawnShadowStepFX,
     spawnBackstabFX,
     spawnPoisonBladeFX,
-    updateFX,
-} from "../effects/SkillFX";
+} from "../effects/SkillFX_Misc";
+
+import {
+    spawnArrowVolleyFX,
+    spawnFireballFX,
+    spawnDoubleShotFX,
+} from "../effects/SkillFX_Projectiles";
+
+import { updateFX } from "../effects/FXCore";
 
 // ── Konfigurasi karakter ──
 interface CharacterDef {

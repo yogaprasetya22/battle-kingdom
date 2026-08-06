@@ -57,21 +57,6 @@ export function updateKnight(
 
     let skillActivated = false;
 
-    // Knight Skill 1: Bulwark Stance (Immune block)
-    if (d[base + IDX_SKILL1_CD] === 0) {
-        d[base + IDX_IMMUNE_CD] = KNIGHT_SKILLS.bulwarkStance.immuneTicks;
-        d[base + IDX_SKILL1_CD] = KNIGHT_SKILLS.bulwarkStance.cooldown;
-        skillActivated = true;
-        skillFXBatch.push({
-            type: "skillFX",
-            skill: "ironFortitude",
-            team: d[base + IDX_TEAM],
-            x: d[base + IDX_X],
-            y: d[base + IDX_Y],
-            z: d[base + IDX_Z],
-        });
-    }
-
     if (target === -1) {
         if (animLockTicks[i] === 0) {
             d[base + IDX_ANIM] = 0; // idle
@@ -98,7 +83,22 @@ export function updateKnight(
             computeSeparation(d, i, mySpeed, tempSep);
             applySteering(d, i, dtx, dtz, dtDist, mySpeed, tempSep);
         } else {
-            if (d[base + IDX_ATTACK_CD] === 0) {
+            // Trigger Bulwark Stance (Skill 1) if ready when engaging the turret
+            if (d[base + IDX_SKILL1_CD] === 0) {
+                d[base + IDX_IMMUNE_CD] = KNIGHT_SKILLS.bulwarkStance.immuneTicks;
+                d[base + IDX_SKILL1_CD] = KNIGHT_SKILLS.bulwarkStance.cooldown;
+                skillActivated = true;
+                skillFXBatch.push({
+                    type: "skillFX",
+                    skill: "ironFortitude",
+                    team: myTeam,
+                    x: d[base + IDX_X],
+                    y: d[base + IDX_Y],
+                    z: d[base + IDX_Z],
+                });
+            }
+
+            if (!skillActivated && d[base + IDX_ATTACK_CD] === 0) {
                 d[base + IDX_ANIM] = 2; // attack
                 animLockTicks[i] = 15;
                 d[base + IDX_ATTACK_CD] = attr.attackInterval;
@@ -130,8 +130,22 @@ export function updateKnight(
 
     // --- TARGETED SKILLS ---
     if (!skillActivated) {
+        // Knight Skill 1: Bulwark Stance (Self Buff) - only when engaging target in combat range
+        if (d[base + IDX_SKILL1_CD] === 0 && dist <= attr.attackRange + 2.0) {
+            d[base + IDX_IMMUNE_CD] = KNIGHT_SKILLS.bulwarkStance.immuneTicks;
+            d[base + IDX_SKILL1_CD] = KNIGHT_SKILLS.bulwarkStance.cooldown;
+            skillActivated = true;
+            skillFXBatch.push({
+                type: "skillFX",
+                skill: "ironFortitude",
+                team: d[base + IDX_TEAM],
+                x: d[base + IDX_X],
+                y: d[base + IDX_Y],
+                z: d[base + IDX_Z],
+            });
+        }
         // Knight Skill 2: Shield Taunt
-        if (d[base + IDX_SKILL2_CD] === 0 && dist <= KNIGHT_SKILLS.taunt.range) {
+        else if (d[base + IDX_SKILL2_CD] === 0 && dist <= KNIGHT_SKILLS.taunt.range) {
             d[tBase + IDX_TARGET] = i;
             d[base + IDX_SKILL2_CD] = KNIGHT_SKILLS.taunt.cooldown;
             skillActivated = true;
