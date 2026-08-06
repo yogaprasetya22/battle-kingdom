@@ -26,8 +26,8 @@ export const UNIT_LOD_DIST_SQ = 90000; // ~300 units (entire map)
 export const WEAPON_LOD_DIST_SQ = 3600; // ~60 units
 
 // Class Types
-export const TYPE_TANK = 0;
-export const TYPE_KNIGHT = 0; // alias — tank
+export const TYPE_BARBARIAN = 0;
+export const TYPE_TANK = 0; // alias back compat
 export const TYPE_ARCHER = 1;
 export const TYPE_MAGE = 2;
 export const TYPE_HEALER = 3;
@@ -36,6 +36,7 @@ export const TYPE_GUNSLINGER = 4;
 export const TYPE_ASSASSIN = 5;
 export const TYPE_MERCHANT = 6;
 export const TYPE_DRUID = 7;
+export const TYPE_KNIGHT = 12; // New separate unit type
 
 // Teams
 export const TEAM_A = 0;

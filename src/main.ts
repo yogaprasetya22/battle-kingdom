@@ -70,6 +70,7 @@ const btnSettings = document.getElementById(
 
 interface TeamConfig {
     tank: number;
+    knight: number;
     archer: number;
     mage: number;
     healer: number;
@@ -83,7 +84,8 @@ interface TeamConfig {
     skel_assassin: number;
 }
 let teamAConfig: TeamConfig = {
-    tank: 15,
+    tank: 7,
+    knight: 8,
     archer: 15,
     mage: 10,
     healer: 5,
@@ -97,7 +99,8 @@ let teamAConfig: TeamConfig = {
     skel_assassin: 0,
 };
 let teamBConfig: TeamConfig = {
-    tank: 15,
+    tank: 7,
+    knight: 8,
     archer: 15,
     mage: 10,
     healer: 5,
@@ -157,6 +160,10 @@ const aggregatedStats = {
         tankTaken: 0,
         tankKills: 0,
         tankHealed: 0,
+        knightDealt: 0,
+        knightTaken: 0,
+        knightKills: 0,
+        knightHealed: 0,
         archerDealt: 0,
         archerTaken: 0,
         archerKills: 0,
@@ -183,6 +190,10 @@ const aggregatedStats = {
         tankTaken: 0,
         tankKills: 0,
         tankHealed: 0,
+        knightDealt: 0,
+        knightTaken: 0,
+        knightKills: 0,
+        knightHealed: 0,
         archerDealt: 0,
         archerTaken: 0,
         archerKills: 0,
@@ -254,7 +265,7 @@ function showBattleEnd(winner: "A" | "B", stats: typeof aggregatedStats) {
 
     // Hentikan recording & unduh report kinerja pertempuran otomatis
     perfProfiler.stopLogging();
-    // perfProfiler.exportReport(); // iniyakk
+    perfProfiler.exportReport(); // iniyakk
 
     if (statsContainer) {
         statsContainer.innerHTML = `
@@ -268,11 +279,18 @@ function showBattleEnd(winner: "A" | "B", stats: typeof aggregatedStats) {
         <div>Heals</div>
       </div>
       <div class="stats-grid">
-        <div class="stats-class">🛡️ Tank</div>
+        <div class="stats-class">🪓 Barbarian</div>
         <div class="stats-cell">${formatStatValue(stats.teamA.tankDealt)}</div>
         <div class="stats-cell">${formatStatValue(stats.teamA.tankTaken)}</div>
         <div class="stats-cell">${stats.teamA.tankKills}</div>
         <div class="stats-cell">${formatStatValue(stats.teamA.tankHealed)}</div>
+      </div>
+      <div class="stats-grid">
+        <div class="stats-class">🛡️ Knight</div>
+        <div class="stats-cell">${formatStatValue(stats.teamA.knightDealt)}</div>
+        <div class="stats-cell">${formatStatValue(stats.teamA.knightTaken)}</div>
+        <div class="stats-cell">${stats.teamA.knightKills}</div>
+        <div class="stats-cell">${formatStatValue(stats.teamA.knightHealed)}</div>
       </div>
       <div class="stats-grid">
         <div class="stats-class">🏹 Archer</div>
@@ -321,11 +339,18 @@ function showBattleEnd(winner: "A" | "B", stats: typeof aggregatedStats) {
         <div>Heals</div>
       </div>
       <div class="stats-grid">
-        <div class="stats-class">🛡️ Tank</div>
+        <div class="stats-class">🪓 Barbarian</div>
         <div class="stats-cell">${formatStatValue(stats.teamB.tankDealt)}</div>
         <div class="stats-cell">${formatStatValue(stats.teamB.tankTaken)}</div>
         <div class="stats-cell">${formatStatValue(stats.teamB.tankKills)}</div>
         <div class="stats-cell">${formatStatValue(stats.teamB.tankHealed)}</div>
+      </div>
+      <div class="stats-grid">
+        <div class="stats-class">🛡️ Knight</div>
+        <div class="stats-cell">${formatStatValue(stats.teamB.knightDealt)}</div>
+        <div class="stats-cell">${formatStatValue(stats.teamB.knightTaken)}</div>
+        <div class="stats-cell">${stats.teamB.knightKills}</div>
+        <div class="stats-cell">${formatStatValue(stats.teamB.knightHealed)}</div>
       </div>
       <div class="stats-grid">
         <div class="stats-class">🏹 Archer</div>
@@ -388,6 +413,10 @@ function triggerBattleEnd(winner: "A" | "B") {
     aggregatedStats.teamA.tankTaken = 0;
     aggregatedStats.teamA.tankKills = 0;
     aggregatedStats.teamA.tankHealed = 0;
+    aggregatedStats.teamA.knightDealt = 0;
+    aggregatedStats.teamA.knightTaken = 0;
+    aggregatedStats.teamA.knightKills = 0;
+    aggregatedStats.teamA.knightHealed = 0;
     aggregatedStats.teamA.archerDealt = 0;
     aggregatedStats.teamA.archerTaken = 0;
     aggregatedStats.teamA.archerKills = 0;
@@ -413,6 +442,10 @@ function triggerBattleEnd(winner: "A" | "B") {
     aggregatedStats.teamB.tankTaken = 0;
     aggregatedStats.teamB.tankKills = 0;
     aggregatedStats.teamB.tankHealed = 0;
+    aggregatedStats.teamB.knightDealt = 0;
+    aggregatedStats.teamB.knightTaken = 0;
+    aggregatedStats.teamB.knightKills = 0;
+    aggregatedStats.teamB.knightHealed = 0;
     aggregatedStats.teamB.archerDealt = 0;
     aggregatedStats.teamB.archerTaken = 0;
     aggregatedStats.teamB.archerKills = 0;
@@ -870,6 +903,7 @@ const presetStealth = document.getElementById(
 
 const classes = [
     "tank",
+    "knight",
     "archer",
     "mage",
     "healer",
@@ -990,17 +1024,17 @@ function applyPreset(presetA: number[], presetB: number[]) {
 }
 
 presetBalanced.addEventListener("click", () =>
-    // Scaled preset to total 50: [tank, archer, mage, healer, gunslinger, assassin, ...skel]
-    applyPreset([7, 10, 10, 3, 10, 10, 0, 0, 0, 0, 0, 0], [7, 10, 10, 3, 10, 10, 0, 0, 0, 0, 0, 0]),
+    // Scaled preset to total 50: [tank, knight, archer, mage, healer, gunslinger, assassin, ...skel]
+    applyPreset([3, 4, 10, 10, 3, 10, 10, 0, 0, 0, 0, 0, 0], [3, 4, 10, 10, 3, 10, 10, 0, 0, 0, 0, 0, 0]),
 );
 presetMagic.addEventListener("click", () =>
-    applyPreset([0, 0, 40, 10, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 40, 10, 0, 0, 0, 0, 0, 0, 0, 0]),
+    applyPreset([0, 0, 0, 40, 10, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 40, 10, 0, 0, 0, 0, 0, 0, 0, 0]),
 );
 presetDefense.addEventListener("click", () =>
-    applyPreset([30, 15, 0, 5, 0, 0, 0, 0, 0, 0, 0, 0], [30, 15, 0, 5, 0, 0, 0, 0, 0, 0, 0, 0]),
+    applyPreset([15, 15, 15, 0, 5, 0, 0, 0, 0, 0, 0, 0, 0], [15, 15, 15, 0, 5, 0, 0, 0, 0, 0, 0, 0, 0]),
 );
 presetStealth.addEventListener("click", () =>
-    applyPreset([0, 10, 0, 0, 15, 25, 0, 0, 0, 0, 0, 0], [0, 10, 0, 0, 15, 25, 0, 0, 0, 0, 0, 0]),
+    applyPreset([0, 0, 10, 0, 0, 15, 25, 0, 0, 0, 0, 0, 0], [0, 0, 10, 0, 0, 15, 25, 0, 0, 0, 0, 0, 0]),
 );
 
 classes.forEach((cls) => {

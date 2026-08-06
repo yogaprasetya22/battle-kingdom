@@ -32,7 +32,7 @@ export const BOUND_Z_MAX = 89;
 
 // ============ ARMOR ============
 export const ARMOR: Record<number, number> = {
-    0: 0.3, // Knight: 30% reduction
+    0: 0.2, // Barbarian: 20% reduction (medium armor)
     1: 0.1, // Archer: 10% reduction
     2: 0.0, // Mage: 0% reduction
     3: 0.05, // Acolyte: 5% reduction
@@ -44,6 +44,7 @@ export const ARMOR: Record<number, number> = {
     9: 0.15, // Skeleton Healer: 15% reduction (Buffed)
     10: 0.15, // Skeleton Gunslinger: 15% (Buffed)
     11: 0.22,  // Skeleton Assassin: 22% reduction (Buffed)
+    12: 0.35, // Knight: 35% reduction (high armor)
 };
 
 // ============ DEFENSE BUFF ============
@@ -51,7 +52,7 @@ export const DEFENSE_BUFF_MULTIPLIER = 0.5;
 
 // ============ HP PER TYPE ============
 export const HP_PER_TYPE: Record<number, number> = {
-    0: 450000, // Knight
+    0: 500000, // Barbarian (High HP)
     1: 240000, // Archer
     2: 210000, // Mage
     3: 180000, // Acolyte
@@ -63,6 +64,7 @@ export const HP_PER_TYPE: Record<number, number> = {
     9: 270000, // Skeleton Healer (Buffed HP)
     10: 300000, // Skeleton Gunslinger (Buffed HP)
     11: 310000, // Skeleton Assassin (Buffed HP)
+    12: 450000, // Knight (High Armor, Balanced HP)
 };
 
 // ============ ATTRIBUT PER TYPE ============
@@ -77,12 +79,12 @@ export interface UnitAttributes {
 
 export const ATTRIBUTES: Record<number, UnitAttributes> = {
     0: {
-        moveSpeed: 0.035,
+        moveSpeed: 0.038, // Barbarian is slightly faster than Knight
         attackRange: 1.8,
-        baseDamage: 10000,
-        attackInterval: 65,
-        critChance: 0.05,
-        critDamage: 1.5,
+        baseDamage: 12000, // Barbarian does more base damage
+        attackInterval: 60,
+        critChance: 0.08,
+        critDamage: 1.6,
     },
     1: {
         moveSpeed: 0.025,
@@ -178,6 +180,15 @@ export const ATTRIBUTES: Record<number, UnitAttributes> = {
         critChance: 0.40,
         critDamage: 1.8,
     },
+    12: {
+        // Knight: protector attributes
+        moveSpeed: 0.033,
+        attackRange: 1.8,
+        baseDamage: 9000,
+        attackInterval: 70,
+        critChance: 0.05,
+        critDamage: 1.5,
+    },
 };
 
 // ============ DEFAULT ATTRIBUTES (fallback) ============
@@ -190,21 +201,41 @@ export const DEFAULT_ATTRIBUTES: UnitAttributes = {
     critDamage: 1.5,
 };
 
-// ============ TANK SKILLS (Penyesuaian: Uptime kebal dikurangi) ============
-export const TANK_SKILLS = {
+// ============ BARBARIAN SKILLS ============
+export const BARBARIAN_SKILLS = {
+    rage: {
+        immuneTicks: 30, // Rage self-immunity
+        cooldown: 600,
+    },
+    axeCleave: {
+        range: 1.8,
+        damage: 18000,
+        cooldown: 400,
+    },
+    battleCry: {
+        range: 4.0,
+        cooldown: 500,
+    },
+};
+
+// Legacy alias
+export const TANK_SKILLS = BARBARIAN_SKILLS;
+
+// ============ KNIGHT SKILLS ============
+export const KNIGHT_SKILLS = {
     bulwarkStance: {
-        immuneTicks: 40, // Turun dari 90 (Hanya ~0.6 detik immune, bukan 1.5 detik)
-        cooldown: 500, // Naik dari 312 (Mencegah spam kebal)
+        immuneTicks: 50, // Longer shield block
+        cooldown: 450,
     },
     taunt: {
-        range: 4.0,
-        cooldown: 450, // Naik tipis
+        range: 5.0,
+        cooldown: 400,
     },
     shieldBash: {
         range: 1.8,
-        damage: 15000,
-        knockback: 1.2,
-        cooldown: 550,
+        damage: 14000,
+        knockback: 1.5,
+        cooldown: 500,
     },
 };
 

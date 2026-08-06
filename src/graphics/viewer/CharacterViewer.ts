@@ -180,6 +180,7 @@ const WEAPON_ASSETS = [
     { name: "Skeleton_Shield_Small_A", path: "Skeleton_Shield_Small_A.glb" },
     { name: "Skeleton_Shield_Large_A", path: "Skeleton_Shield_Large_A.glb" },
     { name: "Skeleton_Staff", path: "Skeleton_Staff.glb" },
+    { name: "axe_2handed", path: "axe_2handed.glb" },
 ];
 
 // ── Daftar animation rig ──
