@@ -14,9 +14,9 @@ function formatHp(hp: number): string {
   return hp.toString();
 }
 
-export class Castles {
-  castleA: THREE.Group | null = null;
-  castleB: THREE.Group | null = null;
+export class Turrets {
+  turretA: THREE.Group | null = null;
+  turretB: THREE.Group | null = null;
 
   hpA = TURRET_MAX_HP;
   hpB = TURRET_MAX_HP;
@@ -56,58 +56,58 @@ export class Castles {
 
     // Load Turret A
     gltfLoader.load(`${baseUrl}models/turrets/Turret(Tower_Defens)-0.glb`, (gltf) => {
-      this.castleA = gltf.scene;
+      this.turretA = gltf.scene;
       
       // Calculate local bounding box to center children horizontally
-      const localBox = new THREE.Box3().setFromObject(this.castleA);
+      const localBox = new THREE.Box3().setFromObject(this.turretA);
       const localCenter = new THREE.Vector3();
       localBox.getCenter(localCenter);
 
       // Offset children so that the visual center is exactly at (0, y, 0) - only X and Z
       const horizontalOffset = new THREE.Vector3(localCenter.x, 0, localCenter.z);
-      this.castleA.children.forEach((child) => {
+      this.turretA.children.forEach((child) => {
         child.position.sub(horizontalOffset);
       });
 
       // Now set actual world transforms
-      this.castleA.position.set(TURRET_A_X, getTerrainHeight(TURRET_A_X, TURRET_Z) - 0.2, TURRET_Z);
-      this.castleA.scale.setScalar(1.6);
-      this.castleA.rotation.y = Math.PI / 2;
-      this.castleA.updateMatrixWorld(true);
+      this.turretA.position.set(TURRET_A_X, getTerrainHeight(TURRET_A_X, TURRET_Z) - 0.2, TURRET_Z);
+      this.turretA.scale.setScalar(1.6);
+      this.turretA.rotation.y = Math.PI / 2;
+      this.turretA.updateMatrixWorld(true);
 
       // Position sprite exactly at parent's origin horizontally (0, 0) and at local height 2.8
       this.spriteA.position.set(0, 2.8, 0);
-      this.castleA.add(this.spriteA);
+      this.turretA.add(this.spriteA);
 
-      scene.add(this.castleA);
+      scene.add(this.turretA);
     });
 
     // Load Turret B
     gltfLoader.load(`${baseUrl}models/turrets/Turret(Tower_Defens)-8.glb`, (gltf) => {
-      this.castleB = gltf.scene;
+      this.turretB = gltf.scene;
 
       // Calculate local bounding box to center children horizontally
-      const localBox = new THREE.Box3().setFromObject(this.castleB);
+      const localBox = new THREE.Box3().setFromObject(this.turretB);
       const localCenter = new THREE.Vector3();
       localBox.getCenter(localCenter);
 
       // Offset children so that the visual center is exactly at (0, y, 0) - only X and Z
       const horizontalOffset = new THREE.Vector3(localCenter.x, 0, localCenter.z);
-      this.castleB.children.forEach((child) => {
+      this.turretB.children.forEach((child) => {
         child.position.sub(horizontalOffset);
       });
 
       // Now set actual world transforms
-      this.castleB.position.set(TURRET_B_X, getTerrainHeight(TURRET_B_X, TURRET_Z) - 0.2, TURRET_Z);
-      this.castleB.scale.setScalar(1.6);
-      this.castleB.rotation.y = -Math.PI / 2;
-      this.castleB.updateMatrixWorld(true);
+      this.turretB.position.set(TURRET_B_X, getTerrainHeight(TURRET_B_X, TURRET_Z) - 0.2, TURRET_Z);
+      this.turretB.scale.setScalar(1.6);
+      this.turretB.rotation.y = -Math.PI / 2;
+      this.turretB.updateMatrixWorld(true);
 
       // Position sprite exactly at parent's origin horizontally (0, 0) and at local height 2.8
       this.spriteB.position.set(0, 2.8, 0);
-      this.castleB.add(this.spriteB);
+      this.turretB.add(this.spriteB);
 
-      scene.add(this.castleB);
+      scene.add(this.turretB);
     });
   }
 
@@ -220,10 +220,33 @@ export class Castles {
     if (team === 0) {
       this.targetPosA.set(tx, ty, tz);
       this.recoilA = 1.0;
+      if (this.turretA) {
+        const dir = new THREE.Vector3().subVectors(this.targetPosA, this.turretA.position);
+        dir.y = 0;
+        if (dir.lengthSq() > 0.01) {
+          this.turretA.rotation.y = Math.atan2(dir.x, dir.z) + Math.PI;
+        }
+      }
     } else {
       this.targetPosB.set(tx, ty, tz);
       this.recoilB = 1.0;
+      if (this.turretB) {
+        const dir = new THREE.Vector3().subVectors(this.targetPosB, this.turretB.position);
+        dir.y = 0;
+        if (dir.lengthSq() > 0.01) {
+          this.turretB.rotation.y = Math.atan2(dir.x, dir.z) + Math.PI;
+        }
+      }
     }
+  }
+
+  public getMuzzlePosition(team: number): THREE.Vector3 | null {
+    const turret = team === 0 ? this.turretA : this.turretB;
+    if (!turret) return null;
+    turret.updateMatrixWorld(true);
+    // Local muzzle position: X=0 (center), Y=1.44 (height of barrel), Z=-2.2 (forward along the barrel)
+    const localMuzzle = new THREE.Vector3(0, 1.44, -2.2);
+    return localMuzzle.applyMatrix4(turret.matrixWorld);
   }
 
   public takeDamage(team: 0 | 1, damage: number): boolean {
@@ -231,9 +254,8 @@ export class Castles {
       this.hpA = Math.max(0, this.hpA - damage);
       this.drawHpCanvas(this.canvasA, this.hpA, this.visualHpA, "TURRET TIM A");
       this.textureA.needsUpdate = true;
-      if (this.hpA <= 0 && this.castleA) {
-        this.scene.remove(this.castleA);
-        this.castleA = null;
+      if (this.hpA <= 0 && this.turretA) {
+        this.scene.remove(this.turretA);
         this.scene.remove(this.rangeRingA);
         return true;
       }
@@ -241,9 +263,8 @@ export class Castles {
       this.hpB = Math.max(0, this.hpB - damage);
       this.drawHpCanvas(this.canvasB, this.hpB, this.visualHpB, "TURRET TIM B");
       this.textureB.needsUpdate = true;
-      if (this.hpB <= 0 && this.castleB) {
-        this.scene.remove(this.castleB);
-        this.castleB = null;
+      if (this.hpB <= 0 && this.turretB) {
+        this.scene.remove(this.turretB);
         this.scene.remove(this.rangeRingB);
         return true;
       }
@@ -265,6 +286,14 @@ export class Castles {
     this.textureA.needsUpdate = true;
     this.drawHpCanvas(this.canvasB, this.hpB, this.visualHpB, "TURRET TIM B");
     this.textureB.needsUpdate = true;
+
+    // Re-add turret models if reset
+    if (this.turretA && !this.turretA.parent && this.scene) {
+      this.scene.add(this.turretA);
+    }
+    if (this.turretB && !this.turretB.parent && this.scene) {
+      this.scene.add(this.turretB);
+    }
 
     // Re-add range indicators if reset
     if (this.rangeRingA && !this.rangeRingA.parent && this.scene) {
@@ -312,34 +341,34 @@ export class Castles {
     }
 
     // Update Turret A (Tim A)
-    if (this.castleA && this.hpA > 0) {
+    if (this.turretA && this.hpA > 0) {
       const scaleVal = 1.6 * (1.0 - this.recoilA * 0.15);
-      this.castleA.scale.set(scaleVal, scaleVal * (1.0 + this.recoilA * 0.1), scaleVal);
+      this.turretA.scale.set(scaleVal, scaleVal * (1.0 + this.recoilA * 0.1), scaleVal);
 
       // Rotate turret to face target (horizontal Y-rotation) - smooth lerp
-      dir.subVectors(this.targetPosA, this.castleA.position);
+      dir.subVectors(this.targetPosA, this.turretA.position);
       dir.y = 0; // rotate only on horizontal plane
       if (dir.lengthSq() > 0.01) {
-        const targetAngle = Math.atan2(dir.x, dir.z);
-        let diff = targetAngle - this.castleA.rotation.y;
+        const targetAngle = Math.atan2(dir.x, dir.z) + Math.PI;
+        let diff = targetAngle - this.turretA.rotation.y;
         diff = Math.atan2(Math.sin(diff), Math.cos(diff));
-        this.castleA.rotation.y += diff * Math.min(1, delta * 3.0); // reduced speed for smoother rotation
+        this.turretA.rotation.y += diff * Math.min(1, delta * 3.0); // reduced speed for smoother rotation
       }
     }
 
     // Update Turret B (Tim B)
-    if (this.castleB && this.hpB > 0) {
+    if (this.turretB && this.hpB > 0) {
       const scaleVal = 1.6 * (1.0 - this.recoilB * 0.15);
-      this.castleB.scale.set(scaleVal, scaleVal * (1.0 + this.recoilB * 0.1), scaleVal);
+      this.turretB.scale.set(scaleVal, scaleVal * (1.0 + this.recoilB * 0.1), scaleVal);
 
       // Rotate turret to face target (horizontal Y-rotation) - smooth lerp
-      dir.subVectors(this.targetPosB, this.castleB.position);
+      dir.subVectors(this.targetPosB, this.turretB.position);
       dir.y = 0;
       if (dir.lengthSq() > 0.01) {
-        const targetAngle = Math.atan2(dir.x, dir.z);
-        let diff = targetAngle - this.castleB.rotation.y;
+        const targetAngle = Math.atan2(dir.x, dir.z) + Math.PI;
+        let diff = targetAngle - this.turretB.rotation.y;
         diff = Math.atan2(Math.sin(diff), Math.cos(diff));
-        this.castleB.rotation.y += diff * Math.min(1, delta * 3.0); // reduced speed for smoother rotation
+        this.turretB.rotation.y += diff * Math.min(1, delta * 3.0); // reduced speed for smoother rotation
       }
     }
   }

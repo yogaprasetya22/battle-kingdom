@@ -278,12 +278,12 @@ function tick(d: Float32Array) {
 
     if (nearestEnemyA !== -1) {
         if (turretACd === 0) {
-            applyDamage(d, nearestEnemyA, TURRET_DAMAGE);
+            applyDamage(d, nearestEnemyA, TURRET_DAMAGE, TARGET_TURRET);
             skillFXBatch.push({
                 type: "skillFX",
                 skill: "turretShoot",
                 team: TEAM_A,
-                fx: TURRET_A_X, fy: 3.1, fz: TURRET_Z,
+                fx: TURRET_A_X + 2.0, fy: 2.3, fz: TURRET_Z + 0.5,
                 tx: d[nearestEnemyA * STRIDE + IDX_X],
                 ty: d[nearestEnemyA * STRIDE + IDX_Y] + 1,
                 tz: d[nearestEnemyA * STRIDE + IDX_Z],
@@ -311,12 +311,12 @@ function tick(d: Float32Array) {
 
     if (nearestEnemyB !== -1) {
         if (turretBCd === 0) {
-            applyDamage(d, nearestEnemyB, TURRET_DAMAGE);
+            applyDamage(d, nearestEnemyB, TURRET_DAMAGE, TARGET_TURRET);
             skillFXBatch.push({
                 type: "skillFX",
                 skill: "turretShoot",
                 team: TEAM_B,
-                fx: TURRET_B_X, fy: 3.1, fz: TURRET_Z,
+                fx: TURRET_B_X - 2.0, fy: 2.3, fz: TURRET_Z + 0.5,
                 tx: d[nearestEnemyB * STRIDE + IDX_X],
                 ty: d[nearestEnemyB * STRIDE + IDX_Y] + 1,
                 tz: d[nearestEnemyB * STRIDE + IDX_Z],

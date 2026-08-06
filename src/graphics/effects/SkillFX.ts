@@ -777,7 +777,9 @@ export function spawnDoubleShotFX(
     };
 
     shootArrow(0);
-    shootArrow(0.12);
+    if (!isTurret) {
+        shootArrow(0.12);
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════

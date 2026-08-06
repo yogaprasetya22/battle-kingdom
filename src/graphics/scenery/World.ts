@@ -3,7 +3,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 import { Floor } from './Floor';
 import { WaterSurface } from './WaterSurface';
-import { Castles } from './Turret';
+import { Turrets } from './Turret';
 import { Trees } from './Trees';
 import { Flowers } from './Flowers';
 import { SceneryWindLines } from './SceneryWindLines';
@@ -18,7 +18,7 @@ export class World {
   grass?: Grass;
   flowers?: Flowers;
   windLines: SceneryWindLines;
-  castles: Castles;
+  turrets: Turrets;
   leaves: Leaves;
 
   elapsed = 0;
@@ -34,7 +34,7 @@ export class World {
     this.grass        = new Grass(scene, this.uniforms);
     // this.flowers      = new Flowers(scene, this.uniforms);
     this.windLines    = new SceneryWindLines(scene);
-    this.castles      = new Castles(scene, gltfLoader);
+    this.turrets      = new Turrets(scene, gltfLoader);
     this.leaves       = new Leaves(scene);
   }
 
@@ -44,7 +44,7 @@ export class World {
     this.windLines.update(delta, this.elapsed);
     this.waterSurface?.update(camPos);
     if (camera) {
-      this.castles.update(camera, delta);
+      this.turrets.update(camera, delta);
     }
   }
 }

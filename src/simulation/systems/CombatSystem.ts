@@ -136,7 +136,13 @@ export function applyDamage(
     let isCrit = false;
     let adjustedDamage = rawDamage;
 
-    if (attackerIdx !== undefined && attackerIdx >= 0) {
+    if (attackerIdx === TARGET_TURRET) {
+        // Turret high critical hit: 50% chance for 2.0x damage
+        if (Math.random() < 0.50) {
+            isCrit = true;
+            adjustedDamage = Math.round(rawDamage * 2.0);
+        }
+    } else if (attackerIdx !== undefined && attackerIdx >= 0) {
         const attackerType = d[attackerIdx * STRIDE + IDX_TYPE];
         const attr = ATTRIBUTES[attackerType] ?? DEFAULT_ATTRIBUTES;
         if (Math.random() < attr.critChance) {
@@ -187,7 +193,8 @@ export function applyDamage(
         statsDamageDealt[attackerIdx] += finalDamage;
     }
 
-    const isMagic = attackerIdx !== undefined && (d[attackerIdx * STRIDE + IDX_TYPE] % 6 === 2); // Mage
+    const isMagic = attackerIdx !== undefined && attackerIdx >= 0 && (d[attackerIdx * STRIDE + IDX_TYPE] % 6 === 2); // Mage
+    const isTurret = attackerIdx === TARGET_TURRET;
 
     skillFXBatch.push({
         type: "skillFX",
@@ -196,6 +203,7 @@ export function applyDamage(
         position: [tx, ty, tz],
         isCrit,
         isMagic,
+        isTurret,
     });
 
     if (newHp <= 0) {

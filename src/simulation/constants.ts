@@ -47,10 +47,10 @@ export const TURRET_A_X = -37.5; // posisi X turret Tim A (kiri)
 export const TURRET_B_X = 37.5;  // posisi X turret Tim B (kanan)
 export const TURRET_Z = 0;        // posisi Z turret (tengah)
 export const TURRET_MAX_HP = 5000000;
-export const TURRET_ATTACK_RANGE = 22; // jangkauan tembak turret (unit dunia)
+export const TURRET_ATTACK_RANGE = 20; // jangkauan tembak turret (unit dunia)
 export const TURRET_ATTACK_RANGE_SQ = TURRET_ATTACK_RANGE * TURRET_ATTACK_RANGE;
 export const TURRET_DAMAGE = 25000;       // damage turret per tembakan
-export const TURRET_ATTACK_INTERVAL = 90; // ticks antar tembakan (~1.5 detik @60tps)
+export const TURRET_ATTACK_INTERVAL = 30; // ticks antar tembakan (~0.5 detik @60tps)
 export const TARGET_TURRET = -2; // sentinel: unit menyerang turret musuh (bukan unit)
 
 

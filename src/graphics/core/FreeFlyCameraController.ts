@@ -15,6 +15,7 @@
  */
 
 import * as THREE from "three";
+import { getTerrainHeight } from "../../simulation/constants";
 
 // ─── Konfigurasi Peredaman (Damping/Smoothing) ───────────────────────────────
 
@@ -175,4 +176,12 @@ export function updateFlyCamera(camera: THREE.Camera, delta: number): void {
     }
 
     camera.position.addScaledVector(velocity, dt);
+
+    // Prevent camera from clipping through the terrain ground
+    const terrainHeight = getTerrainHeight(camera.position.x, camera.position.z);
+    const minHeight = terrainHeight + 1.0;
+    if (camera.position.y < minHeight) {
+        camera.position.y = minHeight;
+        if (velocity.y < 0) velocity.y = 0;
+    }
 }

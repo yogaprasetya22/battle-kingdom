@@ -281,7 +281,7 @@ export function updateHealer(
         const tdx = turretX - d[base + IDX_X];
         const tdz = TURRET_Z - d[base + IDX_Z];
         const tdist = Math.sqrt(tdx * tdx + tdz * tdz);
-        if (tdist < 25.0) {
+        if (tdist < 22.0) {
             enemyTooClose = true;
         }
 

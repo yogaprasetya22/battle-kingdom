@@ -265,7 +265,7 @@ function showBattleEnd(winner: "A" | "B", stats: typeof aggregatedStats) {
 
     // Hentikan recording & unduh report kinerja pertempuran otomatis
     perfProfiler.stopLogging();
-    perfProfiler.exportReport(); // iniyakk
+    // perfProfiler.exportReport(); // iniyakk
 
     if (statsContainer) {
         statsContainer.innerHTML = `
@@ -586,14 +586,20 @@ for (let i = 0; i < NUM_WORKERS; i++) {
                 for (let k = 0; k < events.length; k++) {
                     const ev = events[k];
                     if (ev.type === "turretDamage") {
-                        const isDestroyed = world.castles.takeDamage(ev.team, ev.damage);
+                        const isDestroyed = world.turrets.takeDamage(ev.team, ev.damage);
                         if (isDestroyed && isRunning) {
                             // If Tim A's turret is destroyed (team === 0), Tim B wins. Otherwise Tim A wins.
                             triggerBattleEnd(ev.team === 0 ? "B" : "A");
                         }
                     } else {
                         if (ev.skill === "turretShoot") {
-                            world.castles.shoot(ev.team, ev.tx, ev.ty, ev.tz);
+                            world.turrets.shoot(ev.team, ev.tx, ev.ty, ev.tz);
+                            const muzzlePos = world.turrets.getMuzzlePosition(ev.team);
+                            if (muzzlePos) {
+                                ev.fx = muzzlePos.x;
+                                ev.fy = muzzlePos.y;
+                                ev.fz = muzzlePos.z;
+                            }
                         }
                         spawnSkillFX(ev);
                     }
@@ -625,7 +631,7 @@ function resetWorkers() {
     scoreA.textContent = TEAM_SIZE.toString();
     scoreB.textContent = TEAM_SIZE.toString();
     resetUnitsVisual();
-    world.castles.reset();
+    world.turrets.reset();
 
     const customClasses = getCustomClasses();
     for (let i = 0; i < NUM_WORKERS; i++) {

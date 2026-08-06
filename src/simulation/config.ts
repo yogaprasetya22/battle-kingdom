@@ -104,7 +104,7 @@ export const ATTRIBUTES: Record<number, UnitAttributes> = {
     },
     3: {
         moveSpeed: 0.024,
-        attackRange: 25.0,
+        attackRange: 22.0,
         baseDamage: 3000,
         attackInterval: 75,
         critChance: 0.05,
@@ -156,7 +156,7 @@ export const ATTRIBUTES: Record<number, UnitAttributes> = {
     9: {
         // Skeleton Healer (Buffed)
         moveSpeed: 0.028,
-        attackRange: 25.0,
+        attackRange: 22.0,
         baseDamage: 5000,
         attackInterval: 55,
         critChance: 0.05,
