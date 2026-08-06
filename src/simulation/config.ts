@@ -56,13 +56,13 @@ export const HP_PER_TYPE: Record<number, number> = {
     2: 210000, // Mage
     3: 180000, // Acolyte
     4: 200000, // Gunslinger
-    5: 280000, // Assassin (Buffed HP)
+    5: 210000, // Assassin (Buffed HP)
     6: 600000, // Skeleton Tank (Buffed HP)
     7: 350000, // Skeleton Archer (Buffed HP)
     8: 300000, // Skeleton Mage (Buffed HP)
     9: 270000, // Skeleton Healer (Buffed HP)
     10: 300000, // Skeleton Gunslinger (Buffed HP)
-    11: 380000, // Skeleton Assassin (Buffed HP)
+    11: 310000, // Skeleton Assassin (Buffed HP)
 };
 
 // ============ ATTRIBUT PER TYPE ============

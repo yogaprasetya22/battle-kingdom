@@ -3,7 +3,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 import { Floor } from './Floor';
 import { WaterSurface } from './WaterSurface';
-import { Castles } from './Castles';
+import { Castles } from './Turret';
 import { Trees } from './Trees';
 import { Flowers } from './Flowers';
 import { SceneryWindLines } from './SceneryWindLines';
@@ -38,11 +38,13 @@ export class World {
     this.leaves       = new Leaves(scene);
   }
 
-  update(delta: number, camPos: THREE.Vector3) {
+  update(delta: number, camPos: THREE.Vector3, camera?: THREE.Camera) {
     this.elapsed += delta;
     this.uniforms.uTime.value = this.elapsed;
     this.windLines.update(delta, this.elapsed);
     this.waterSurface?.update(camPos);
-    // this.leaves.update(delta, this.elapsed);
+    if (camera) {
+      this.castles.update(camera, delta);
+    }
   }
 }

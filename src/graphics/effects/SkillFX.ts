@@ -727,6 +727,7 @@ export function spawnDoubleShotFX(
     tx: number,
     ty: number,
     tz: number,
+    isTurret?: boolean,
 ) {
     const start = new THREE.Vector3(fx, fy, fz);
     const end = new THREE.Vector3(tx, ty, tz);
@@ -762,7 +763,11 @@ export function spawnDoubleShotFX(
                     scene.remove(mesh!);
                     mesh!.geometry.dispose();
                     mat!.dispose();
-                    spawnExplosion(scene, end, 0xffbb44, 8, 0.12);
+                    if (isTurret) {
+                        spawnExplosion(scene, end, 0xff7700, 24, 0.4);
+                    } else {
+                        spawnExplosion(scene, end, 0xffbb44, 8, 0.12);
+                    }
                     return false;
                 }
                 mesh!.position.lerpVectors(start, end, easeOutQuad(t));

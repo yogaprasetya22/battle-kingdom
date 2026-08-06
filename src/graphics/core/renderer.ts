@@ -61,7 +61,7 @@ export function setSharedData(data: Float32Array) {
     setUnitSharedData(data);
 }
 
-const world = new World(scene, gltfLoader);
+export const world = new World(scene, gltfLoader);
 
 const windEffect = new WindEffectManager(scene);
 windEffect.start();
@@ -116,7 +116,7 @@ export function spawnSkillFX(event: { skill: string; [key: string]: any }) {
             event.tz,
             event.team,
         );
-    } else if (event.skill === "doubleShot") {
+    } else if (event.skill === "doubleShot" || event.skill === "turretShoot") {
         soundFX.playBow(event.fx, event.fy, event.fz, camera.position);
         spawnDoubleShotFX(
             scene,
@@ -126,6 +126,7 @@ export function spawnSkillFX(event: { skill: string; [key: string]: any }) {
             event.tx,
             event.ty,
             event.tz,
+            event.skill === "turretShoot",
         );
     } else if (event.skill === "evasiveLeap") {
         soundFX.playDash(event.fx, event.fy, event.fz, camera.position);
@@ -289,7 +290,7 @@ export function startRenderLoop() {
 
         // Update kamera free-fly (gerak + look)
         updateFlyCamera(camera, delta);
-        world.update(delta, camera.position);
+        world.update(delta, camera.position, camera);
         effectUniforms.uTime.value += delta;
 
         // Update day cycle every frame

@@ -20,6 +20,10 @@ import {
     IDX_EFFECT_STATE,
     UNIT_LOD_DIST_SQ,
     WEAPON_LOD_DIST_SQ,
+    TURRET_A_X,
+    TURRET_B_X,
+    TURRET_Z,
+    TARGET_TURRET,
 } from "../../simulation/constants";
 
 import type { UnitVisual } from "./types";
@@ -525,6 +529,13 @@ export function changeModel(
 
                         scene.add(unitVis.root);
 
+                        // CRITICAL: Disable frustum culling on ALL meshes in the unit.
+                        // SkinnedMesh bounding boxes are NOT auto-updated during skeleton animation.
+                        // Three.js will incorrectly cull units that have moved far from spawn position.
+                        unitVis.root.traverse((child: any) => {
+                            child.frustumCulled = false;
+                        });
+
                         units.push({
                             root: unitVis.root,
                             mixer: unitVis.mixer,
@@ -583,6 +594,8 @@ const _right = new THREE.Vector3();
 const _forward = new THREE.Vector3();
 const _lookTarget = new THREE.Vector3();
 const _q1 = new THREE.Quaternion();
+const _upVector = new THREE.Vector3(0, 1, 0);
+const _lookQuat = new THREE.Quaternion();
 let animFrameCount = 0;
 // ponytail: dirty flag — flush ice instanceMatrix once per frame, not per unit
 let _iceNeedsUpdate = false;
@@ -742,13 +755,13 @@ export function updateFrame(data: Float32Array, delta: number) {
 
         } else {
             _unitSphere.center.set(x, y, z);
-            const inView = _frustum.intersectsSphere(_unitSphere);
+            const inView = true;
             unit.root.visible = inView;
 
-            const showMesh = distSq < UNIT_LOD_DIST_SQ;
+            const showMesh = true; // always show mesh, Three.js handles its own culling
 
             for (let m = 0; m < unit.meshes.length; m++) {
-                unit.meshes[m].visible = showMesh;
+                unit.meshes[m].visible = true;
             }
 
             // Fast path for weapon LOD
@@ -900,16 +913,31 @@ export function updateFrame(data: Float32Array, delta: number) {
                 }
 
                 if (targetIdx !== -1) {
-                    const tBase = targetIdx * STRIDE;
-                    const tx = data[tBase + IDX_X];
-                    const tz = data[tBase + IDX_Z];
-                    _lookTarget.set(tx, y, tz);
-                    _q1.copy(unit.root.quaternion);
-                    unit.root.lookAt(_lookTarget);
-                    unit.root.quaternion.slerp(
-                        _q1,
-                        1 - Math.min(1, 10 * delta),
-                    );
+                    let tx = 0;
+                    let tz = 0;
+                    if (targetIdx === TARGET_TURRET) {
+                        const turretX = unit.team === TEAM_A ? TURRET_B_X : TURRET_A_X;
+                        tx = turretX;
+                        tz = TURRET_Z;
+                    } else {
+                        const tBase = targetIdx * STRIDE;
+                        tx = data[tBase + IDX_X];
+                        tz = data[tBase + IDX_Z];
+                    }
+
+                    const tDx = tx - x;
+                    const tDz = tz - z;
+                    const tDistSq = tDx * tDx + tDz * tDz;
+
+                    // Use pure Y-axis rotation to prevent any pitch/roll tilting (tilted models)
+                    if (tDistSq > 0.01) {
+                        const targetAngle = Math.atan2(tDx, tDz);
+                        _lookQuat.setFromAxisAngle(_upVector, targetAngle);
+                        unit.root.quaternion.slerp(
+                            _lookQuat,
+                            Math.min(1, 10 * delta),
+                        );
+                    }
                 }
 
                 if (unit.currentAnimState !== state) {
@@ -959,7 +987,7 @@ export function updateFrame(data: Float32Array, delta: number) {
             const meshX = unit.root.position.x;
             const meshZ = unit.root.position.z;
 
-            const tooFar = distSq > 6400;
+            const tooFar = distSq > 90000;
             const showBillboard = hp > 0 && !tooFar && inView;
             const maxHp = data[base + IDX_MAX_HP];
             const hpRatio = maxHp > 0 ? hp / maxHp : 0;

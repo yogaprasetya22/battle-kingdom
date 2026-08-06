@@ -13,6 +13,7 @@ import {
     changeModel,
     spawnSkillFX,
     resetUnitsVisual,
+    world,
 } from "./graphics/core/renderer";
 import { soundFX } from "./graphics/core/SoundFX";
 import { CharacterViewer } from "./graphics/viewer/CharacterViewer";
@@ -375,6 +376,69 @@ let accumAliveB = 0;
 let accumAliveOrUnspawnedA = 0;
 let accumAliveOrUnspawnedB = 0;
 
+function triggerBattleEnd(winner: "A" | "B") {
+    if (!isRunning) return;
+    isRunning = false;
+
+    // Reset and prepare statistics aggregation
+    statsReceivedCount = 0;
+    battleWinner = winner;
+
+    aggregatedStats.teamA.tankDealt = 0;
+    aggregatedStats.teamA.tankTaken = 0;
+    aggregatedStats.teamA.tankKills = 0;
+    aggregatedStats.teamA.tankHealed = 0;
+    aggregatedStats.teamA.archerDealt = 0;
+    aggregatedStats.teamA.archerTaken = 0;
+    aggregatedStats.teamA.archerKills = 0;
+    aggregatedStats.teamA.archerHealed = 0;
+    aggregatedStats.teamA.mageDealt = 0;
+    aggregatedStats.teamA.mageTaken = 0;
+    aggregatedStats.teamA.mageKills = 0;
+    aggregatedStats.teamA.mageHealed = 0;
+    aggregatedStats.teamA.healerDealt = 0;
+    aggregatedStats.teamA.healerTaken = 0;
+    aggregatedStats.teamA.healerKills = 0;
+    aggregatedStats.teamA.healerHealed = 0;
+    aggregatedStats.teamA.gunslingerDealt = 0;
+    aggregatedStats.teamA.gunslingerTaken = 0;
+    aggregatedStats.teamA.gunslingerKills = 0;
+    aggregatedStats.teamA.gunslingerHealed = 0;
+    aggregatedStats.teamA.assassinDealt = 0;
+    aggregatedStats.teamA.assassinTaken = 0;
+    aggregatedStats.teamA.assassinKills = 0;
+    aggregatedStats.teamA.assassinHealed = 0;
+
+    aggregatedStats.teamB.tankDealt = 0;
+    aggregatedStats.teamB.tankTaken = 0;
+    aggregatedStats.teamB.tankKills = 0;
+    aggregatedStats.teamB.tankHealed = 0;
+    aggregatedStats.teamB.archerDealt = 0;
+    aggregatedStats.teamB.archerTaken = 0;
+    aggregatedStats.teamB.archerKills = 0;
+    aggregatedStats.teamB.archerHealed = 0;
+    aggregatedStats.teamB.mageDealt = 0;
+    aggregatedStats.teamB.mageTaken = 0;
+    aggregatedStats.teamB.mageKills = 0;
+    aggregatedStats.teamB.mageHealed = 0;
+    aggregatedStats.teamB.healerDealt = 0;
+    aggregatedStats.teamB.healerTaken = 0;
+    aggregatedStats.teamB.healerKills = 0;
+    aggregatedStats.teamB.healerHealed = 0;
+    aggregatedStats.teamB.gunslingerDealt = 0;
+    aggregatedStats.teamB.gunslingerTaken = 0;
+    aggregatedStats.teamB.gunslingerKills = 0;
+    aggregatedStats.teamB.gunslingerHealed = 0;
+    aggregatedStats.teamB.assassinDealt = 0;
+    aggregatedStats.teamB.assassinTaken = 0;
+    aggregatedStats.teamB.assassinKills = 0;
+    aggregatedStats.teamB.assassinHealed = 0;
+
+    for (let i = 0; i < NUM_WORKERS; i++) {
+        workers[i].postMessage({ type: "get_stats" });
+    }
+}
+
 function onTickComplete() {
     pendingTick = false;
     tickCount++;
@@ -382,68 +446,6 @@ function onTickComplete() {
 
     scoreA.textContent = accumAliveA.toString();
     scoreB.textContent = accumAliveB.toString();
-
-    if (accumAliveOrUnspawnedA === 0 || accumAliveOrUnspawnedB === 0) {
-        isRunning = false;
-
-        // Reset and prepare statistics aggregation
-        statsReceivedCount = 0;
-        battleWinner = accumAliveOrUnspawnedA > 0 ? "A" : "B";
-
-        aggregatedStats.teamA.tankDealt = 0;
-        aggregatedStats.teamA.tankTaken = 0;
-        aggregatedStats.teamA.tankKills = 0;
-        aggregatedStats.teamA.tankHealed = 0;
-        aggregatedStats.teamA.archerDealt = 0;
-        aggregatedStats.teamA.archerTaken = 0;
-        aggregatedStats.teamA.archerKills = 0;
-        aggregatedStats.teamA.archerHealed = 0;
-        aggregatedStats.teamA.mageDealt = 0;
-        aggregatedStats.teamA.mageTaken = 0;
-        aggregatedStats.teamA.mageKills = 0;
-        aggregatedStats.teamA.mageHealed = 0;
-        aggregatedStats.teamA.healerDealt = 0;
-        aggregatedStats.teamA.healerTaken = 0;
-        aggregatedStats.teamA.healerKills = 0;
-        aggregatedStats.teamA.healerHealed = 0;
-        aggregatedStats.teamA.gunslingerDealt = 0;
-        aggregatedStats.teamA.gunslingerTaken = 0;
-        aggregatedStats.teamA.gunslingerKills = 0;
-        aggregatedStats.teamA.gunslingerHealed = 0;
-        aggregatedStats.teamA.assassinDealt = 0;
-        aggregatedStats.teamA.assassinTaken = 0;
-        aggregatedStats.teamA.assassinKills = 0;
-        aggregatedStats.teamA.assassinHealed = 0;
-
-        aggregatedStats.teamB.tankDealt = 0;
-        aggregatedStats.teamB.tankTaken = 0;
-        aggregatedStats.teamB.tankKills = 0;
-        aggregatedStats.teamB.tankHealed = 0;
-        aggregatedStats.teamB.archerDealt = 0;
-        aggregatedStats.teamB.archerTaken = 0;
-        aggregatedStats.teamB.archerKills = 0;
-        aggregatedStats.teamB.archerHealed = 0;
-        aggregatedStats.teamB.mageDealt = 0;
-        aggregatedStats.teamB.mageTaken = 0;
-        aggregatedStats.teamB.mageKills = 0;
-        aggregatedStats.teamB.mageHealed = 0;
-        aggregatedStats.teamB.healerDealt = 0;
-        aggregatedStats.teamB.healerTaken = 0;
-        aggregatedStats.teamB.healerKills = 0;
-        aggregatedStats.teamB.healerHealed = 0;
-        aggregatedStats.teamB.gunslingerDealt = 0;
-        aggregatedStats.teamB.gunslingerTaken = 0;
-        aggregatedStats.teamB.gunslingerKills = 0;
-        aggregatedStats.teamB.gunslingerHealed = 0;
-        aggregatedStats.teamB.assassinDealt = 0;
-        aggregatedStats.teamB.assassinTaken = 0;
-        aggregatedStats.teamB.assassinKills = 0;
-        aggregatedStats.teamB.assassinHealed = 0;
-
-        for (let i = 0; i < NUM_WORKERS; i++) {
-            workers[i].postMessage({ type: "get_stats" });
-        }
-    }
 }
 
 /**
@@ -549,7 +551,19 @@ for (let i = 0; i < NUM_WORKERS; i++) {
             const events: any[] = e.data.events;
             if (events) {
                 for (let k = 0; k < events.length; k++) {
-                    spawnSkillFX(events[k]);
+                    const ev = events[k];
+                    if (ev.type === "turretDamage") {
+                        const isDestroyed = world.castles.takeDamage(ev.team, ev.damage);
+                        if (isDestroyed && isRunning) {
+                            // If Tim A's turret is destroyed (team === 0), Tim B wins. Otherwise Tim A wins.
+                            triggerBattleEnd(ev.team === 0 ? "B" : "A");
+                        }
+                    } else {
+                        if (ev.skill === "turretShoot") {
+                            world.castles.shoot(ev.team, ev.tx, ev.ty, ev.tz);
+                        }
+                        spawnSkillFX(ev);
+                    }
                 }
             }
         }
@@ -578,6 +592,7 @@ function resetWorkers() {
     scoreA.textContent = TEAM_SIZE.toString();
     scoreB.textContent = TEAM_SIZE.toString();
     resetUnitsVisual();
+    world.castles.reset();
 
     const customClasses = getCustomClasses();
     for (let i = 0; i < NUM_WORKERS; i++) {

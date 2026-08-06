@@ -36,6 +36,13 @@ import {
     SPAWN_B_X,
     SPAWN_SPREAD,
     getTerrainHeight,
+    TURRET_A_X,
+    TURRET_B_X,
+    TURRET_Z,
+    TURRET_ATTACK_RANGE_SQ,
+    TURRET_DAMAGE,
+    TURRET_ATTACK_INTERVAL,
+    TARGET_TURRET,
 } from "./constants";
 
 import {
@@ -370,6 +377,22 @@ function findNearestEnemy(d: Float32Array, i: number): number {
     return target;
 }
 
+function hasCombatAllies(d: Float32Array, team: number): boolean {
+    const jStart = team === TEAM_A ? 0 : TEAM_SIZE;
+    const jEnd = team === TEAM_A ? TEAM_SIZE : UNIT_COUNT;
+    for (let j = jStart; j < jEnd; j++) {
+        const jBase = j * STRIDE;
+        if (d[jBase + IDX_HP] > 0) {
+            const rawType = d[jBase + IDX_TYPE];
+            const baseType = rawType % 6;
+            if (baseType !== TYPE_HEALER) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
 // --- Find lowest HP percent ally using Spatial Grid ---
 function findLowestHpAlly(d: Float32Array, i: number): number {
     const base = i * STRIDE;
@@ -382,6 +405,8 @@ function findLowestHpAlly(d: Float32Array, i: number): number {
 
     let lowestHpPercent = 1.0;
     let target = -1;
+
+    const ignoreHealers = hasCombatAllies(d, myTeam);
 
     // Scan allies in 3x3 cells
     for (let r = myRow - 1; r <= myRow + 1; r++) {
@@ -397,12 +422,17 @@ function findLowestHpAlly(d: Float32Array, i: number): number {
                         d[jBase + IDX_HP] > 0 &&
                         d[jBase + IDX_TEAM] === myTeam
                     ) {
-                        const maxHp = d[jBase + IDX_MAX_HP];
-                        const hpPercent = d[jBase + IDX_HP] / maxHp;
+                        const rawType = d[jBase + IDX_TYPE];
+                        const baseType = rawType % 6;
+                        
+                        if (!(ignoreHealers && baseType === TYPE_HEALER)) {
+                            const maxHp = d[jBase + IDX_MAX_HP];
+                            const hpPercent = d[jBase + IDX_HP] / maxHp;
 
-                        if (hpPercent < 0.95 && hpPercent < lowestHpPercent) {
-                            lowestHpPercent = hpPercent;
-                            target = curr;
+                            if (hpPercent < 0.90 && hpPercent < lowestHpPercent) {
+                                lowestHpPercent = hpPercent;
+                                target = curr;
+                            }
                         }
                     }
                 }
@@ -423,12 +453,44 @@ function findLowestHpAlly(d: Float32Array, i: number): number {
         const hp = d[jBase + IDX_HP];
         if (hp <= 0) continue;
 
+        const rawType = d[jBase + IDX_TYPE];
+        const baseType = rawType % 6;
+        if (ignoreHealers && baseType === TYPE_HEALER) continue;
+
         const maxHp = d[jBase + IDX_MAX_HP];
         const hpPercent = hp / maxHp;
 
-        if (hpPercent < 0.95 && hpPercent < lowestHpPercent) {
+        if (hpPercent < 0.90 && hpPercent < lowestHpPercent) {
             lowestHpPercent = hpPercent;
             target = j;
+        }
+    }
+    return target;
+}
+
+function findNearestAlly(d: Float32Array, i: number): number {
+    const base = i * STRIDE;
+    const myTeam = d[base + IDX_TEAM];
+    const myX = d[base + IDX_X];
+    const myZ = d[base + IDX_Z];
+
+    let minDist = Infinity;
+    let target = -1;
+
+    const jStart = myTeam === TEAM_A ? 0 : TEAM_SIZE;
+    const jEnd = myTeam === TEAM_A ? TEAM_SIZE : UNIT_COUNT;
+
+    for (let j = jStart; j < jEnd; j++) {
+        if (j === i) continue;
+        const jBase = j * STRIDE;
+        if (d[jBase + IDX_HP] > 0) {
+            const dx = d[jBase + IDX_X] - myX;
+            const dz = d[jBase + IDX_Z] - myZ;
+            const dist = dx * dx + dz * dz;
+            if (dist < minDist) {
+                minDist = dist;
+                target = j;
+            }
         }
     }
     return target;
@@ -538,6 +600,16 @@ function applyDamage(
     rawDamage: number,
     attackerIdx?: number,
 ) {
+    if (targetIdx === TARGET_TURRET) {
+        const attackerTeam = attackerIdx !== undefined ? d[attackerIdx * STRIDE + IDX_TEAM] : TEAM_A;
+        skillFXBatch.push({
+            type: "turretDamage",
+            team: attackerTeam === TEAM_A ? TEAM_B : TEAM_A,
+            damage: rawDamage,
+        });
+        return;
+    }
+
     const tBase = targetIdx * STRIDE;
 
     const tx = d[tBase + IDX_X];
@@ -649,6 +721,7 @@ function applyHeal(
     healAmount: number,
     healerIdx?: number,
 ) {
+    if (targetIdx < 0) return;
     const tBase = targetIdx * STRIDE;
     const int32 = int32Data!;
     const hpIndex = tBase + IDX_HP;
@@ -721,6 +794,10 @@ function queueDamage(
 
 const animLockTicks = new Int32Array(UNIT_COUNT);
 
+// Turret attack cooldown per team (counts down each tick)
+let turretACd = 0;
+let turretBCd = 0;
+
 // --- Main tick ---
 function tick(d: Float32Array) {
     battleTicks++;
@@ -730,6 +807,78 @@ function tick(d: Float32Array) {
 
     // Batch skill FX events — send as single postMessage at end of tick
     skillFXBatch = [];
+
+    // --- TURRET SHOOTING ---
+    // ponytail: turret searches for nearest unit in range, fires projectile event
+    if (turretACd > 0) turretACd--;
+    if (turretBCd > 0) turretBCd--;
+
+    // Turret A (Tim A) menembak unit Tim B yang mendekat
+    let nearestEnemyA = -1;
+    let nearestDistA = TURRET_ATTACK_RANGE_SQ;
+    for (let j = TEAM_SIZE; j < UNIT_COUNT; j++) {
+        const jBase = j * STRIDE;
+        if (d[jBase + IDX_HP] <= 0) continue;
+        const dx = d[jBase + IDX_X] - TURRET_A_X;
+        const dz = d[jBase + IDX_Z] - TURRET_Z;
+        const distSq = dx * dx + dz * dz;
+        if (distSq < nearestDistA) {
+            nearestDistA = distSq;
+            nearestEnemyA = j;
+        }
+    }
+
+    if (nearestEnemyA !== -1) {
+        if (turretACd === 0) {
+            applyDamage(d, nearestEnemyA, TURRET_DAMAGE);
+            skillFXBatch.push({
+                type: "skillFX",
+                skill: "turretShoot",
+                team: TEAM_A,
+                fx: TURRET_A_X, fy: 3.1, fz: TURRET_Z,
+                tx: d[nearestEnemyA * STRIDE + IDX_X],
+                ty: d[nearestEnemyA * STRIDE + IDX_Y] + 1,
+                tz: d[nearestEnemyA * STRIDE + IDX_Z],
+            });
+            turretACd = TURRET_ATTACK_INTERVAL;
+        }
+    } else {
+        turretACd = 0; // ready instantly when enemy enters
+    }
+
+    // Turret B (Tim B) menembak unit Tim A yang mendekat
+    let nearestEnemyB = -1;
+    let nearestDistB = TURRET_ATTACK_RANGE_SQ;
+    for (let j = 0; j < TEAM_SIZE; j++) {
+        const jBase = j * STRIDE;
+        if (d[jBase + IDX_HP] <= 0) continue;
+        const dx = d[jBase + IDX_X] - TURRET_B_X;
+        const dz = d[jBase + IDX_Z] - TURRET_Z;
+        const distSq = dx * dx + dz * dz;
+        if (distSq < nearestDistB) {
+            nearestDistB = distSq;
+            nearestEnemyB = j;
+        }
+    }
+
+    if (nearestEnemyB !== -1) {
+        if (turretBCd === 0) {
+            applyDamage(d, nearestEnemyB, TURRET_DAMAGE);
+            skillFXBatch.push({
+                type: "skillFX",
+                skill: "turretShoot",
+                team: TEAM_B,
+                fx: TURRET_B_X, fy: 3.1, fz: TURRET_Z,
+                tx: d[nearestEnemyB * STRIDE + IDX_X],
+                ty: d[nearestEnemyB * STRIDE + IDX_Y] + 1,
+                tz: d[nearestEnemyB * STRIDE + IDX_Z],
+            });
+            turretBCd = TURRET_ATTACK_INTERVAL;
+        }
+    } else {
+        turretBCd = 0; // ready instantly when enemy enters
+    }
+
 
     // Update delayed damages
     for (let i = delayedDamages.length - 1; i >= 0; i--) {
@@ -841,6 +990,13 @@ function tick(d: Float32Array) {
         if (d[base + IDX_HP] <= 0) {
             d[base + IDX_ANIM] = 3; // dead
             animLockTicks[i] = 0;
+            // ponytail: recycle dead units back to pool after 180 ticks (~3 seconds)
+            if (d[base + IDX_HP] > -900) {
+                d[base + IDX_HP] -= 1;
+                if (d[base + IDX_HP] <= -180) {
+                    d[base + IDX_HP] = -999; // mark as unspawned so wave spawner recycles it
+                }
+            }
             continue;
         }
 
@@ -891,18 +1047,37 @@ function tick(d: Float32Array) {
             }
         }
 
+        // Check if healer's current ally target is still alive and injured
+        if (uType === TYPE_HEALER && cachedTarget >= 0) {
+            const tHp = d[cachedTarget * STRIDE + IDX_HP];
+            const tMaxHp = d[cachedTarget * STRIDE + IDX_MAX_HP];
+            const hpPercent = tHp / tMaxHp;
+            if (tHp > 0 && hpPercent < 0.98) {
+                // Ally still alive and injured — KEEP target, skip search entirely
+                target = cachedTarget;
+                d[base + IDX_TARGET] = target;
+                isTargetInvalid = false;
+            } else {
+                // Ally healed or dead — force a fresh search this tick
+                isTargetInvalid = true;
+            }
+        }
+
         // If target is invalid, throttle search to once every 8 ticks. If valid, re-evaluate target every 4 ticks.
-        const searchInterval = isTargetInvalid ? 8 : 4;
+        const searchInterval = isTargetInvalid ? 8 : (uType === TYPE_HEALER ? 30 : 4);
         const shouldSearch = (battleTicks + i) % searchInterval === 0;
 
         if (isTargetInvalid && !shouldSearch) {
-            target = -1;
-            d[base + IDX_TARGET] = -1;
+            // Keep existing target (TARGET_TURRET or -1)
+            if (target !== TARGET_TURRET) {
+                target = (uType === TYPE_HEALER) ? TARGET_TURRET : -1;
+                d[base + IDX_TARGET] = target;
+            }
         } else if (isTargetInvalid || shouldSearch) {
             if (uType === TYPE_HEALER) {
                 target = findLowestHpAlly(d, i);
                 if (target === -1) {
-                    target = findNearestEnemy(d, i);
+                    target = TARGET_TURRET;
                 }
             } else if (uType === TYPE_ASSASSIN) {
                 target = findLowestHpEnemy(d, i);
@@ -911,6 +1086,10 @@ function tick(d: Float32Array) {
                 }
             } else {
                 target = findNearestEnemy(d, i);
+            }
+            // No living enemy found — march to enemy turret
+            if (target === -1) {
+                target = TARGET_TURRET;
             }
             d[base + IDX_TARGET] = target;
         }
@@ -1076,12 +1255,57 @@ function tick(d: Float32Array) {
  
             continue;
         }
- 
+
+        // --- TARGET_TURRET: unit bergerak ke dan menyerang turret musuh ---
+        if (target === TARGET_TURRET) {
+            const myTeam = d[base + IDX_TEAM];
+            const turretX = myTeam === TEAM_A ? TURRET_B_X : TURRET_A_X;
+            const dtx = turretX - d[base + IDX_X];
+            const dtz = TURRET_Z - d[base + IDX_Z];
+            const dtDist = Math.sqrt(dtx * dtx + dtz * dtz) || 0.001;
+            const attr = ATTRIBUTES[uTypeRaw] ?? DEFAULT_ATTRIBUTES;
+            const mySpeed = attr.moveSpeed;
+
+            if (dtDist > attr.attackRange) {
+                // Bergerak menuju turret
+                const nx = dtx / dtDist;
+                const nz = dtz / dtDist;
+                d[base + IDX_X] += nx * mySpeed;
+                d[base + IDX_Z] += nz * mySpeed;
+                d[base + IDX_Y] = getTerrainHeight(d[base + IDX_X], d[base + IDX_Z]);
+                if (animLockTicks[i] === 0) d[base + IDX_ANIM] = 1; // move
+            } else {
+                // Serang turret bila attack cooldown habis
+                if (d[base + IDX_ATTACK_CD] === 0) {
+                    d[base + IDX_ANIM] = 2; // attack
+                    animLockTicks[i] = 15;
+                    d[base + IDX_ATTACK_CD] = attr.attackInterval;
+                    skillFXBatch.push({
+                        type: "turretDamage",
+                        team: myTeam === TEAM_A ? TEAM_B : TEAM_A, // turret tim lawan
+                        damage: attr.baseDamage,
+                    });
+                } else if (animLockTicks[i] === 0) {
+                    d[base + IDX_ANIM] = 0; // idle while waiting
+                }
+            }
+
+            // Bound check
+            if (d[base + IDX_X] < BOUND_X_MIN) d[base + IDX_X] = BOUND_X_MIN;
+            if (d[base + IDX_X] > BOUND_X_MAX) d[base + IDX_X] = BOUND_X_MAX;
+            if (d[base + IDX_Z] < BOUND_Z_MIN) d[base + IDX_Z] = BOUND_Z_MIN;
+            if (d[base + IDX_Z] > BOUND_Z_MAX) d[base + IDX_Z] = BOUND_Z_MAX;
+            continue;
+        }
+
         const attr = ATTRIBUTES[uTypeRaw] ?? DEFAULT_ATTRIBUTES;
         const mySpeed = attr.moveSpeed;
         const myRange = attr.attackRange;
         const baseDamage = attr.baseDamage;
         const attackInterval = attr.attackInterval;
+
+        // Guard: target=-1 means no valid target yet — skip this unit to prevent NaN positions
+        if (target < 0) continue;
 
         const tBase = target * STRIDE;
         const dx = d[tBase + IDX_X] - d[base + IDX_X];
@@ -1318,7 +1542,7 @@ function tick(d: Float32Array) {
                 });
             }
             // Skill 2: Chain Lightning — bounce 4 target
-            else if (d[base + IDX_SKILL2_CD] === 0 && dist <= myRange) {
+            else if (d[base + IDX_SKILL2_CD] === 0 && dist <= myRange && target >= 0) {
                 d[base + IDX_ANIM] = 2; // play attack animation
                 animLockTicks[i] = 20; // lock animation
                 const myTeam = d[base + IDX_TEAM];
@@ -1415,7 +1639,7 @@ function tick(d: Float32Array) {
                 });
             }
             // Skill 3 (ULTI): Meteor Fireball — AoE besar, damage masif
-            else if (d[base + IDX_SKILL3_CD] === 0 && dist <= myRange) {
+            else if (d[base + IDX_SKILL3_CD] === 0 && dist <= myRange && target >= 0) {
                 d[base + IDX_ANIM] = 2; // play attack animation
                 animLockTicks[i] = 20; // lock animation
                 const fbX = d[tBase + IDX_X];
@@ -1540,7 +1764,7 @@ function tick(d: Float32Array) {
                 });
             }
             // Skill 3: Fan Fire — AoE cone, 3 hits per enemy
-            else if (d[base + IDX_SKILL3_CD] === 0 && dist <= myRange) {
+            else if (d[base + IDX_SKILL3_CD] === 0 && dist <= myRange && target >= 0) {
                 d[base + IDX_ANIM] = 2;
                 animLockTicks[i] = 20;
                 const myTeam = d[base + IDX_TEAM];
@@ -1814,9 +2038,35 @@ function tick(d: Float32Array) {
             const isTargetAlly = d[tBase + IDX_TEAM] === d[base + IDX_TEAM];
 
             if (uType === TYPE_HEALER) {
+                // Cek jarak ke musuh terdekat (termasuk turret)
+                let enemyTooClose = false;
+                const nearestEnemy = findNearestEnemy(d, i);
+                if (nearestEnemy !== -1) {
+                    const eBase = nearestEnemy * STRIDE;
+                    const edx = d[eBase + IDX_X] - d[base + IDX_X];
+                    const edz = d[eBase + IDX_Z] - d[base + IDX_Z];
+                    const edist = Math.sqrt(edx * edx + edz * edz);
+                    if (edist < 15.0) {
+                        enemyTooClose = true;
+                    }
+                }
+                const myTeam = d[base + IDX_TEAM];
+                const turretX = myTeam === TEAM_A ? TURRET_B_X : TURRET_A_X;
+                const tdx = turretX - d[base + IDX_X];
+                const tdz = TURRET_Z - d[base + IDX_Z];
+                const tdist = Math.sqrt(tdx * tdx + tdz * tdz);
+                if (tdist < 15.0) {
+                    enemyTooClose = true;
+                }
+
                 if (isTargetAlly) {
+                    const tHp = d[tBase + IDX_HP];
+                    const tMaxHp = d[tBase + IDX_MAX_HP];
+                    const needsHeal = tHp > 0 && (tHp < tMaxHp * 0.98);
+
+                    // Target is an injured ally — either heal or walk towards them
                     if (dist <= myRange) {
-                        if (d[base + IDX_ATTACK_CD] === 0) {
+                        if (needsHeal && d[base + IDX_ATTACK_CD] === 0) {
                             d[base + IDX_ANIM] = 2; // heal animation
                             animLockTicks[i] = 20;
                             applyHeal(d, target, baseDamage, i);
@@ -1831,32 +2081,67 @@ function tick(d: Float32Array) {
                                 ty: d[tBase + IDX_Y] + 0.8,
                                 tz: d[tBase + IDX_Z],
                             });
-                        } else {
-                            if (animLockTicks[i] === 0) {
-                                d[base + IDX_ANIM] = 0; // idle
+                        } else if (animLockTicks[i] === 0) {
+                            // Target is healthy or heal is on cooldown: escort target smoothly if not too close to enemy
+                            const tAnim = d[tBase + IDX_ANIM];
+                            if (dist < 2.0 || enemyTooClose) {
+                                // Already close enough to target or enemy is too close: stop manual forward movement!
+                                d[base + IDX_ANIM] = (tAnim === 1 && !enemyTooClose) ? 1 : 0;
+                            } else {
+                                d[base + IDX_ANIM] = 1;
+                                const nx = dx / dist;
+                                const nz = dz / dist;
+                                d[base + IDX_X] += nx * mySpeed;
+                                d[base + IDX_Z] += nz * mySpeed;
                             }
                         }
                     } else {
-                        if (animLockTicks[i] === 0) {
-                            d[base + IDX_ANIM] = 1; // move
+                        // Walk towards injured ally only if not too close to enemy!
+                        if (enemyTooClose) {
+                            if (animLockTicks[i] === 0) d[base + IDX_ANIM] = 0; // stop and stay safe
+                        } else {
+                            if (animLockTicks[i] === 0) {
+                                d[base + IDX_ANIM] = 1; // walk towards injured ally
+                            }
+                            const nx = dx / dist;
+                            const nz = dz / dist;
+                            d[base + IDX_X] += nx * mySpeed;
+                            d[base + IDX_Z] += nz * mySpeed;
                         }
-                        const nx = dx / dist;
-                        const nz = dz / dist;
-                        d[base + IDX_X] += nx * mySpeed;
-                        d[base + IDX_Z] += nz * mySpeed;
                     }
                 } else {
-                    if (dist < 6.0) {
-                        if (animLockTicks[i] === 0) {
-                            d[base + IDX_ANIM] = 1; // move backward
+                    // No injured ally — target is enemy/turret, march forward if safe!
+                    if (dist <= myRange) {
+                        if (d[base + IDX_ATTACK_CD] === 0) {
+                            d[base + IDX_ANIM] = 2;
+                            animLockTicks[i] = 20;
+                            queueDamage(target, baseDamage, 22, i);
+                            d[base + IDX_ATTACK_CD] = attackInterval;
+                            skillFXBatch.push({
+                                type: "skillFX",
+                                skill: "basicAttack",
+                                uType: uType,
+                                fx: d[base + IDX_X],
+                                fy: d[base + IDX_Y] + 0.8,
+                                fz: d[base + IDX_Z],
+                                tx: d[tBase + IDX_X],
+                                ty: d[tBase + IDX_Y] + 0.8,
+                                tz: d[tBase + IDX_Z],
+                            });
+                        } else if (animLockTicks[i] === 0) {
+                            d[base + IDX_ANIM] = 0; // idle at turret
                         }
-                        const nx = dx / dist;
-                        const nz = dz / dist;
-                        d[base + IDX_X] -= nx * mySpeed;
-                        d[base + IDX_Z] -= nz * mySpeed;
                     } else {
-                        if (animLockTicks[i] === 0) {
-                            d[base + IDX_ANIM] = 0; // idle
+                        if (enemyTooClose) {
+                            if (animLockTicks[i] === 0) d[base + IDX_ANIM] = 0; // stop and stay safe
+                        } else {
+                            if (animLockTicks[i] === 0) {
+                                d[base + IDX_ANIM] = 1; // march forward
+                            }
+                            const nx = dx / dist;
+                            const nz = dz / dist;
+                            d[base + IDX_X] += nx * mySpeed;
+                            d[base + IDX_Z] += nz * mySpeed;
                         }
                     }
                 }
@@ -2122,6 +2407,8 @@ self.onmessage = (e: MessageEvent) => {
         if (e.data.teamAConfig) teamAConfig = e.data.teamAConfig;
         if (e.data.teamBConfig) teamBConfig = e.data.teamBConfig;
         battleTicks = 0;
+        turretACd = 0;
+        turretBCd = 0;
         delayedDamages.length = 0;
         animLockTicks.fill(0);
         statsDamageDealt.fill(0);
