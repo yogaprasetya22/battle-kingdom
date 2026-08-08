@@ -68,12 +68,12 @@ export function updateMage(
     const attackInterval = attr.attackInterval;
 
     let skillActivated = false;
+    computeSeparation(d, i, mySpeed, tempSep);
 
     if (target === -1) {
         if (animLockTicks[i] === 0) {
             d[base + IDX_ANIM] = 0; // idle
         }
-        computeSeparation(d, i, mySpeed, tempSep);
         d[base + IDX_X] += tempSep[0];
         d[base + IDX_Z] += tempSep[1];
         clampAndHeighten(d, i);
@@ -86,11 +86,12 @@ export function updateMage(
         const turretX = myTeam === TEAM_A ? TURRET_B_X : TURRET_A_X;
         const dtx = turretX - d[base + IDX_X];
         const dtz = TURRET_Z - d[base + IDX_Z];
-        const dtDist = Math.sqrt(dtx * dtx + dtz * dtz) || 0.001;
+        const dtDistSq = dtx * dtx + dtz * dtz;
+        const attackRangeSq = attr.attackRange * attr.attackRange;
 
-        if (dtDist > attr.attackRange) {
+        if (dtDistSq > attackRangeSq) {
             if (animLockTicks[i] === 0) d[base + IDX_ANIM] = 1; // move
-            computeSeparation(d, i, mySpeed, tempSep);
+            const dtDist = Math.sqrt(dtDistSq) || 0.001;
             applySteering(d, i, dtx, dtz, dtDist, mySpeed, tempSep);
         } else {
             if (d[base + IDX_ATTACK_CD] === 0) {
@@ -105,7 +106,6 @@ export function updateMage(
             } else if (animLockTicks[i] === 0) {
                 d[base + IDX_ANIM] = 0;
             }
-            computeSeparation(d, i, mySpeed, tempSep);
             d[base + IDX_X] += tempSep[0];
             d[base + IDX_Z] += tempSep[1];
         }
@@ -120,11 +120,11 @@ export function updateMage(
 
     const dx = tx - d[base + IDX_X];
     const dz = tz - d[base + IDX_Z];
-    const dist = Math.sqrt(dx * dx + dz * dz) || 0.001;
+    const distSq = dx * dx + dz * dz;
 
     // --- TARGETED SKILLS ---
     // Skill 1: Frost Nova — AoE kecil, stun semua musuh dalam radius
-    if (d[base + IDX_SKILL1_CD] === 0 && dist <= myRange) {
+    if (d[base + IDX_SKILL1_CD] === 0 && distSq <= myRange * myRange) {
         d[base + IDX_ANIM] = 2;
         animLockTicks[i] = 20;
         const novaX = tx;
@@ -136,10 +136,13 @@ export function updateMage(
         const tRow = Math.floor((novaZ - BOUND_Z_MIN) / cellSize);
         let candCount = 0;
 
-        for (let r = tRow - 1; r <= tRow + 1; r++) {
-            if (r < 0 || r >= gridRows) continue;
-            for (let c = tCol - 1; c <= tCol + 1; c++) {
-                if (c < 0 || c >= gridCols) continue;
+        const startRow = Math.max(0, tRow - 1);
+        const endRow = Math.min(gridRows - 1, tRow + 1);
+        const startCol = Math.max(0, tCol - 1);
+        const endCol = Math.min(gridCols - 1, tCol + 1);
+
+        for (let r = startRow; r <= endRow; r++) {
+            for (let c = startCol; c <= endCol; c++) {
                 const cellIdx = r * gridCols + c;
                 let curr = gridHead[cellIdx];
                 while (curr !== -1) {
@@ -147,10 +150,10 @@ export function updateMage(
                     if (d[jBase + IDX_HP] > 0 && d[jBase + IDX_TEAM] !== myTeamNova) {
                         const jdx = d[jBase + IDX_X] - novaX;
                         const jdz = d[jBase + IDX_Z] - novaZ;
-                        const distSq = jdx * jdx + jdz * jdz;
-                        if (distSq <= novaRadiusSq && candCount < 64) {
+                        const distS = jdx * jdx + jdz * jdz;
+                        if (distS <= novaRadiusSq && candCount < 64) {
                             tempCandidatesIdx[candCount] = curr;
-                            tempCandidatesDist[candCount] = distSq;
+                            tempCandidatesDist[candCount] = distS;
                             candCount++;
                         }
                     }
@@ -197,7 +200,7 @@ export function updateMage(
         });
     }
     // Skill 2: Chain Lightning — bounce 4 target
-    else if (d[base + IDX_SKILL2_CD] === 0 && dist <= myRange) {
+    else if (d[base + IDX_SKILL2_CD] === 0 && distSq <= myRange * myRange) {
         d[base + IDX_ANIM] = 2;
         animLockTicks[i] = 20;
         const myTeam = d[base + IDX_TEAM];
@@ -230,10 +233,13 @@ export function updateMage(
             const lCol = Math.floor((lastX - BOUND_X_MIN) / cellSize);
             const lRow = Math.floor((lastZ - BOUND_Z_MIN) / cellSize);
 
-            for (let r = lRow - 1; r <= lRow + 1; r++) {
-                if (r < 0 || r >= gridRows) continue;
-                for (let c = lCol - 1; c <= lCol + 1; c++) {
-                    if (c < 0 || c >= gridCols) continue;
+            const startRow = Math.max(0, lRow - 1);
+            const endRow = Math.min(gridRows - 1, lRow + 1);
+            const startCol = Math.max(0, lCol - 1);
+            const endCol = Math.min(gridCols - 1, lCol + 1);
+
+            for (let r = startRow; r <= endRow; r++) {
+                for (let c = startCol; c <= endCol; c++) {
                     const cellIdx = r * gridCols + c;
                     let curr = gridHead[cellIdx];
                     while (curr !== -1) {
@@ -283,7 +289,7 @@ export function updateMage(
         });
     }
     // Skill 3 (ULTI): Meteor Fireball — AoE besar, damage masif
-    else if (d[base + IDX_SKILL3_CD] === 0 && dist <= myRange) {
+    else if (d[base + IDX_SKILL3_CD] === 0 && distSq <= myRange * myRange) {
         d[base + IDX_ANIM] = 2;
         animLockTicks[i] = 20;
         const fbX = tx;
@@ -297,10 +303,13 @@ export function updateMage(
         const tRow = Math.floor((fbZ - BOUND_Z_MIN) / cellSize);
         let candCount = 0;
 
-        for (let r = tRow - 1; r <= tRow + 1; r++) {
-            if (r < 0 || r >= gridRows) continue;
-            for (let c = tCol - 1; c <= tCol + 1; c++) {
-                if (c < 0 || c >= gridCols) continue;
+        const startRow = Math.max(0, tRow - 1);
+        const endRow = Math.min(gridRows - 1, tRow + 1);
+        const startCol = Math.max(0, tCol - 1);
+        const endCol = Math.min(gridCols - 1, tCol + 1);
+
+        for (let r = startRow; r <= endRow; r++) {
+            for (let c = startCol; c <= endCol; c++) {
                 const cellIdx = r * gridCols + c;
                 let curr = gridHead[cellIdx];
                 while (curr !== -1) {
@@ -309,10 +318,10 @@ export function updateMage(
                         if (d[jBase + IDX_HP] > 0 && d[jBase + IDX_TEAM] !== myTeamFb) {
                             const jdx = d[jBase + IDX_X] - fbX;
                             const jdz = d[jBase + IDX_Z] - fbZ;
-                            const distSq = jdx * jdx + jdz * jdz;
-                            if (distSq <= fbRadiusSq && candCount < 64) {
+                            const distS = jdx * jdx + jdz * jdz;
+                            if (distS <= fbRadiusSq && candCount < 64) {
                                 tempCandidatesIdx[candCount] = curr;
-                                tempCandidatesDist[candCount] = distSq;
+                                tempCandidatesDist[candCount] = distS;
                                 candCount++;
                             }
                         }
@@ -363,9 +372,8 @@ export function updateMage(
 
     // --- MOVE & NORMAL ATTACK SYSTEM ---
     if (!skillActivated) {
-        computeSeparation(d, i, mySpeed, tempSep);
-
-        if (dist <= myRange) {
+        const myRangeSq = myRange * myRange;
+        if (distSq <= myRangeSq) {
             if (d[base + IDX_ATTACK_CD] === 0) {
                 d[base + IDX_ANIM] = 2;
                 animLockTicks[i] = 20;
@@ -391,6 +399,7 @@ export function updateMage(
             if (animLockTicks[i] === 0) {
                 d[base + IDX_ANIM] = 1;
             }
+            const dist = Math.sqrt(distSq) || 0.001;
             applySteering(d, i, dx, dz, dist, mySpeed, tempSep);
         }
     }

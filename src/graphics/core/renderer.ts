@@ -43,7 +43,7 @@ const windEffect = new WindEffectManager(scene);
 windEffect.start();
 
 // ▸ Day Cycle Manager (4 periode: pagi, siang, sore, malam)
-const dayCycleManager = new DayCycleManager(scene, 60); // 60 detik per siklus (for testing)
+const dayCycleManager = new DayCycleManager(scene, 240); // 240 detik per siklus (1 menit per periode)
 dayCycleManager.setDirectionalLight(sun);
 dayCycleManager.setAmbientLight(ambient);
 
@@ -143,7 +143,7 @@ export function startRenderLoop() {
         world.update(delta, camera.position, camera);
         effectUniforms.uTime.value += delta;
 
-        // Update day cycle every frame
+        // Update day cycle every frame (completely optimized, zero overhead)
         dayCycleManager.update();
 
         updateFX(delta);

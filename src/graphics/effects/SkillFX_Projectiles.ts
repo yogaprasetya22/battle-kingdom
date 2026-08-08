@@ -368,89 +368,211 @@ export function spawnDoubleShotFX(
     const end = new THREE.Vector3(tx, ty, tz);
 
     if (isTurret) {
-        // Spawn a procedural glowing energy pop at the barrel tip (no PNG texture)
-        const muzzleGeo = new THREE.SphereGeometry(0.22, 8, 8);
-        const muzzleMat = new THREE.MeshBasicMaterial({
-            color: 0xffaa33,
+        // --- 1. LUXURIOUS MUZZLE FLASH ---
+        const flareGeo = pooledPlane(1.8, 1.8);
+        const flareMat = new THREE.MeshBasicMaterial({
+            map: lightTex,
+            color: 0xffaa00,
+            transparent: true,
+            opacity: 1.0,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false,
+            side: THREE.DoubleSide
+        });
+        const flareMesh = new THREE.Mesh(flareGeo, flareMat);
+        flareMesh.position.copy(start);
+        scene.add(flareMesh);
+
+        const ringGeo = pooledPlane(1.2, 1.2);
+        const ringMat = new THREE.MeshBasicMaterial({
+            map: circleTex,
+            color: 0xff6600,
+            transparent: true,
+            opacity: 0.8,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false,
+            side: THREE.DoubleSide
+        });
+        const ringMesh = new THREE.Mesh(ringGeo, ringMat);
+        ringMesh.position.copy(start);
+        ringMesh.rotation.x = -Math.PI / 2;
+        scene.add(ringMesh);
+
+        // --- 2. SCI-FI LASER BEAM (INSTANT TRACER BOLT) ---
+        const dir = new THREE.Vector3().subVectors(end, start);
+        const dist = dir.length();
+        const mid = new THREE.Vector3().addVectors(start, end).multiplyScalar(0.5);
+
+        // White core cylinder
+        const coreGeo = new THREE.CylinderGeometry(0.04, 0.04, dist, 6);
+        const coreMat = new THREE.MeshBasicMaterial({
+            color: 0xffffff,
             transparent: true,
             opacity: 1.0,
             blending: THREE.AdditiveBlending,
             depthWrite: false,
         });
+        const coreMesh = new THREE.Mesh(coreGeo, coreMat);
 
-        const muzzleMesh = new THREE.Mesh(muzzleGeo, muzzleMat);
-        muzzleMesh.position.copy(start);
-        scene.add(muzzleMesh);
-
-        let muzzleAge = 0;
-        const muzzleDur = 0.05;
-        activeFX.push({
-            update(delta) {
-                muzzleAge += delta;
-                const mt = Math.min(1, muzzleAge / muzzleDur);
-                if (mt >= 1) {
-                    scene.remove(muzzleMesh);
-                    muzzleGeo.dispose();
-                    muzzleMat.dispose();
-                    return false;
-                }
-                // Quick puff expansion and fade
-                muzzleMesh.scale.setScalar(0.5 + mt * 2.0);
-                muzzleMat.opacity = 1 - mt;
-                return true;
-            }
+        // Neon orange/red outer aura cylinder
+        const glowGeo = new THREE.CylinderGeometry(0.18, 0.18, dist, 6);
+        const glowMat = new THREE.MeshBasicMaterial({
+            color: 0xff3300,
+            transparent: true,
+            opacity: 0.8,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false,
         });
-    }
+        const glowMesh = new THREE.Mesh(glowGeo, glowMat);
 
-    const shootArrow = (delay: number) => {
-        let age = -delay;
-        const flight = 0.28;
-        let mesh: THREE.Mesh | null = null;
-        let mat: THREE.MeshBasicMaterial | null = null;
+        // Create laser group and rotate to point from start to end
+        const laserGroup = new THREE.Group();
+        laserGroup.add(coreMesh);
+        laserGroup.add(glowMesh);
 
+        const up = new THREE.Vector3(0, 1, 0);
+        const quat = new THREE.Quaternion().setFromUnitVectors(up, dir.clone().normalize());
+        
+        laserGroup.position.copy(mid);
+        laserGroup.quaternion.copy(quat);
+        scene.add(laserGroup);
+
+        // --- 3. SPECTACULAR IMPACT SHOCKWAVE ---
+        const shockGeo = pooledPlane(1.5, 1.5);
+        const shockMat = new THREE.MeshBasicMaterial({
+            map: circleTex,
+            color: 0xff3300,
+            transparent: true,
+            opacity: 1.0,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false,
+            side: THREE.DoubleSide
+        });
+        const shockMesh = new THREE.Mesh(shockGeo, shockMat);
+        shockMesh.position.copy(end).y += 0.05;
+        shockMesh.rotation.x = -Math.PI / 2;
+        scene.add(shockMesh);
+
+        const flashGeo = pooledPlane(3.0, 3.0);
+        const flashMat = new THREE.MeshBasicMaterial({
+            map: lightTex,
+            color: 0xffaa44,
+            transparent: true,
+            opacity: 1.0,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false,
+        });
+        const flashMesh = new THREE.Mesh(flashGeo, flashMat);
+        flashMesh.position.copy(end);
+        scene.add(flashMesh);
+
+        // Sparks explosion
+        spawnExplosion(scene, end, 0xff7700, 36, 0.5);
+
+        let age = 0;
+        const duration = 0.16; // 160ms lifetime for the laser flash
         activeFX.push({
             update(delta) {
                 age += delta;
-                if (age < 0) return true;
-                if (!mesh) {
-                    // Turret: small bullet shape. Archer: larger arrow-laser shape
-                    const geo = isTurret
-                        ? new THREE.CylinderGeometry(0.04, 0.04, 0.32, 6)
-                        : new THREE.CylinderGeometry(0.12, 0.12, 1.2, 8);
-                    mat = new THREE.MeshBasicMaterial({
-                        color: isTurret ? 0xffaa33 : 0xffdd44,
-                        transparent: true,
-                        opacity: 0.9,
-                        blending: THREE.AdditiveBlending,
-                        depthWrite: false,
-                    });
-                    mesh = new THREE.Mesh(geo, mat);
-                    mesh.frustumCulled = false;
-                    mesh.position.copy(start);
-                    mesh.lookAt(end);
-                    mesh.rotateX(Math.PI / 2);
-                    scene.add(mesh);
-                }
-                const t = Math.min(1, age / flight);
+                const t = Math.min(1, age / duration);
                 if (t >= 1) {
-                    scene.remove(mesh!);
-                    mesh!.geometry.dispose();
-                    mat!.dispose();
-                    if (isTurret) {
-                        spawnExplosion(scene, end, 0xff7700, 24, 0.4);
-                    } else {
-                        spawnExplosion(scene, end, 0xffbb44, 8, 0.12);
-                    }
+                    scene.remove(flareMesh);
+                    scene.remove(ringMesh);
+                    scene.remove(laserGroup);
+                    scene.remove(shockMesh);
+                    scene.remove(flashMesh);
+
+                    flareMat.dispose();
+                    ringMat.dispose();
+                    coreGeo.dispose();
+                    coreMat.dispose();
+                    glowGeo.dispose();
+                    glowMat.dispose();
+                    shockMat.dispose();
+                    flashMat.dispose();
                     return false;
                 }
-                mesh!.position.lerpVectors(start, end, easeOutQuad(t));
-                return true;
-            },
-        });
-    };
 
-    shootArrow(0);
-    if (!isTurret) {
+                // Fade muzzle flash
+                flareMesh.scale.setScalar(0.4 + t * 2.2);
+                flareMesh.quaternion.copy(camera.quaternion);
+                flareMat.opacity = 1 - easeOutCubic(t);
+
+                ringMesh.scale.setScalar(0.5 + t * 3.0);
+                ringMat.opacity = 0.8 * (1 - easeOutQuad(t));
+
+                // Fade & shrink laser beam
+                coreMat.opacity = 1.0 - t;
+                glowMat.opacity = 0.8 * (1.0 - t);
+                const scaleX = 1.0 - t * 0.7;
+                laserGroup.scale.set(scaleX, 1.0, scaleX);
+
+                // Expand ground shockwave
+                shockMesh.scale.setScalar(1.0 + t * 4.0);
+                shockMat.opacity = 1.0 - easeOutCubic(t);
+
+                // Fade impact flash
+                flashMesh.scale.setScalar(0.5 + t * 2.2);
+                flashMesh.quaternion.copy(camera.quaternion);
+                flashMat.opacity = 1.0 - easeOutQuad(t);
+
+                return true;
+            }
+        });
+    } else {
+        // Regular Archer double shot (moving projectile)
+        const shootArrow = (delay: number) => {
+            let age = -delay;
+            const flight = 0.28;
+            let meshGroup: THREE.Group | null = null;
+            let glowMat: THREE.MeshBasicMaterial | null = null;
+
+            activeFX.push({
+                update(delta) {
+                    age += delta;
+                    if (age < 0) return true;
+
+                    if (!meshGroup) {
+                        meshGroup = new THREE.Group();
+                        const geo = new THREE.CylinderGeometry(0.12, 0.12, 1.2, 8);
+                        glowMat = new THREE.MeshBasicMaterial({
+                            color: 0xffdd44,
+                            transparent: true,
+                            opacity: 0.9,
+                            blending: THREE.AdditiveBlending,
+                            depthWrite: false,
+                        });
+                        const coreMesh = new THREE.Mesh(geo, glowMat);
+                        coreMesh.rotateX(Math.PI / 2);
+                        meshGroup.add(coreMesh);
+
+                        meshGroup.position.copy(start);
+                        meshGroup.lookAt(end);
+                        scene.add(meshGroup);
+                    }
+
+                    const t = Math.min(1, age / flight);
+                    const currentPos = new THREE.Vector3().lerpVectors(start, end, easeOutQuad(t));
+                    meshGroup.position.copy(currentPos);
+
+                    if (t >= 1) {
+                        scene.remove(meshGroup);
+                        meshGroup.traverse((child) => {
+                            if (child instanceof THREE.Mesh) {
+                                child.geometry.dispose();
+                            }
+                        });
+                        if (glowMat) glowMat.dispose();
+
+                        spawnExplosion(scene, end, 0xffbb44, 8, 0.12);
+                        return false;
+                    }
+                    return true;
+                },
+            });
+        };
+
+        shootArrow(0);
         shootArrow(0.12);
     }
 }

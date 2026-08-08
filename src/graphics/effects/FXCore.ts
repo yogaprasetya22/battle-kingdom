@@ -290,7 +290,7 @@ export function spawnExplosion(
     if (!canSpawnFX()) return;
 
     const geo = pooledPlane(size, size);
-    const mat = new THREE.MeshBasicMaterial({
+    const mat = getPooledMaterial({
         map: sparkTex,
         color,
         transparent: true,
@@ -331,7 +331,7 @@ export function spawnExplosion(
             if (t >= 1) {
                 scene.remove(instancedMesh);
                 instancedMesh.dispose();
-                mat.dispose();
+                releasePooledMaterial(mat);
                 return false;
             }
             const et = easeOutCubic(t);

@@ -65,12 +65,12 @@ export function updateArcher(
     const attackInterval = attr.attackInterval;
 
     let skillActivated = false;
+    computeSeparation(d, i, mySpeed, tempSep);
 
     if (target === -1) {
         if (animLockTicks[i] === 0) {
             d[base + IDX_ANIM] = 0; // idle
         }
-        computeSeparation(d, i, mySpeed, tempSep);
         d[base + IDX_X] += tempSep[0];
         d[base + IDX_Z] += tempSep[1];
         clampAndHeighten(d, i);
@@ -83,11 +83,12 @@ export function updateArcher(
         const turretX = myTeam === TEAM_A ? TURRET_B_X : TURRET_A_X;
         const dtx = turretX - d[base + IDX_X];
         const dtz = TURRET_Z - d[base + IDX_Z];
-        const dtDist = Math.sqrt(dtx * dtx + dtz * dtz) || 0.001;
+        const dtDistSq = dtx * dtx + dtz * dtz;
+        const attackRangeSq = attr.attackRange * attr.attackRange;
 
-        if (dtDist > attr.attackRange) {
+        if (dtDistSq > attackRangeSq) {
             if (animLockTicks[i] === 0) d[base + IDX_ANIM] = 1; // move
-            computeSeparation(d, i, mySpeed, tempSep);
+            const dtDist = Math.sqrt(dtDistSq) || 0.001;
             applySteering(d, i, dtx, dtz, dtDist, mySpeed, tempSep);
         } else {
             if (d[base + IDX_ATTACK_CD] === 0) {
@@ -102,7 +103,6 @@ export function updateArcher(
             } else if (animLockTicks[i] === 0) {
                 d[base + IDX_ANIM] = 0;
             }
-            computeSeparation(d, i, mySpeed, tempSep);
             d[base + IDX_X] += tempSep[0];
             d[base + IDX_Z] += tempSep[1];
         }
@@ -118,10 +118,10 @@ export function updateArcher(
 
     const dx = tx - d[base + IDX_X];
     const dz = tz - d[base + IDX_Z];
-    const dist = Math.sqrt(dx * dx + dz * dz) || 0.001;
+    const distSq = dx * dx + dz * dz;
 
     // --- TARGETED SKILLS ---
-    if (d[base + IDX_SKILL1_CD] === 0 && dist <= myRange) {
+    if (d[base + IDX_SKILL1_CD] === 0 && distSq <= myRange * myRange) {
         d[base + IDX_ANIM] = 2;
         animLockTicks[i] = 20;
         queueDamage(target, ARCHER_SKILLS.doubleShot.damage, 18, i);
@@ -137,15 +137,15 @@ export function updateArcher(
             ty: ty + 0.8,
             tz: tz,
         });
-    } else if (d[base + IDX_SKILL2_CD] === 0 && dist <= ARCHER_SKILLS.evasiveLeap.range) {
+    } else if (d[base + IDX_SKILL2_CD] === 0 && distSq <= ARCHER_SKILLS.evasiveLeap.range * ARCHER_SKILLS.evasiveLeap.range) {
         d[base + IDX_ANIM] = 1;
         animLockTicks[i] = 15;
         const fromX = d[base + IDX_X];
         const fromY = d[base + IDX_Y];
         const fromZ = d[base + IDX_Z];
+        const dist = Math.sqrt(distSq) || 0.001;
         d[base + IDX_X] -= (dx / dist) * ARCHER_SKILLS.evasiveLeap.distance;
         d[base + IDX_Z] -= (dz / dist) * ARCHER_SKILLS.evasiveLeap.distance;
-        const toY = getTerrainHeight(d[base + IDX_X], d[base + IDX_Z]);
         d[base + IDX_SKILL2_CD] = ARCHER_SKILLS.evasiveLeap.cooldown;
         skillActivated = true;
         skillFXBatch.push({
@@ -155,10 +155,10 @@ export function updateArcher(
             fy: fromY,
             fz: fromZ,
             tx: d[base + IDX_X],
-            ty: toY,
+            ty: fromY,
             tz: d[base + IDX_Z],
         });
-    } else if (d[base + IDX_SKILL3_CD] === 0 && dist <= myRange) {
+    } else if (d[base + IDX_SKILL3_CD] === 0 && distSq <= myRange * myRange) {
         d[base + IDX_ANIM] = 2;
         animLockTicks[i] = 20;
         const myX = d[base + IDX_X];
@@ -172,10 +172,13 @@ export function updateArcher(
         const tRow = Math.floor((targetZ - BOUND_Z_MIN) / cellSize);
         const radiusSq = ARCHER_SKILLS.arrowVolley.radius * ARCHER_SKILLS.arrowVolley.radius;
 
-        for (let r = tRow - 1; r <= tRow + 1; r++) {
-            if (r < 0 || r >= gridRows) continue;
-            for (let c = tCol - 1; c <= tCol + 1; c++) {
-                if (c < 0 || c >= gridCols) continue;
+        const startRow = Math.max(0, tRow - 1);
+        const endRow = Math.min(gridRows - 1, tRow + 1);
+        const startCol = Math.max(0, tCol - 1);
+        const endCol = Math.min(gridCols - 1, tCol + 1);
+
+        for (let r = startRow; r <= endRow; r++) {
+            for (let c = startCol; c <= endCol; c++) {
                 const cellIdx = r * gridCols + c;
                 let curr = gridHead[cellIdx];
                 while (curr !== -1) {
@@ -209,9 +212,8 @@ export function updateArcher(
 
     // --- MOVE & NORMAL ATTACK SYSTEM ---
     if (!skillActivated) {
-        computeSeparation(d, i, mySpeed, tempSep);
-
-        if (dist <= myRange) {
+        const myRangeSq = myRange * myRange;
+        if (distSq <= myRangeSq) {
             if (d[base + IDX_ATTACK_CD] === 0) {
                 d[base + IDX_ANIM] = 2;
                 animLockTicks[i] = 20;
@@ -237,6 +239,7 @@ export function updateArcher(
             if (animLockTicks[i] === 0) {
                 d[base + IDX_ANIM] = 1;
             }
+            const dist = Math.sqrt(distSq) || 0.001;
             applySteering(d, i, dx, dz, dist, mySpeed, tempSep);
         }
     }

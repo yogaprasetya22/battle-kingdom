@@ -56,16 +56,14 @@ export function updateTank(
     const attackInterval = attr.attackInterval;
 
     let skillActivated = false;
+    computeSeparation(d, i, mySpeed, tempSep);
 
     if (target === -1) {
         if (animLockTicks[i] === 0) {
             d[base + IDX_ANIM] = 0; // idle
         }
-        if (!skillActivated) {
-            computeSeparation(d, i, mySpeed, tempSep);
-            d[base + IDX_X] += tempSep[0];
-            d[base + IDX_Z] += tempSep[1];
-        }
+        d[base + IDX_X] += tempSep[0];
+        d[base + IDX_Z] += tempSep[1];
         clampAndHeighten(d, i);
         return;
     }
@@ -76,11 +74,12 @@ export function updateTank(
         const turretX = myTeam === TEAM_A ? TURRET_B_X : TURRET_A_X;
         const dtx = turretX - d[base + IDX_X];
         const dtz = TURRET_Z - d[base + IDX_Z];
-        const dtDist = Math.sqrt(dtx * dtx + dtz * dtz) || 0.001;
+        const dtDistSq = dtx * dtx + dtz * dtz;
+        const attackRangeSq = attr.attackRange * attr.attackRange;
 
-        if (dtDist > attr.attackRange) {
+        if (dtDistSq > attackRangeSq) {
             if (animLockTicks[i] === 0) d[base + IDX_ANIM] = 1; // move
-            computeSeparation(d, i, mySpeed, tempSep);
+            const dtDist = Math.sqrt(dtDistSq) || 0.001;
             applySteering(d, i, dtx, dtz, dtDist, mySpeed, tempSep);
         } else {
             // Trigger Rage (Skill 1) if ready when engaging the turret
@@ -110,7 +109,6 @@ export function updateTank(
             } else if (animLockTicks[i] === 0) {
                 d[base + IDX_ANIM] = 0;
             }
-            computeSeparation(d, i, mySpeed, tempSep);
             d[base + IDX_X] += tempSep[0];
             d[base + IDX_Z] += tempSep[1];
         }
@@ -126,12 +124,13 @@ export function updateTank(
 
     const dx = tx - d[base + IDX_X];
     const dz = tz - d[base + IDX_Z];
-    const dist = Math.sqrt(dx * dx + dz * dz) || 0.001;
+    const distSq = dx * dx + dz * dz;
 
     // --- TARGETED SKILLS ---
     if (!skillActivated) {
         // Barbarian Skill 1: Rage (Self Buff) - only when engaging target in combat range
-        if (d[base + IDX_SKILL1_CD] === 0 && dist <= attr.attackRange + 2.0) {
+        const skill1Range = attr.attackRange + 2.0;
+        if (d[base + IDX_SKILL1_CD] === 0 && distSq <= skill1Range * skill1Range) {
             d[base + IDX_IMMUNE_CD] = BARBARIAN_SKILLS.rage.immuneTicks;
             d[base + IDX_SKILL1_CD] = BARBARIAN_SKILLS.rage.cooldown;
             skillActivated = true;
@@ -145,7 +144,7 @@ export function updateTank(
             });
         }
         // Barbarian Skill 2: Battle Cry (Challenge/Taunt)
-        else if (d[base + IDX_SKILL2_CD] === 0 && dist <= BARBARIAN_SKILLS.battleCry.range) {
+        else if (d[base + IDX_SKILL2_CD] === 0 && distSq <= BARBARIAN_SKILLS.battleCry.range * BARBARIAN_SKILLS.battleCry.range) {
             d[tBase + IDX_TARGET] = i;
             d[base + IDX_SKILL2_CD] = BARBARIAN_SKILLS.battleCry.cooldown;
             skillActivated = true;
@@ -162,7 +161,7 @@ export function updateTank(
             });
         }
         // Barbarian Skill 3: Axe Cleave (Axe slam/ShieldBash equivalent)
-        else if (d[base + IDX_SKILL3_CD] === 0 && dist <= BARBARIAN_SKILLS.axeCleave.range) {
+        else if (d[base + IDX_SKILL3_CD] === 0 && distSq <= BARBARIAN_SKILLS.axeCleave.range * BARBARIAN_SKILLS.axeCleave.range) {
             d[base + IDX_ANIM] = 2;
             animLockTicks[i] = 20;
             queueDamage(target, BARBARIAN_SKILLS.axeCleave.damage, 15, i);
@@ -184,9 +183,8 @@ export function updateTank(
 
     // --- MOVE & NORMAL ATTACK SYSTEM ---
     if (!skillActivated) {
-        computeSeparation(d, i, mySpeed, tempSep);
-
-        if (dist <= myRange) {
+        const myRangeSq = myRange * myRange;
+        if (distSq <= myRangeSq) {
             if (d[base + IDX_ATTACK_CD] === 0) {
                 d[base + IDX_ANIM] = 2;
                 animLockTicks[i] = 20;
@@ -212,6 +210,7 @@ export function updateTank(
             if (animLockTicks[i] === 0) {
                 d[base + IDX_ANIM] = 1;
             }
+            const dist = Math.sqrt(distSq) || 0.001;
             applySteering(d, i, dx, dz, dist, mySpeed, tempSep);
         }
     }

@@ -83,24 +83,15 @@ export class DayCycleManager {
     private ambientLight: THREE.Light | null = null;
     private scene: THREE.Scene;
 
-    private skyCanvas: HTMLCanvasElement;
-    private skyContext: CanvasRenderingContext2D;
-    private skyTexture: THREE.CanvasTexture;
-    private lastSkyUpdateTime: number = 0;
+    private lastUpdateTime: number = 0;
 
     constructor(scene: THREE.Scene, cycleDurationSeconds: number = 60) {
         this.scene = scene;
         this.cycleDuration = cycleDurationSeconds;
         this.startTime = performance.now();
 
-        // Inisialisasi Canvas untuk gradient langit dinamis
-        this.skyCanvas = document.createElement("canvas");
-        this.skyCanvas.width = 2;
-        this.skyCanvas.height = 256;
-        this.skyContext = this.skyCanvas.getContext("2d")!;
-        this.skyTexture = new THREE.CanvasTexture(this.skyCanvas);
-        this.skyTexture.colorSpace = THREE.SRGBColorSpace;
-        this.scene.background = this.skyTexture;
+        // Use a solid background color that matches the fog to create a seamless infinite horizon (zero overhead)
+        this.scene.background = new THREE.Color();
 
         this.initializeValues();
     }
@@ -129,7 +120,10 @@ export class DayCycleManager {
      * Called setiap frame
      */
     public update() {
-        const elapsed = (performance.now() - this.startTime) / 1000; // convert to seconds
+        const now = performance.now();
+        this.lastUpdateTime = now;
+
+        const elapsed = (now - this.startTime) / 1000; // convert to seconds
         this.currentProgress = (elapsed / this.cycleDuration) % 1;
 
         // Keyframe positions (0-1 progress)
@@ -232,25 +226,9 @@ export class DayCycleManager {
             this.scene.fog.far = targetFar;
         }
 
-        // Update langit gradient dinamis agar menyatu dengan fog horizon (throttled to 100ms / 10Hz to prevent GPU upload stalls)
-        const now = performance.now();
-        if (now - this.lastSkyUpdateTime > 100) {
-            this.lastSkyUpdateTime = now;
-
-            const gradient = this.skyContext.createLinearGradient(0, 0, 0, 256);
-            gradient.addColorStop(0.0, "#" + this.fogColorB.getHexString()); // Bagian atas langit
-            gradient.addColorStop(0.6, "#" + this.fogColorA.getHexString()); // Bagian tengah/cakrawala
-
-            // Interpolate colors directly on components to avoid GC allocation/clone overhead
-            const r = this.fogColorA.r + (this.fogColorB.r - this.fogColorA.r) * 0.15;
-            const g = this.fogColorA.g + (this.fogColorB.g - this.fogColorA.g) * 0.15;
-            const b = this.fogColorA.b + (this.fogColorB.b - this.fogColorA.b) * 0.15;
-            const hex = ((1 << 24) + (Math.round(r * 255) << 16) + (Math.round(g * 255) << 8) + Math.round(b * 255)).toString(16).slice(1);
-            gradient.addColorStop(1.0, "#" + hex);
-
-            this.skyContext.fillStyle = gradient;
-            this.skyContext.fillRect(0, 0, 2, 256);
-            this.skyTexture.needsUpdate = true;
+        // Update background color directly (zero overhead)
+        if (this.scene.background instanceof THREE.Color) {
+            this.scene.background.lerpColors(this.fogColorA, this.fogColorB, 0.5);
         }
     }
 

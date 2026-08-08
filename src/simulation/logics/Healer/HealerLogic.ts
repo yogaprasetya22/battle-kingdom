@@ -70,6 +70,7 @@ export function updateHealer(
     const attackInterval = attr.attackInterval;
 
     let skillActivated = false;
+    computeSeparation(d, i, mySpeed, tempSep);
 
     // --- SELF-BUFF / AOE SKILL 3 (Holy Sanctuary) ---
     if (d[base + IDX_SKILL3_CD] === 0) {
@@ -96,10 +97,13 @@ export function updateHealer(
         const hCol = Math.floor((centerX - BOUND_X_MIN) / cellSize);
         const hRow = Math.floor((centerZ - BOUND_Z_MIN) / cellSize);
 
-        for (let r = hRow - 1; r <= hRow + 1 && !anyoneNeedsHealing; r++) {
-            if (r < 0 || r >= gridRows) continue;
-            for (let c = hCol - 1; c <= hCol + 1 && !anyoneNeedsHealing; c++) {
-                if (c < 0 || c >= gridCols) continue;
+        const startRow = Math.max(0, hRow - 1);
+        const endRow = Math.min(gridRows - 1, hRow + 1);
+        const startCol = Math.max(0, hCol - 1);
+        const endCol = Math.min(gridCols - 1, hCol + 1);
+
+        for (let r = startRow; r <= endRow && !anyoneNeedsHealing; r++) {
+            for (let c = startCol; c <= endCol && !anyoneNeedsHealing; c++) {
                 const cellIdx = r * gridCols + c;
                 let curr = gridHead[cellIdx];
                 while (curr !== -1) {
@@ -125,10 +129,8 @@ export function updateHealer(
             d[base + IDX_ANIM] = 2;
             animLockTicks[i] = 20;
             let healCount = 0;
-            for (let r = hRow - 1; r <= hRow + 1; r++) {
-                if (r < 0 || r >= gridRows) break;
-                for (let c = hCol - 1; c <= hCol + 1; c++) {
-                    if (c < 0 || c >= gridCols) break;
+            for (let r = startRow; r <= endRow; r++) {
+                for (let c = startCol; c <= endCol; c++) {
                     const cellIdx = r * gridCols + c;
                     let curr = gridHead[cellIdx];
                     while (curr !== -1) {
@@ -167,11 +169,8 @@ export function updateHealer(
         if (animLockTicks[i] === 0) {
             d[base + IDX_ANIM] = 0;
         }
-        if (!skillActivated) {
-            computeSeparation(d, i, mySpeed, tempSep);
-            d[base + IDX_X] += tempSep[0];
-            d[base + IDX_Z] += tempSep[1];
-        }
+        d[base + IDX_X] += tempSep[0];
+        d[base + IDX_Z] += tempSep[1];
         clampAndHeighten(d, i);
         return;
     }
@@ -182,11 +181,12 @@ export function updateHealer(
         const turretX = myTeam === TEAM_A ? TURRET_B_X : TURRET_A_X;
         const dtx = turretX - d[base + IDX_X];
         const dtz = TURRET_Z - d[base + IDX_Z];
-        const dtDist = Math.sqrt(dtx * dtx + dtz * dtz) || 0.001;
+        const dtDistSq = dtx * dtx + dtz * dtz;
+        const attackRangeSq = attr.attackRange * attr.attackRange;
 
-        if (dtDist > attr.attackRange) {
+        if (dtDistSq > attackRangeSq) {
             if (animLockTicks[i] === 0) d[base + IDX_ANIM] = 1; // move
-            computeSeparation(d, i, mySpeed, tempSep);
+            const dtDist = Math.sqrt(dtDistSq) || 0.001;
             applySteering(d, i, dtx, dtz, dtDist, mySpeed, tempSep);
         } else {
             if (d[base + IDX_ATTACK_CD] === 0) {
@@ -201,7 +201,6 @@ export function updateHealer(
             } else if (animLockTicks[i] === 0) {
                 d[base + IDX_ANIM] = 0;
             }
-            computeSeparation(d, i, mySpeed, tempSep);
             d[base + IDX_X] += tempSep[0];
             d[base + IDX_Z] += tempSep[1];
         }
@@ -216,7 +215,7 @@ export function updateHealer(
 
     const dx = tx - d[base + IDX_X];
     const dz = tz - d[base + IDX_Z];
-    const dist = Math.sqrt(dx * dx + dz * dz) || 0.001;
+    const distSq = dx * dx + dz * dz;
 
     const isTargetAlly = d[tBase + IDX_TEAM] === d[base + IDX_TEAM];
 
@@ -226,7 +225,7 @@ export function updateHealer(
         const targetMaxHp = d[tBase + IDX_MAX_HP];
         const needsHealing = targetHp < targetMaxHp;
 
-        if (needsHealing && d[base + IDX_SKILL1_CD] === 0 && dist <= myRange) {
+        if (needsHealing && d[base + IDX_SKILL1_CD] === 0 && distSq <= myRange * myRange) {
             d[base + IDX_ANIM] = 2;
             animLockTicks[i] = 20;
             applyHeal(d, target, HEALER_SKILLS.rejuvenation.healAmount, i);
@@ -242,7 +241,7 @@ export function updateHealer(
                 ty: ty + 0.8,
                 tz: tz,
             });
-        } else if (needsHealing && d[base + IDX_SKILL2_CD] === 0 && dist <= myRange) {
+        } else if (needsHealing && d[base + IDX_SKILL2_CD] === 0 && distSq <= myRange * myRange) {
             d[base + IDX_ANIM] = 2;
             animLockTicks[i] = 20;
             d[tBase + IDX_EFFECT_STATE] = -HEALER_SKILLS.divineShield.durationTicks;
@@ -263,16 +262,14 @@ export function updateHealer(
 
     // --- MOVE & NORMAL ATTACK SYSTEM ---
     if (!skillActivated) {
-        computeSeparation(d, i, mySpeed, tempSep);
-
         let enemyTooClose = false;
         const nearestEnemy = findNearestEnemy(d, i);
         if (nearestEnemy !== -1) {
             const eBase = nearestEnemy * STRIDE;
             const edx = d[eBase + IDX_X] - d[base + IDX_X];
             const edz = d[eBase + IDX_Z] - d[base + IDX_Z];
-            const edist = Math.sqrt(edx * edx + edz * edz);
-            if (edist < 15.0) {
+            const edistSq = edx * edx + edz * edz;
+            if (edistSq < 225.0) {
                 enemyTooClose = true;
             }
         }
@@ -280,8 +277,8 @@ export function updateHealer(
         const turretX = myTeam === TEAM_A ? TURRET_B_X : TURRET_A_X;
         const tdx = turretX - d[base + IDX_X];
         const tdz = TURRET_Z - d[base + IDX_Z];
-        const tdist = Math.sqrt(tdx * tdx + tdz * tdz);
-        if (tdist < 22.0) {
+        const tdistSq = tdx * tdx + tdz * tdz;
+        if (tdistSq < 484.0) {
             enemyTooClose = true;
         }
 
@@ -290,7 +287,7 @@ export function updateHealer(
             const tMaxHp = d[tBase + IDX_MAX_HP];
             const needsHeal = tHp > 0 && (tHp < tMaxHp * 0.98);
 
-            if (dist <= myRange) {
+            if (distSq <= myRange * myRange) {
                 if (needsHeal && d[base + IDX_ATTACK_CD] === 0) {
                     d[base + IDX_ANIM] = 2; // heal
                     animLockTicks[i] = 20;
@@ -308,12 +305,13 @@ export function updateHealer(
                     });
                 } else if (animLockTicks[i] === 0) {
                     const tAnim = d[tBase + IDX_ANIM];
-                    if (dist < 2.0 || enemyTooClose) {
+                    if (distSq < 4.0 || enemyTooClose) {
                         d[base + IDX_ANIM] = (tAnim === 1 && !enemyTooClose) ? 1 : 0;
                         d[base + IDX_X] += tempSep[0];
                         d[base + IDX_Z] += tempSep[1];
                     } else {
                         d[base + IDX_ANIM] = 1;
+                        const dist = Math.sqrt(distSq) || 0.001;
                         applySteering(d, i, dx, dz, dist, mySpeed, tempSep);
                     }
                 }
@@ -324,12 +322,13 @@ export function updateHealer(
                     d[base + IDX_Z] += tempSep[1];
                 } else {
                     if (animLockTicks[i] === 0) d[base + IDX_ANIM] = 1;
+                    const dist = Math.sqrt(distSq) || 0.001;
                     applySteering(d, i, dx, dz, dist, mySpeed, tempSep);
                 }
             }
         } else {
             // Target is enemy/turret (no ally needs healing)
-            if (dist <= myRange) {
+            if (distSq <= myRange * myRange) {
                 if (d[base + IDX_ATTACK_CD] === 0) {
                     d[base + IDX_ANIM] = 2;
                     animLockTicks[i] = 20;
@@ -358,6 +357,7 @@ export function updateHealer(
                     d[base + IDX_Z] += tempSep[1];
                 } else {
                     if (animLockTicks[i] === 0) d[base + IDX_ANIM] = 1;
+                    const dist = Math.sqrt(distSq) || 0.001;
                     applySteering(d, i, dx, dz, dist, mySpeed, tempSep);
                 }
             }
