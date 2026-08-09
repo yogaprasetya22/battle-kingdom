@@ -56,16 +56,14 @@ export function updateKnight(
     const attackInterval = attr.attackInterval;
 
     let skillActivated = false;
+    computeSeparation(d, i, mySpeed, tempSep);
 
     if (target === -1) {
         if (animLockTicks[i] === 0) {
             d[base + IDX_ANIM] = 0; // idle
         }
-        if (!skillActivated) {
-            computeSeparation(d, i, mySpeed, tempSep);
-            d[base + IDX_X] += tempSep[0];
-            d[base + IDX_Z] += tempSep[1];
-        }
+        d[base + IDX_X] += tempSep[0];
+        d[base + IDX_Z] += tempSep[1];
         clampAndHeighten(d, i);
         return;
     }
@@ -76,11 +74,12 @@ export function updateKnight(
         const turretX = myTeam === TEAM_A ? TURRET_B_X : TURRET_A_X;
         const dtx = turretX - d[base + IDX_X];
         const dtz = TURRET_Z - d[base + IDX_Z];
-        const dtDist = Math.sqrt(dtx * dtx + dtz * dtz) || 0.001;
+        const dtDistSq = dtx * dtx + dtz * dtz;
+        const attackRangeSq = attr.attackRange * attr.attackRange;
 
-        if (dtDist > attr.attackRange) {
+        if (dtDistSq > attackRangeSq) {
             if (animLockTicks[i] === 0) d[base + IDX_ANIM] = 1; // move
-            computeSeparation(d, i, mySpeed, tempSep);
+            const dtDist = Math.sqrt(dtDistSq) || 0.001;
             applySteering(d, i, dtx, dtz, dtDist, mySpeed, tempSep);
         } else {
             // Trigger Bulwark Stance (Skill 1) if ready when engaging the turret
@@ -110,7 +109,6 @@ export function updateKnight(
             } else if (animLockTicks[i] === 0) {
                 d[base + IDX_ANIM] = 0;
             }
-            computeSeparation(d, i, mySpeed, tempSep);
             d[base + IDX_X] += tempSep[0];
             d[base + IDX_Z] += tempSep[1];
         }
@@ -126,12 +124,13 @@ export function updateKnight(
 
     const dx = tx - d[base + IDX_X];
     const dz = tz - d[base + IDX_Z];
-    const dist = Math.sqrt(dx * dx + dz * dz) || 0.001;
+    const distSq = dx * dx + dz * dz;
 
     // --- TARGETED SKILLS ---
     if (!skillActivated) {
         // Knight Skill 1: Bulwark Stance (Self Buff) - only when engaging target in combat range
-        if (d[base + IDX_SKILL1_CD] === 0 && dist <= attr.attackRange + 2.0) {
+        const skill1Range = attr.attackRange + 2.0;
+        if (d[base + IDX_SKILL1_CD] === 0 && distSq <= skill1Range * skill1Range) {
             d[base + IDX_IMMUNE_CD] = KNIGHT_SKILLS.bulwarkStance.immuneTicks;
             d[base + IDX_SKILL1_CD] = KNIGHT_SKILLS.bulwarkStance.cooldown;
             skillActivated = true;
@@ -145,7 +144,7 @@ export function updateKnight(
             });
         }
         // Knight Skill 2: Shield Taunt
-        else if (d[base + IDX_SKILL2_CD] === 0 && dist <= KNIGHT_SKILLS.taunt.range) {
+        else if (d[base + IDX_SKILL2_CD] === 0 && distSq <= KNIGHT_SKILLS.taunt.range * KNIGHT_SKILLS.taunt.range) {
             d[tBase + IDX_TARGET] = i;
             d[base + IDX_SKILL2_CD] = KNIGHT_SKILLS.taunt.cooldown;
             skillActivated = true;
@@ -162,10 +161,11 @@ export function updateKnight(
             });
         }
         // Knight Skill 3: Shield Bash (High Knockback)
-        else if (d[base + IDX_SKILL3_CD] === 0 && dist <= KNIGHT_SKILLS.shieldBash.range) {
+        else if (d[base + IDX_SKILL3_CD] === 0 && distSq <= KNIGHT_SKILLS.shieldBash.range * KNIGHT_SKILLS.shieldBash.range) {
             d[base + IDX_ANIM] = 2;
             animLockTicks[i] = 20;
             queueDamage(target, KNIGHT_SKILLS.shieldBash.damage, 15, i);
+            const dist = Math.sqrt(distSq) || 0.001;
             d[tBase + IDX_X] += (dx / dist) * KNIGHT_SKILLS.shieldBash.knockback;
             d[tBase + IDX_Z] += (dz / dist) * KNIGHT_SKILLS.shieldBash.knockback;
             d[base + IDX_SKILL3_CD] = KNIGHT_SKILLS.shieldBash.cooldown;
@@ -186,9 +186,8 @@ export function updateKnight(
 
     // --- MOVE & NORMAL ATTACK SYSTEM ---
     if (!skillActivated) {
-        computeSeparation(d, i, mySpeed, tempSep);
-
-        if (dist <= myRange) {
+        const myRangeSq = myRange * myRange;
+        if (distSq <= myRangeSq) {
             if (d[base + IDX_ATTACK_CD] === 0) {
                 d[base + IDX_ANIM] = 2;
                 animLockTicks[i] = 20;
@@ -214,6 +213,7 @@ export function updateKnight(
             if (animLockTicks[i] === 0) {
                 d[base + IDX_ANIM] = 1;
             }
+            const dist = Math.sqrt(distSq) || 0.001;
             applySteering(d, i, dx, dz, dist, mySpeed, tempSep);
         }
     }

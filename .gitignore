@@ -26,7 +26,7 @@ dist-ssr
 # Skilld references (recreated by `skilld install`)
 .skilld
 
-# Skilld references (recreated by `skilld install`)
-.skilld
-
+# Local environment / build artifacts
 scripts/venv
+graphify-out
+tsconfig.tsbuildinfo

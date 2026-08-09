@@ -43,7 +43,7 @@ import {
     nameBarsB,
     initNameBars,
 } from "../ui/ui_billboards";
-import { spawnIceShatterFX } from "../effects/SkillFX_Misc";
+import { spawnIceShatterFX, spawnComicExplosion } from "../effects/SkillFX_Misc";
 import { weaponCache } from "../units/UnitVisualHelpers";
 import {
     createUnitVisual,
@@ -536,11 +536,18 @@ export function changeModel(
 
                         scene.add(unitVis.root);
 
-                        // CRITICAL: Disable frustum culling on ALL meshes in the unit.
-                        // SkinnedMesh bounding boxes are NOT auto-updated during skeleton animation.
-                        // Three.js will incorrectly cull units that have moved far from spawn position.
+                        // CRITICAL: Set large bounding spheres for unit meshes so they are not incorrectly
+                        // culled during animations, and enable frustum culling for massive rendering savings.
                         unitVis.root.traverse((child: any) => {
-                            child.frustumCulled = false;
+                            if (child.isMesh) {
+                                if (!child.geometry.boundingSphere) {
+                                    child.geometry.computeBoundingSphere();
+                                }
+                                if (child.geometry.boundingSphere) {
+                                    child.geometry.boundingSphere.radius = 5.0;
+                                }
+                                child.frustumCulled = true;
+                            }
                         });
 
                         units.push({
@@ -780,14 +787,15 @@ export function updateFrame(data: Float32Array, delta: number) {
                     unit.weapons[w].visible = showMesh && showWeapons;
                 }
             } else if (baseType === 5 && inView && showMesh) {
-                const assassinVisual = unit as any;
-                if (assassinVisual.getWeaponsForLOD) {
+                const assassinVisual = unitInstances[i] as any;
+                if (assassinVisual && assassinVisual.getWeaponsForLOD) {
                     assassinVisual.getWeaponsForLOD();
                 }
             }
 
             if (hp > 0 && !(unit as any)._wasAlive) {
                 (unit as any)._wasAlive = true;
+                (unit as any).hasExploded = false;
                 unit.currentEffectState = 0;
                 if (unit.originalMaterials) {
                     for (let m = 0; m < unit.meshes.length; m++) {
@@ -806,6 +814,14 @@ export function updateFrame(data: Float32Array, delta: number) {
 
             if (hp <= 0 && unit.deathTime) {
                 const elapsed = performance.now() - unit.deathTime;
+
+                // Trigger comic explosion at 800ms post-death (Disabled)
+                if (elapsed >= 800 && !(unit as any).hasExploded) {
+                    (unit as any).hasExploded = true;
+                    // unit.root.visible = false; // Keep model visible during death sinking
+                    // spawnComicExplosion(scene, unit.root.position.x, unit.root.position.y + 0.8, unit.root.position.z);
+                }
+
                 if (elapsed > 2000) {
                     unit.root.position.set(x, -999, z);
                     unit.root.scale.setScalar(0.0001);
@@ -977,9 +993,9 @@ export function updateFrame(data: Float32Array, delta: number) {
             // ★ ANIMATION LOD
             const t0Anim = performance.now();
             let skipFrames = 1;
-            if (distSq > 1600) {
+            if (distSq > 2225) {
                 skipFrames = 4;
-            } else if (distSq > 800) {
+            } else if (distSq > 1200) {
                 skipFrames = 2;
             }
             if (unit.animationFrameSkipCount === undefined) unit.animationFrameSkipCount = 0;
@@ -1133,6 +1149,7 @@ export function resetUnitsVisual() {
         unit.currentEffectState = 0;
         unit.accumulatedDelta = 0;
         unit.deathTime = undefined;
+        (unit as any).hasExploded = false;
         _iceInstanced.setMatrixAt(i, _iceDead);
 
         // Hide billboards on reset

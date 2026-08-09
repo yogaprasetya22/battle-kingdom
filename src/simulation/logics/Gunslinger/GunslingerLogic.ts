@@ -66,12 +66,12 @@ export function updateGunslinger(
     const attackInterval = attr.attackInterval;
 
     let skillActivated = false;
+    computeSeparation(d, i, mySpeed, tempSep);
 
     if (target === -1) {
         if (animLockTicks[i] === 0) {
             d[base + IDX_ANIM] = 0; // idle
         }
-        computeSeparation(d, i, mySpeed, tempSep);
         d[base + IDX_X] += tempSep[0];
         d[base + IDX_Z] += tempSep[1];
         clampAndHeighten(d, i);
@@ -84,11 +84,12 @@ export function updateGunslinger(
         const turretX = myTeam === TEAM_A ? TURRET_B_X : TURRET_A_X;
         const dtx = turretX - d[base + IDX_X];
         const dtz = TURRET_Z - d[base + IDX_Z];
-        const dtDist = Math.sqrt(dtx * dtx + dtz * dtz) || 0.001;
+        const dtDistSq = dtx * dtx + dtz * dtz;
+        const attackRangeSq = attr.attackRange * attr.attackRange;
 
-        if (dtDist > attr.attackRange) {
+        if (dtDistSq > attackRangeSq) {
             if (animLockTicks[i] === 0) d[base + IDX_ANIM] = 1; // move
-            computeSeparation(d, i, mySpeed, tempSep);
+            const dtDist = Math.sqrt(dtDistSq) || 0.001;
             applySteering(d, i, dtx, dtz, dtDist, mySpeed, tempSep);
         } else {
             if (d[base + IDX_ATTACK_CD] === 0) {
@@ -103,7 +104,6 @@ export function updateGunslinger(
             } else if (animLockTicks[i] === 0) {
                 d[base + IDX_ANIM] = 0;
             }
-            computeSeparation(d, i, mySpeed, tempSep);
             d[base + IDX_X] += tempSep[0];
             d[base + IDX_Z] += tempSep[1];
         }
@@ -118,11 +118,11 @@ export function updateGunslinger(
 
     const dx = tx - d[base + IDX_X];
     const dz = tz - d[base + IDX_Z];
-    const dist = Math.sqrt(dx * dx + dz * dz) || 0.001;
+    const distSq = dx * dx + dz * dz;
 
     // --- TARGETED SKILLS ---
     // Skill 1: High Noon — single target nuke
-    if (d[base + IDX_SKILL1_CD] === 0 && dist <= myRange) {
+    if (d[base + IDX_SKILL1_CD] === 0 && distSq <= myRange * myRange) {
         d[base + IDX_ANIM] = 2;
         animLockTicks[i] = 20;
         queueDamage(target, GUNSLINGER_SKILLS.highNoon.damage, 12, i);
@@ -141,7 +141,7 @@ export function updateGunslinger(
         });
     }
     // Skill 2: Smoke Bomb — self-stealth
-    else if (d[base + IDX_SKILL2_CD] === 0 && dist <= myRange) {
+    else if (d[base + IDX_SKILL2_CD] === 0 && distSq <= myRange * myRange) {
         d[base + IDX_ANIM] = 2;
         animLockTicks[i] = 15;
         d[base + IDX_EFFECT_STATE] = 1000 + GUNSLINGER_SKILLS.smokeBomb.stealthTicks;
@@ -157,7 +157,7 @@ export function updateGunslinger(
         });
     }
     // Skill 3: Fan Fire — AoE cone
-    else if (d[base + IDX_SKILL3_CD] === 0 && dist <= myRange) {
+    else if (d[base + IDX_SKILL3_CD] === 0 && distSq <= myRange * myRange) {
         d[base + IDX_ANIM] = 2;
         animLockTicks[i] = 20;
         const myTeam = d[base + IDX_TEAM];
@@ -168,10 +168,13 @@ export function updateGunslinger(
         const tCol = Math.floor((targetX - BOUND_X_MIN) / cellSize);
         const tRow = Math.floor((targetZ - BOUND_Z_MIN) / cellSize);
 
-        for (let r = tRow - 1; r <= tRow + 1; r++) {
-            if (r < 0 || r >= gridRows) continue;
-            for (let c = tCol - 1; c <= tCol + 1; c++) {
-                if (c < 0 || c >= gridCols) continue;
+        const startRow = Math.max(0, tRow - 1);
+        const endRow = Math.min(gridRows - 1, tRow + 1);
+        const startCol = Math.max(0, tCol - 1);
+        const endCol = Math.min(gridCols - 1, tCol + 1);
+
+        for (let r = startRow; r <= endRow; r++) {
+            for (let c = startCol; c <= endCol; c++) {
                 const cellIdx = r * gridCols + c;
                 let curr = gridHead[cellIdx];
                 while (curr !== -1) {
@@ -208,9 +211,8 @@ export function updateGunslinger(
 
     // --- MOVE & NORMAL ATTACK SYSTEM ---
     if (!skillActivated) {
-        computeSeparation(d, i, mySpeed, tempSep);
-
-        if (dist <= myRange) {
+        const myRangeSq = myRange * myRange;
+        if (distSq <= myRangeSq) {
             if (d[base + IDX_ATTACK_CD] === 0) {
                 d[base + IDX_ANIM] = 2;
                 animLockTicks[i] = 20;
@@ -236,6 +238,7 @@ export function updateGunslinger(
             if (animLockTicks[i] === 0) {
                 d[base + IDX_ANIM] = 1;
             }
+            const dist = Math.sqrt(distSq) || 0.001;
             applySteering(d, i, dx, dz, dist, mySpeed, tempSep);
         }
     }

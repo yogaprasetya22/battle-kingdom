@@ -557,7 +557,7 @@ export class DamageHUDBatcher {
                 }
             }
 
-            const baseScale = e.isCrit ? 1.8 : 1.25;
+            const baseScale = e.isCrit ? 1.2 : 0.95;
             const totalScale = baseScale * scaleMultiplier;
 
             const offsetX = e.vx * t;

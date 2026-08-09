@@ -56,12 +56,12 @@ export function updateAssassin(
     const attackInterval = attr.attackInterval;
 
     let skillActivated = false;
+    computeSeparation(d, i, mySpeed, tempSep);
 
     if (target === -1) {
         if (animLockTicks[i] === 0) {
             d[base + IDX_ANIM] = 0; // idle
         }
-        computeSeparation(d, i, mySpeed, tempSep);
         d[base + IDX_X] += tempSep[0];
         d[base + IDX_Z] += tempSep[1];
         clampAndHeighten(d, i);
@@ -74,11 +74,12 @@ export function updateAssassin(
         const turretX = myTeam === TEAM_A ? TURRET_B_X : TURRET_A_X;
         const dtx = turretX - d[base + IDX_X];
         const dtz = TURRET_Z - d[base + IDX_Z];
-        const dtDist = Math.sqrt(dtx * dtx + dtz * dtz) || 0.001;
+        const dtDistSq = dtx * dtx + dtz * dtz;
+        const attackRangeSq = attr.attackRange * attr.attackRange;
 
-        if (dtDist > attr.attackRange) {
+        if (dtDistSq > attackRangeSq) {
             if (animLockTicks[i] === 0) d[base + IDX_ANIM] = 1; // move
-            computeSeparation(d, i, mySpeed, tempSep);
+            const dtDist = Math.sqrt(dtDistSq) || 0.001;
             applySteering(d, i, dtx, dtz, dtDist, mySpeed, tempSep);
         } else {
             if (d[base + IDX_ATTACK_CD] === 0) {
@@ -93,7 +94,6 @@ export function updateAssassin(
             } else if (animLockTicks[i] === 0) {
                 d[base + IDX_ANIM] = 0;
             }
-            computeSeparation(d, i, mySpeed, tempSep);
             d[base + IDX_X] += tempSep[0];
             d[base + IDX_Z] += tempSep[1];
         }
@@ -108,13 +108,14 @@ export function updateAssassin(
 
     const dx = tx - d[base + IDX_X];
     const dz = tz - d[base + IDX_Z];
-    const dist = Math.sqrt(dx * dx + dz * dz) || 0.001;
+    const distSq = dx * dx + dz * dz;
 
     // --- TARGETED SKILLS ---
     // Skill 1: Shadow Step
-    if (d[base + IDX_SKILL1_CD] === 0 && dist <= 8.0) {
+    if (d[base + IDX_SKILL1_CD] === 0 && distSq <= 64.0) {
         d[base + IDX_ANIM] = 1;
         animLockTicks[i] = 10;
+        const dist = Math.sqrt(distSq) || 0.001;
         const behindX = tx - (dx / dist) * ASSASSIN_SKILLS.shadowStep.teleportRange;
         const behindZ = tz - (dz / dist) * ASSASSIN_SKILLS.shadowStep.teleportRange;
         const fromX = d[base + IDX_X];
@@ -122,7 +123,7 @@ export function updateAssassin(
         const fromZ = d[base + IDX_Z];
         d[base + IDX_X] = behindX;
         d[base + IDX_Z] = behindZ;
-        d[base + IDX_Y] = getTerrainHeight(behindX, behindZ);
+        const targetY = getTerrainHeight(behindX, behindZ);
         d[base + IDX_SKILL1_CD] = ASSASSIN_SKILLS.shadowStep.cooldown;
         skillActivated = true;
         skillFXBatch.push({
@@ -132,15 +133,15 @@ export function updateAssassin(
             fy: fromY,
             fz: fromZ,
             tx: behindX,
-            ty: d[base + IDX_Y],
+            ty: targetY,
             tz: behindZ,
         });
     }
     // Skill 2: Backstab
-    else if (d[base + IDX_SKILL2_CD] === 0 && dist <= myRange) {
+    else if (d[base + IDX_SKILL2_CD] === 0 && distSq <= myRange * myRange) {
         d[base + IDX_ANIM] = 2;
         animLockTicks[i] = 20;
-        const isBackstab = dist < 2.0;
+        const isBackstab = distSq < 4.0;
         let dmg = isBackstab ? ASSASSIN_SKILLS.backstab.damageBack : ASSASSIN_SKILLS.backstab.damageFront;
         const isAttackerStealthed = d[base + IDX_EFFECT_STATE] >= 1000 && d[base + IDX_EFFECT_STATE] < 2000;
         if (isAttackerStealthed) {
@@ -163,7 +164,7 @@ export function updateAssassin(
         });
     }
     // Skill 3: Poison Blade
-    else if (d[base + IDX_SKILL3_CD] === 0 && dist <= myRange) {
+    else if (d[base + IDX_SKILL3_CD] === 0 && distSq <= myRange * myRange) {
         d[base + IDX_ANIM] = 2;
         animLockTicks[i] = 20;
         let dmg = ASSASSIN_SKILLS.poisonBlade.damagePerTick;
@@ -191,9 +192,8 @@ export function updateAssassin(
 
     // --- MOVE & NORMAL ATTACK SYSTEM ---
     if (!skillActivated) {
-        computeSeparation(d, i, mySpeed, tempSep);
-
-        if (dist <= myRange) {
+        const myRangeSq = myRange * myRange;
+        if (distSq <= myRangeSq) {
             if (d[base + IDX_ATTACK_CD] === 0) {
                 d[base + IDX_ANIM] = 2;
                 animLockTicks[i] = 20;
@@ -225,6 +225,7 @@ export function updateAssassin(
             if (animLockTicks[i] === 0) {
                 d[base + IDX_ANIM] = 1;
             }
+            const dist = Math.sqrt(distSq) || 0.001;
             applySteering(d, i, dx, dz, dist, mySpeed, tempSep);
 
             if (d[base + IDX_EFFECT_STATE] < 1000) {

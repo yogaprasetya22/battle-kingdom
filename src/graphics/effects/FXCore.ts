@@ -97,13 +97,17 @@ export const sparkTex = loadTex("particle-pack/PNG (Transparent)/spark_04.png");
 export const smokeTex = loadTex("particle-pack/PNG (Transparent)/smoke_04.png");
 export const fireTex = loadTex("particle-pack/PNG (Transparent)/fire_01.png");
 export const flameTex = loadTex("particle-pack/PNG (Transparent)/flame_01.png");
-export const scorchTex = loadTex(
-    "particle-pack/PNG (Transparent)/scorch_01.png",
-);
 export const lightTex = loadTex("particle-pack/PNG (Transparent)/light_02.png");
-export const magicTex = loadTex("particle-pack/PNG (Transparent)/magic_01.png");
 export const star2Tex = loadTex("particle-pack/PNG (Transparent)/star_08.png");
-export const muzzleTex = loadTex("particle-pack/PNG (Transparent)/Rotated/muzzle_01_rotated.png");
+
+export const blueFlameSmokeTex = loadTex("particle-pack/flamethrower_smoke.png");
+export const blueFlameEmberTex = loadTex("particle-pack/flamethrower_ember.png");
+export const blueFlameCoreTex = loadTex("particle-pack/flamethrower_core.png");
+
+export const gasExplosionGlowTex = loadTex("particle-pack/gas_explosion_glow.png");
+export const gasExplosionCloudTex = loadTex("particle-pack/gas_explosion_cloud.png");
+
+
 
 // ═══════════════════════════════════════════════════════════════
 // Shared uniform for shader-based effects
@@ -168,56 +172,6 @@ export function releasePooledMaterial(mat: THREE.MeshBasicMaterial) {
     } else {
         mat.dispose();
     }
-}
-
-// ═══════════════════════════════════════════════════════════════
-// Material factories for vertex effects
-// ═══════════════════════════════════════════════════════════════
-export function createIronFortitudeMat(
-    baseColor: THREE.Color,
-): THREE.MeshStandardMaterial {
-    const mat = new THREE.MeshStandardMaterial({
-        color: baseColor,
-        roughness: 0.2,
-        metalness: 0.8,
-    });
-    mat.onBeforeCompile = (shader) => {
-        shader.uniforms.uEffectTime = effectUniforms.uTime;
-        shader.vertexShader = shader.vertexShader.replace(
-            "#include <project_vertex>",
-            `float p = sin(uEffectTime * 5.0) * 0.5 + 0.5;
-transformed += objectNormal * p * 0.18;
-#include <project_vertex>`,
-        );
-        shader.fragmentShader = shader.fragmentShader.replace(
-            "#include <dithering_fragment>",
-            `float fp = sin(uEffectTime * 5.0) * 0.5 + 0.5;
-gl_FragColor.rgb += vec3(1.0, 0.55, 0.0) * fp * 1.1;
-#include <dithering_fragment>`,
-        );
-    };
-    return mat;
-}
-
-export function createFrostNovaMat(): THREE.MeshStandardMaterial {
-    const mat = new THREE.MeshStandardMaterial({
-        color: new THREE.Color(0x33aaff),
-        roughness: 0.05,
-        metalness: 0.1,
-        emissive: new THREE.Color(0x0033cc),
-        emissiveIntensity: 0.7,
-    });
-    mat.onBeforeCompile = (shader) => {
-        shader.uniforms.uEffectTime = effectUniforms.uTime;
-        shader.vertexShader = shader.vertexShader.replace(
-            "#include <project_vertex>",
-            `float len = length(transformed);
-float n = sin(len * 12.0 + uEffectTime * 3.0) * 0.5 + 0.5;
-transformed += objectNormal * n * 0.22;
-#include <project_vertex>`,
-        );
-    };
-    return mat;
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -290,7 +244,7 @@ export function spawnExplosion(
     if (!canSpawnFX()) return;
 
     const geo = pooledPlane(size, size);
-    const mat = new THREE.MeshBasicMaterial({
+    const mat = getPooledMaterial({
         map: sparkTex,
         color,
         transparent: true,
@@ -331,7 +285,7 @@ export function spawnExplosion(
             if (t >= 1) {
                 scene.remove(instancedMesh);
                 instancedMesh.dispose();
-                mat.dispose();
+                releasePooledMaterial(mat);
                 return false;
             }
             const et = easeOutCubic(t);
@@ -354,3 +308,462 @@ export function spawnExplosion(
         },
     });
 }
+
+export function spawnBlueFlamethrower(
+    scene: THREE.Scene,
+    position: THREE.Vector3,
+    direction: THREE.Vector3,
+    duration = 1.0,
+) {
+    if (!canSpawnFX()) return;
+
+    const qScale = fxQualityScale();
+
+    const maxCore = Math.max(10, Math.round(50 * qScale));
+    const maxSmoke = Math.max(5, Math.round(30 * qScale));
+    const maxEmber = Math.max(10, Math.round(40 * qScale));
+
+    const geo = pooledPlane(1.0, 1.0);
+
+    const coreMat = new THREE.ShaderMaterial({
+        uniforms: { uMap: { value: blueFlameCoreTex } },
+        vertexShader: `
+            attribute float aFrameIdx;
+            attribute float aOpacity;
+            varying vec2 vUv;
+            varying float vOpacity;
+            void main() {
+                float c = mod(aFrameIdx, 3.0);
+                float r = floor(aFrameIdx / 3.0);
+                vUv = vec2((c + uv.x) / 3.0, 1.0 - (r + 1.0 - uv.y) / 6.0);
+                vOpacity = aOpacity;
+                gl_Position = projectionMatrix * modelViewMatrix * instanceMatrix * vec4(position, 1.0);
+            }
+        `,
+        fragmentShader: `
+            uniform sampler2D uMap;
+            varying vec2 vUv;
+            varying float vOpacity;
+            void main() {
+                vec4 tex = texture2D(uMap, vUv);
+                if (tex.a < 0.05) discard;
+                vec3 cyan = vec3(0.0, 0.65, 1.0);
+                gl_FragColor = vec4(tex.rgb * cyan * 1.5, tex.a * vOpacity);
+            }
+        `,
+        transparent: true,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+        side: THREE.DoubleSide,
+    });
+
+    const aCoreFrameIdx = new Float32Array(maxCore);
+    const aCoreOpacity = new Float32Array(maxCore);
+    const coreMesh = new THREE.InstancedMesh(geo, coreMat, maxCore);
+    coreMesh.frustumCulled = false;
+    coreMesh.geometry.setAttribute("aFrameIdx", new THREE.InstancedBufferAttribute(aCoreFrameIdx, 1));
+    coreMesh.geometry.setAttribute("aOpacity", new THREE.InstancedBufferAttribute(aCoreOpacity, 1));
+    scene.add(coreMesh);
+
+    const smokeMat = new THREE.ShaderMaterial({
+        uniforms: { uMap: { value: blueFlameSmokeTex } },
+        vertexShader: `
+            attribute float aFrameIdx;
+            attribute float aOpacity;
+            varying vec2 vUv;
+            varying float vOpacity;
+            void main() {
+                float c = mod(aFrameIdx, 2.0);
+                float r = floor(aFrameIdx / 2.0);
+                vUv = vec2((c + uv.x) / 2.0, 1.0 - (r + 1.0 - uv.y) / 2.0);
+                vOpacity = aOpacity;
+                gl_Position = projectionMatrix * modelViewMatrix * instanceMatrix * vec4(position, 1.0);
+            }
+        `,
+        fragmentShader: `
+            uniform sampler2D uMap;
+            varying vec2 vUv;
+            varying float vOpacity;
+            void main() {
+                vec4 tex = texture2D(uMap, vUv);
+                if (tex.a < 0.05) discard;
+                vec3 darkBlue = vec3(0.0, 0.3, 0.8);
+                gl_FragColor = vec4(tex.rgb * darkBlue, tex.a * vOpacity * 0.45);
+            }
+        `,
+        transparent: true,
+        depthWrite: false,
+        blending: THREE.NormalBlending,
+        side: THREE.DoubleSide,
+    });
+
+    const aSmokeFrameIdx = new Float32Array(maxSmoke);
+    const aSmokeOpacity = new Float32Array(maxSmoke);
+    const smokeMesh = new THREE.InstancedMesh(geo, smokeMat, maxSmoke);
+    smokeMesh.frustumCulled = false;
+    smokeMesh.geometry.setAttribute("aFrameIdx", new THREE.InstancedBufferAttribute(aSmokeFrameIdx, 1));
+    smokeMesh.geometry.setAttribute("aOpacity", new THREE.InstancedBufferAttribute(aSmokeOpacity, 1));
+    scene.add(smokeMesh);
+
+    const emberMat = new THREE.MeshBasicMaterial({
+        map: blueFlameEmberTex,
+        color: 0x00e5ff,
+        transparent: true,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+    });
+    const emberMesh = new THREE.InstancedMesh(geo, emberMat, maxEmber);
+    emberMesh.frustumCulled = false;
+    scene.add(emberMesh);
+
+    const hideMatrix = new THREE.Matrix4().makeScale(0, 0, 0);
+    for (let i = 0; i < maxCore; i++) {
+        coreMesh.setMatrixAt(i, hideMatrix);
+        aCoreOpacity[i] = 0;
+    }
+    for (let i = 0; i < maxSmoke; i++) {
+        smokeMesh.setMatrixAt(i, hideMatrix);
+        aSmokeOpacity[i] = 0;
+    }
+    for (let i = 0; i < maxEmber; i++) {
+        emberMesh.setMatrixAt(i, hideMatrix);
+    }
+
+    interface Particle {
+        pos: THREE.Vector3;
+        vel: THREE.Vector3;
+        scale: number;
+        maxScale: number;
+        age: number;
+        life: number;
+        rotation: number;
+        rotVel: number;
+    }
+
+    const cores: Particle[] = [];
+    const smokes: Particle[] = [];
+    const embers: Particle[] = [];
+
+    let totalAge = 0;
+    let spawnAccumulator = 0;
+    const spawnRate = 25;
+
+    activeFX.push({
+        update(delta) {
+            totalAge += delta;
+            const isStreaming = totalAge < duration;
+
+            if (isStreaming) {
+                spawnAccumulator += delta * spawnRate;
+                while (spawnAccumulator >= 1.0) {
+                    spawnAccumulator -= 1.0;
+
+                    if (cores.length < maxCore) {
+                        const spreadAngle = (Math.random() - 0.5) * 0.15;
+                        const pDirection = direction.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), spreadAngle);
+                        const speed = 4.0 + Math.random() * 2.0;
+                        cores.push({
+                            pos: position.clone(),
+                            vel: pDirection.multiplyScalar(speed),
+                            scale: 0.1,
+                            maxScale: 1.0 + Math.random() * 0.6,
+                            age: 0,
+                            life: 0.4 + Math.random() * 0.2,
+                            rotation: Math.random() * Math.PI * 2,
+                            rotVel: (Math.random() - 0.5) * 2,
+                        });
+                    }
+
+                    if (smokes.length < maxSmoke) {
+                        const spreadAngle = (Math.random() - 0.5) * 0.4;
+                        const pDirection = direction.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), spreadAngle);
+                        const speed = 2.5 + Math.random() * 1.5;
+                        smokes.push({
+                            pos: position.clone(),
+                            vel: pDirection.multiplyScalar(speed),
+                            scale: 0.2,
+                            maxScale: 1.5 + Math.random() * 1.0,
+                            age: 0,
+                            life: 0.6 + Math.random() * 0.3,
+                            rotation: Math.random() * Math.PI * 2,
+                            rotVel: (Math.random() - 0.5) * 1.0,
+                        });
+                    }
+
+                    if (embers.length < maxEmber) {
+                        const spreadAngle = (Math.random() - 0.5) * 0.6;
+                        const pDirection = direction.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), spreadAngle);
+                        const speed = 6.0 + Math.random() * 4.0;
+                        embers.push({
+                            pos: position.clone(),
+                            vel: pDirection.multiplyScalar(speed),
+                            scale: 0.05,
+                            maxScale: 0.15 + Math.random() * 0.1,
+                            age: 0,
+                            life: 0.3 + Math.random() * 0.3,
+                            rotation: Math.random() * Math.PI * 2,
+                            rotVel: (Math.random() - 0.5) * 5,
+                        });
+                    }
+                }
+            }
+
+            if (!isStreaming && cores.length === 0 && smokes.length === 0 && embers.length === 0) {
+                scene.remove(coreMesh);
+                scene.remove(smokeMesh);
+                scene.remove(emberMesh);
+                coreMesh.dispose();
+                smokeMesh.dispose();
+                emberMesh.dispose();
+                coreMat.dispose();
+                smokeMat.dispose();
+                emberMat.dispose();
+                return false;
+            }
+
+            const cq = camera.quaternion;
+
+            for (let i = cores.length - 1; i >= 0; i--) {
+                const p = cores[i];
+                p.age += delta;
+                if (p.age >= p.life) {
+                    cores.splice(i, 1);
+                    continue;
+                }
+                const t = p.age / p.life;
+                p.pos.addScaledVector(p.vel, delta);
+                p.pos.y += delta * 1.5;
+                p.scale = THREE.MathUtils.lerp(p.maxScale * 0.2, p.maxScale, easeOutQuad(t));
+                p.rotation += p.rotVel * delta;
+            }
+
+            for (let i = 0; i < maxCore; i++) {
+                if (i < cores.length) {
+                    const p = cores[i];
+                    const t = p.age / p.life;
+                    _tempObj.position.copy(p.pos);
+                    _tempObj.quaternion.copy(cq);
+                    _tempObj.rotateZ(p.rotation);
+                    _tempObj.scale.setScalar(p.scale);
+                    _tempObj.updateMatrix();
+
+                    coreMesh.setMatrixAt(i, _tempObj.matrix);
+                    aCoreOpacity[i] = 1.0 - t;
+                    aCoreFrameIdx[i] = Math.min(17, Math.floor(t * 18));
+                } else {
+                    coreMesh.setMatrixAt(i, hideMatrix);
+                    aCoreOpacity[i] = 0;
+                }
+            }
+            coreMesh.instanceMatrix.needsUpdate = true;
+            (coreMesh.geometry.attributes.aFrameIdx as THREE.InstancedBufferAttribute).needsUpdate = true;
+            (coreMesh.geometry.attributes.aOpacity as THREE.InstancedBufferAttribute).needsUpdate = true;
+
+            for (let i = smokes.length - 1; i >= 0; i--) {
+                const p = smokes[i];
+                p.age += delta;
+                if (p.age >= p.life) {
+                    smokes.splice(i, 1);
+                    continue;
+                }
+                const t = p.age / p.life;
+                p.pos.addScaledVector(p.vel, delta);
+                p.pos.y += delta * 2.5;
+                p.scale = THREE.MathUtils.lerp(p.maxScale * 0.3, p.maxScale, t);
+                p.rotation += p.rotVel * delta;
+            }
+
+            for (let i = 0; i < maxSmoke; i++) {
+                if (i < smokes.length) {
+                    const p = smokes[i];
+                    const t = p.age / p.life;
+                    _tempObj.position.copy(p.pos);
+                    _tempObj.quaternion.copy(cq);
+                    _tempObj.rotateZ(p.rotation);
+                    _tempObj.scale.setScalar(p.scale);
+                    _tempObj.updateMatrix();
+
+                    smokeMesh.setMatrixAt(i, _tempObj.matrix);
+                    aSmokeOpacity[i] = 1.0 - t;
+                    aSmokeFrameIdx[i] = Math.min(3, Math.floor(t * 4));
+                } else {
+                    smokeMesh.setMatrixAt(i, hideMatrix);
+                    aSmokeOpacity[i] = 0;
+                }
+            }
+            smokeMesh.instanceMatrix.needsUpdate = true;
+            (smokeMesh.geometry.attributes.aFrameIdx as THREE.InstancedBufferAttribute).needsUpdate = true;
+            (smokeMesh.geometry.attributes.aOpacity as THREE.InstancedBufferAttribute).needsUpdate = true;
+
+            for (let i = embers.length - 1; i >= 0; i--) {
+                const p = embers[i];
+                p.age += delta;
+                if (p.age >= p.life) {
+                    emberMesh.setMatrixAt(i, hideMatrix);
+                    embers.splice(i, 1);
+                    continue;
+                }
+                const t = p.age / p.life;
+                p.pos.addScaledVector(p.vel, delta);
+                p.pos.y += Math.sin(totalAge * 10 + i) * 0.5 * delta;
+                p.scale = THREE.MathUtils.lerp(p.maxScale, 0.01, t);
+            }
+
+            for (let i = 0; i < maxEmber; i++) {
+                if (i < embers.length) {
+                    const p = embers[i];
+                    _tempObj.position.copy(p.pos);
+                    _tempObj.quaternion.copy(cq);
+                    _tempObj.scale.setScalar(p.scale);
+                    _tempObj.updateMatrix();
+
+                    emberMesh.setMatrixAt(i, _tempObj.matrix);
+                } else {
+                    emberMesh.setMatrixAt(i, hideMatrix);
+                }
+            }
+            emberMesh.instanceMatrix.needsUpdate = true;
+
+            return true;
+        },
+    });
+}
+
+export function spawnGasExplosionFX(scene: THREE.Scene, pos: THREE.Vector3, team?: number): void {
+    if (!canSpawnFX()) return;
+    const isBlue = team === 1;
+
+    // 1. Glow Emitter
+    const glowGeo = pooledPlane(5.75, 5.75);
+    const glowMat = new THREE.MeshBasicMaterial({
+        map: gasExplosionGlowTex,
+        color: isBlue ? 0x00aaff : 0xffaa00,
+        transparent: true,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        side: THREE.DoubleSide
+    });
+    const glowMesh = new THREE.Mesh(glowGeo, glowMat);
+    glowMesh.position.copy(pos).y += 0.1;
+    glowMesh.rotation.x = -Math.PI / 2;
+    scene.add(glowMesh);
+
+    // 2. Cloud Burst (2x2 sprite animation, count 14)
+    const cloudCount = 14;
+    const cloudGeo = pooledPlane(1.1, 1.1);
+    const cloudMat = new THREE.ShaderMaterial({
+        uniforms: { 
+            uMap: { value: gasExplosionCloudTex },
+            uColor: { value: isBlue ? new THREE.Color(0.0, 0.4, 0.9) : new THREE.Color(0.9, 0.2, 0.0) }
+        },
+        vertexShader: `
+            attribute float aFrameIdx;
+            attribute float aOpacity;
+            varying vec2 vUv;
+            varying float vOpacity;
+            void main() {
+                float c = mod(aFrameIdx, 2.0);
+                float r = floor(aFrameIdx / 2.0);
+                vUv = vec2((c + uv.x) / 2.0, 1.0 - (r + 1.0 - uv.y) / 2.0);
+                vOpacity = aOpacity;
+                gl_Position = projectionMatrix * modelViewMatrix * instanceMatrix * vec4(position, 1.0);
+            }
+        `,
+        fragmentShader: `
+            uniform sampler2D uMap;
+            uniform vec3 uColor;
+            varying vec2 vUv;
+            varying float vOpacity;
+            void main() {
+                vec4 tex = texture2D(uMap, vUv);
+                if (tex.a < 0.05) discard;
+                gl_FragColor = vec4(tex.rgb * uColor, tex.a * vOpacity * 0.85);
+            }
+        `,
+        transparent: true,
+        depthWrite: false,
+        side: THREE.DoubleSide
+    });
+    const cloudMesh = new THREE.InstancedMesh(cloudGeo, cloudMat, cloudCount);
+    cloudMesh.frustumCulled = false;
+    scene.add(cloudMesh);
+
+    const aCloudFrameIdx = new Float32Array(cloudCount);
+    const aCloudOpacity = new Float32Array(cloudCount);
+    cloudMesh.geometry.setAttribute("aFrameIdx", new THREE.InstancedBufferAttribute(aCloudFrameIdx, 1));
+    cloudMesh.geometry.setAttribute("aOpacity", new THREE.InstancedBufferAttribute(aCloudOpacity, 1));
+
+    const cloudOffsets: THREE.Vector3[] = [];
+    const cloudVels: THREE.Vector3[] = [];
+    const cloudLifetimes: number[] = [];
+    const cloudDurations: number[] = [];
+    for (let i = 0; i < cloudCount; i++) {
+        cloudOffsets.push(new THREE.Vector3());
+        const theta = Math.random() * Math.PI * 2;
+        const phi = Math.acos(Math.random() * 2 - 1);
+        const speed = 1.0 + Math.random() * 5.0;
+        cloudVels.push(
+            new THREE.Vector3(
+                Math.sin(phi) * Math.cos(theta) * speed,
+                Math.abs(Math.sin(phi) * Math.sin(theta) * speed) * 0.8 + 0.5,
+                Math.cos(phi) * speed
+            )
+        );
+        cloudLifetimes.push(0);
+        cloudDurations.push(0.5 + Math.random() * 0.2); // ~0.6s
+    }
+
+    let age = 0;
+    const duration = 0.85;
+
+    activeFX.push({
+        update(delta) {
+            age += delta;
+            const t = Math.min(1, age / duration);
+
+            if (t >= 1) {
+                scene.remove(glowMesh);
+                scene.remove(cloudMesh);
+
+                glowMat.dispose();
+                cloudMat.dispose();
+
+                cloudMesh.dispose();
+                return false;
+            }
+
+            // Update Glow
+            const glowT = Math.min(1, age / 0.3);
+            glowMesh.scale.setScalar(1.0 + glowT * 4.75);
+            glowMat.opacity = 1.0 - easeOutCubic(glowT);
+
+            const cq = camera.quaternion;
+
+            // Update Cloud Burst
+            for (let i = 0; i < cloudCount; i++) {
+                cloudLifetimes[i] += delta;
+                const pct = Math.min(1, cloudLifetimes[i] / cloudDurations[i]);
+                
+                cloudOffsets[i].addScaledVector(cloudVels[i], delta);
+                cloudVels[i].multiplyScalar(0.92);
+
+                const frameIdx = Math.floor(pct * 3.99); // 0 to 3 frames
+                aCloudFrameIdx[i] = frameIdx;
+                aCloudOpacity[i] = 1.0 - pct;
+
+                _tempObj.position.copy(pos).add(cloudOffsets[i]);
+                _tempObj.quaternion.copy(cq);
+                _tempObj.scale.setScalar(0.5 + pct * 1.6);
+                _tempObj.updateMatrix();
+                cloudMesh.setMatrixAt(i, _tempObj.matrix);
+            }
+            cloudMesh.instanceMatrix.needsUpdate = true;
+            (cloudMesh.geometry.getAttribute("aFrameIdx") as THREE.InstancedBufferAttribute).needsUpdate = true;
+            (cloudMesh.geometry.getAttribute("aOpacity") as THREE.InstancedBufferAttribute).needsUpdate = true;
+
+            return true;
+        }
+    });
+}
+

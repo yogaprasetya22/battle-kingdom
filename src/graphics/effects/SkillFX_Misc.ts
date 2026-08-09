@@ -28,14 +28,16 @@ export function spawnBasicAttackFX(
     tx: number,
     ty: number,
     tz: number,
+    team?: number,
 ) {
     if (!canSpawnFX()) return;
     const start = new THREE.Vector3(fx, fy, fz);
     const end = new THREE.Vector3(tx, ty, tz);
+    const isBlue = team === 1;
 
     if (uType === 0) {
         soundFX.playSlash(end.x, end.y, end.z, camera.position);
-        spawnExplosion(scene, end, 0xffdd66, 6, 0.1);
+        spawnExplosion(scene, end, isBlue ? 0x00dfff : 0xffdd66, 6, 0.1);
     } else if (uType === 1) {
         soundFX.playBow(start.x, start.y, start.z, camera.position);
         let age = 0;
@@ -49,7 +51,7 @@ export function spawnBasicAttackFX(
                 if (!mesh) {
                     const geo = new THREE.CylinderGeometry(0.06, 0.06, 0.7, 5);
                     mat = new THREE.MeshBasicMaterial({
-                        color: 0xffeaad,
+                        color: isBlue ? 0x88ccff : 0xffeaad,
                         transparent: true,
                         opacity: 0.8,
                         blending: THREE.AdditiveBlending,
@@ -67,7 +69,7 @@ export function spawnBasicAttackFX(
                     scene.remove(mesh!);
                     mesh!.geometry.dispose();
                     mat!.dispose();
-                    spawnExplosion(scene, end, 0xffbb44, 4, 0.1);
+                    spawnExplosion(scene, end, isBlue ? 0x00aaff : 0xffbb44, 4, 0.1);
                     return false;
                 }
                 mesh!.position.lerpVectors(start, end, easeOutQuad(t));
@@ -87,7 +89,7 @@ export function spawnBasicAttackFX(
                 if (!mesh) {
                     const geo = new THREE.SphereGeometry(0.15, 6, 6);
                     mat = new THREE.MeshBasicMaterial({
-                        color: 0x88e0ff,
+                        color: isBlue ? 0x00dfff : 0x88e0ff,
                         transparent: true,
                         opacity: 0.9,
                         blending: THREE.AdditiveBlending,
@@ -103,7 +105,7 @@ export function spawnBasicAttackFX(
                     scene.remove(mesh!);
                     mesh!.geometry.dispose();
                     mat!.dispose();
-                    spawnExplosion(scene, end, 0x44ccff, 6, 0.1);
+                    spawnExplosion(scene, end, isBlue ? 0x0088ff : 0x44ccff, 6, 0.1);
                     return false;
                 }
                 mesh!.position.lerpVectors(start, end, easeOutQuad(t));
@@ -128,7 +130,7 @@ export function spawnBasicAttackFX(
                         4,
                     );
                     trailMat = new THREE.MeshBasicMaterial({
-                        color: 0xffcc44,
+                        color: isBlue ? 0x00dfff : 0xffcc44,
                         transparent: true,
                         opacity: 0.95,
                         blending: THREE.AdditiveBlending,
@@ -146,7 +148,7 @@ export function spawnBasicAttackFX(
                     scene.remove(trail!);
                     trail!.geometry.dispose();
                     trailMat!.dispose();
-                    spawnExplosion(scene, end, 0xffaa22, 10, 0.12);
+                    spawnExplosion(scene, end, isBlue ? 0x0088ff : 0xffaa22, 10, 0.12);
                     return false;
                 }
                 trail!.position.lerpVectors(start, end, easeOutQuad(t));
@@ -167,7 +169,7 @@ export function spawnBasicAttackFX(
                 if (t < 0.03) {
                     const arcGeo = new THREE.PlaneGeometry(1.4, 0.3);
                     const arcMat = new THREE.MeshBasicMaterial({
-                        color: 0xff5533,
+                        color: isBlue ? 0x00aaff : 0xff5533,
                         transparent: true,
                         opacity: 0.75,
                         blending: THREE.AdditiveBlending,
@@ -198,7 +200,7 @@ export function spawnBasicAttackFX(
                     });
                 }
                 if (t >= 1) {
-                    spawnExplosion(scene, end, 0xff4422, 5, 0.08);
+                    spawnExplosion(scene, end, isBlue ? 0x0066ff : 0xff4422, 5, 0.08);
                     return false;
                 }
                 return true;
@@ -534,11 +536,13 @@ export function spawnIceShatterFX(
     x: number,
     y: number,
     z: number,
+    team?: number,
 ) {
     soundFX.playIceShatter(x, y, z, camera.position);
+    const isBlue = team === 1;
     const shardGeo = new THREE.ConeGeometry(0.12, 0.35, 4);
     const shardMat = new THREE.MeshStandardMaterial({
-        color: 0xaae5ff,
+        color: isBlue ? 0xaae5ff : 0xffaa77,
         transparent: true,
         opacity: 0.85,
         roughness: 0.15,
@@ -621,10 +625,15 @@ export function spawnIceShatterFX(
 export function spawnHolySanctuaryFX(
     scene: THREE.Scene,
     centerPos: THREE.Vector3,
+    team?: number,
 ) {
+    const isBlue = team === 1;
+    const colorRing = isBlue ? 0x00dfff : 0xffff00;
+    const colorPillar = isBlue ? 0xaae8ff : 0xffffcc;
+
     const ringGeo = new THREE.RingGeometry(0.4, 1.5, 32);
     const ringMat = new THREE.MeshBasicMaterial({
-        color: 0xffff00,
+        color: colorRing,
         side: THREE.DoubleSide,
         transparent: true,
         opacity: 0.8,
@@ -648,7 +657,7 @@ export function spawnHolySanctuaryFX(
             false,
         );
         const pillarMat = new THREE.MeshBasicMaterial({
-            color: 0xffffcc,
+            color: colorPillar,
             transparent: true,
             opacity: 0.7,
             blending: THREE.AdditiveBlending,
@@ -698,5 +707,216 @@ export function spawnHolySanctuaryFX(
 
             return true;
         },
+    });
+}
+
+// ── Comic Pop Death Explosion (Procedural Flipbook Animation) ──
+
+interface ActiveExplosion {
+    sprite: THREE.Sprite;
+    age: number;
+    active: boolean;
+}
+
+const EXPLOSION_POOL_SIZE = 24;
+const activeExplosions: ActiveExplosion[] = [];
+let explosionTexture: THREE.CanvasTexture | null = null;
+
+function createExplosionSpriteSheet(): THREE.CanvasTexture {
+    const canvas = document.createElement("canvas");
+    canvas.width = 1024;
+    canvas.height = 1024;
+    const ctx = canvas.getContext("2d")!;
+
+    const cols = 4;
+    const rows = 4;
+    const cellSize = 256;
+
+    for (let frame = 0; frame < 16; frame++) {
+        const col = frame % cols;
+        const row = Math.floor(frame / cols);
+        const x = col * cellSize + cellSize / 2;
+        const y = row * cellSize + cellSize / 2;
+
+        const progress = frame / 15; // 0 to 1
+
+        ctx.save();
+        ctx.translate(x, y);
+
+        // Draw puff cloud (overlapping circles)
+        if (progress > 0.0 && progress < 0.95) {
+            const maxRadius = 80;
+            const size = progress < 0.4 
+                ? (progress / 0.4) * maxRadius 
+                : (1.0 - (progress - 0.4) / 0.6) * maxRadius;
+
+            ctx.fillStyle = "#ffffff";
+            ctx.strokeStyle = "#1a1a1a";
+            ctx.lineWidth = 10;
+
+            ctx.beginPath();
+            const numCircles = 6;
+            for (let c = 0; c < numCircles; c++) {
+                const angle = (c / numCircles) * Math.PI * 2;
+                const dist = size * 0.45;
+                const cx = Math.cos(angle) * dist;
+                const cy = Math.sin(angle) * dist;
+                const cr = size * 0.55;
+                ctx.arc(cx, cy, cr, 0, Math.PI * 2);
+            }
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            // Inner shading (light blue-ish)
+            ctx.fillStyle = "#e6f7ff";
+            ctx.beginPath();
+            for (let c = 0; c < numCircles; c++) {
+                const angle = (c / numCircles) * Math.PI * 2;
+                const dist = size * 0.4;
+                const cx = Math.cos(angle) * dist;
+                const cy = Math.sin(angle) * dist;
+                const cr = size * 0.45;
+                ctx.arc(cx, cy, cr, 0, Math.PI * 2);
+            }
+            ctx.closePath();
+            ctx.fill();
+        }
+
+        // Draw stars flying out
+        if (progress > 0.1 && progress < 0.9) {
+            const starProgress = (progress - 0.1) / 0.8;
+            const dist = starProgress * 110;
+            const starSize = starProgress < 0.5 ? 24 * (starProgress / 0.5) : 24 * (1.0 - (starProgress - 0.5) / 0.5);
+
+            ctx.fillStyle = "#ffd700";
+            ctx.strokeStyle = "#1a1a1a";
+            ctx.lineWidth = 4;
+
+            const numStars = 6;
+            for (let s = 0; s < numStars; s++) {
+                const angle = (s / numStars) * Math.PI * 2 + starProgress * 2.0;
+                const sx = Math.cos(angle) * dist;
+                const sy = Math.sin(angle) * dist;
+
+                ctx.save();
+                ctx.translate(sx, sy);
+                ctx.rotate(angle);
+                
+                ctx.beginPath();
+                for (let i = 0; i < 5; i++) {
+                    ctx.lineTo(
+                        Math.cos(((18 + i * 72) * Math.PI) / 180) * starSize,
+                        Math.sin(((18 + i * 72) * Math.PI) / 180) * starSize
+                    );
+                    ctx.lineTo(
+                        Math.cos(((54 + i * 72) * Math.PI) / 180) * (starSize * 0.4),
+                        Math.sin(((54 + i * 72) * Math.PI) / 180) * (starSize * 0.4)
+                    );
+                }
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+                ctx.restore();
+            }
+        }
+
+        // Draw bold comic text "BANG!" in the center
+        if (progress > 0.35 && progress < 0.75) {
+            const textProgress = (progress - 0.35) / 0.4;
+            const scaleText = textProgress < 0.2 
+                ? (textProgress / 0.2) * 1.3 
+                : 1.3 - (textProgress - 0.2) * 0.3;
+
+            ctx.save();
+            ctx.scale(scaleText, scaleText);
+
+            ctx.font = "bold 42px 'Impact', sans-serif";
+            const text = "BANG!";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+
+            ctx.fillStyle = "#1a1a1a";
+            ctx.fillText(text, 2, 6);
+
+            ctx.strokeStyle = "#1a1a1a";
+            ctx.lineWidth = 12;
+            ctx.strokeText(text, 0, 0);
+
+            ctx.fillStyle = "#ffff00";
+            ctx.fillText(text, 0, 0);
+
+            ctx.restore();
+        }
+
+        ctx.restore();
+    }
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.repeat.set(1 / cols, 1 / rows);
+    return texture;
+}
+
+function initExplosionPool(scene: THREE.Scene) {
+    if (explosionTexture) return;
+    explosionTexture = createExplosionSpriteSheet();
+
+    for (let i = 0; i < EXPLOSION_POOL_SIZE; i++) {
+        const tex = explosionTexture.clone();
+        tex.needsUpdate = true;
+
+        const mat = new THREE.SpriteMaterial({
+            map: tex,
+            transparent: true,
+            depthWrite: false,
+        });
+
+        const sprite = new THREE.Sprite(mat);
+        sprite.scale.set(7.0, 7.0, 1.0);
+        sprite.visible = false;
+        sprite.renderOrder = 1000;
+        scene.add(sprite);
+
+        activeExplosions.push({
+            sprite,
+            age: 0,
+            active: false,
+        });
+    }
+}
+
+export function spawnComicExplosion(scene: THREE.Scene, x: number, y: number, z: number) {
+    initExplosionPool(scene);
+
+    const exp = activeExplosions.find((e) => !e.active);
+    if (!exp) return;
+
+    exp.sprite.position.set(x, y, z);
+    exp.sprite.visible = true;
+    exp.age = 0;
+    exp.active = true;
+
+    const map = exp.sprite.material.map!;
+    map.offset.set(0, 0.75);
+
+    activeFX.push({
+        update(delta) {
+            exp.age += delta;
+            const frameDelay = 0.028; // ~28ms per frame
+            const frameIdx = Math.floor(exp.age / frameDelay);
+
+            if (frameIdx >= 16) {
+                exp.sprite.visible = false;
+                exp.active = false;
+                return false;
+            }
+
+            const col = frameIdx % 4;
+            const row = Math.floor(frameIdx / 4);
+            map.offset.x = col / 4;
+            map.offset.y = 1.0 - (row + 1) / 4;
+            return true;
+        }
     });
 }

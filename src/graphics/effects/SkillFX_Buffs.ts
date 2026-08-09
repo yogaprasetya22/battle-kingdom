@@ -190,10 +190,17 @@ export function spawnFrostNovaBurstFX(
     x: number,
     y: number,
     z: number,
+    team?: number,
 ) {
+    const isBlue = team === 1;
+    const colorRing = isBlue ? 0x55ccff : 0xff7744;
+    const colorInner = isBlue ? 0xaae8ff : 0xffccaa;
+    const colorSpike = isBlue ? 0x88e0ff : 0xffaa66;
+    const colorMist = isBlue ? 0x88ccff : 0xff9977;
+
     const ringGeo = new THREE.RingGeometry(0.15, 0.25, 32);
     const ringMat = new THREE.MeshBasicMaterial({
-        color: 0x55ccff,
+        color: colorRing,
         side: THREE.DoubleSide,
         transparent: true,
         opacity: 0.95,
@@ -205,7 +212,7 @@ export function spawnFrostNovaBurstFX(
 
     const innerGeo = new THREE.RingGeometry(0.05, 0.12, 24);
     const innerMat = new THREE.MeshBasicMaterial({
-        color: 0xaae8ff,
+        color: colorInner,
         side: THREE.DoubleSide,
         transparent: true,
         opacity: 0.8,
@@ -220,7 +227,7 @@ export function spawnFrostNovaBurstFX(
     const SPIKE = 10;
     const spikeGeo = new THREE.ConeGeometry(0.1, 1.0, 4);
     const spikeMat = new THREE.MeshBasicMaterial({
-        color: 0x88e0ff,
+        color: colorSpike,
         transparent: true,
         opacity: 0.85,
     });
@@ -244,7 +251,7 @@ export function spawnFrostNovaBurstFX(
     const mistGeo = pooledPlane(0.6, 0.6);
     const mistMat = new THREE.MeshBasicMaterial({
         map: smokeTex,
-        color: 0x88ccff,
+        color: colorMist,
         transparent: true,
         opacity: 0.4,
         depthWrite: false,
@@ -329,10 +336,16 @@ export function spawnFrostNovaBurstFX(
 export function spawnDivineShieldFX(
     scene: THREE.Scene,
     targetPos: THREE.Vector3,
+    team?: number,
 ) {
+    const isBlue = team === 1;
+    const colorRing = isBlue ? 0x00dfff : 0xffd700;
+    const colorPillar = isBlue ? 0xaae8ff : 0xffdf80;
+    const colorRune = isBlue ? 0xeef9ff : 0xffe066;
+
     const ringGeo = new THREE.RingGeometry(0.3, 1.1, 48, 1, 0, Math.PI * 2);
     const ringMat = new THREE.MeshBasicMaterial({
-        color: 0xffd700,
+        color: colorRing,
         side: THREE.DoubleSide,
         transparent: true,
         opacity: 0.9,
@@ -346,7 +359,7 @@ export function spawnDivineShieldFX(
 
     const pillarGeo = new THREE.CylinderGeometry(0.15, 0.5, 3.5, 16, 1, true);
     const pillarMat = new THREE.MeshBasicMaterial({
-        color: 0xffdf80,
+        color: colorPillar,
         transparent: true,
         opacity: 0.6,
         blending: THREE.AdditiveBlending,
@@ -360,7 +373,7 @@ export function spawnDivineShieldFX(
     const runeCount = 10;
     const runeGeo = new THREE.DodecahedronGeometry(0.05);
     const runeMat = new THREE.MeshBasicMaterial({
-        color: 0xffe066,
+        color: colorRune,
         transparent: true,
         opacity: 0.85,
         blending: THREE.AdditiveBlending,

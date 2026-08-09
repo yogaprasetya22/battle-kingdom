@@ -1,3152 +1,1003 @@
 [
   {
-    "x": -39.9,
-    "z": -54.3,
-    "type": "BirchTree_3",
-    "scale": 1.29,
-    "rotation": 0.3
-  },
-  {
-    "x": -61.4,
-    "z": -26.7,
-    "type": "TwistedTree_3",
-    "scale": 1.14,
-    "rotation": 0.75
-  },
-  {
-    "x": 36.6,
-    "z": 75.7,
-    "type": "MapleTree_1",
-    "scale": 1.11,
-    "rotation": 0.53
-  },
-  {
-    "x": 59.7,
-    "z": -25.3,
-    "type": "MapleTree_4",
-    "scale": 1.59,
-    "rotation": 0.79
-  },
-  {
-    "x": -32,
-    "z": -82.2,
-    "type": "BirchTree_4",
-    "scale": 0.88,
-    "rotation": 3.19
-  },
-  {
-    "x": -62.6,
-    "z": 67.2,
-    "type": "BirchTree_2",
-    "scale": 0.95,
-    "rotation": 1.02
-  },
-  {
-    "x": 89.2,
-    "z": 6.6,
-    "type": "BirchTree_4",
-    "scale": 1.21,
-    "rotation": 0.85
-  },
-  {
-    "x": -38.9,
-    "z": 76.5,
+    "x": -107.2,
+    "z": -81.4,
     "type": "Pine_1",
-    "scale": 1.71,
-    "rotation": 0.32
+    "scale": 2.91,
+    "rotation": 1.67
   },
   {
-    "x": -21.5,
-    "z": 63.5,
-    "type": "Pine_5",
-    "scale": 1.32,
-    "rotation": 4.48
-  },
-  {
-    "x": -42.2,
-    "z": 88.6,
-    "type": "CommonTree_2",
-    "scale": 1,
-    "rotation": 2.59
-  },
-  {
-    "x": 60.9,
-    "z": 9.9,
-    "type": "BirchTree_1",
-    "scale": 0.78,
-    "rotation": 2.61
-  },
-  {
-    "x": 88.2,
-    "z": 24.2,
-    "type": "MapleTree_1",
-    "scale": 1.24,
-    "rotation": 3.71
-  },
-  {
-    "x": 37.4,
-    "z": 57.3,
-    "type": "CommonTree_2",
-    "scale": 0.83,
-    "rotation": 3.81
-  },
-  {
-    "x": -13.4,
-    "z": -91.2,
-    "type": "BirchTree_3",
-    "scale": 1.31,
-    "rotation": 1.98
-  },
-  {
-    "x": 4,
-    "z": -67.6,
-    "type": "MapleTree_4",
-    "scale": 1.33,
-    "rotation": 1.21
-  },
-  {
-    "x": 65.8,
-    "z": 72.5,
-    "type": "BirchTree_4",
-    "scale": 0.8,
-    "rotation": 1.6
-  },
-  {
-    "x": -11.1,
-    "z": -62.3,
-    "type": "BirchTree_4",
-    "scale": 1.25,
-    "rotation": 0.1
-  },
-  {
-    "x": 52.4,
-    "z": 12,
-    "type": "BirchTree_1",
-    "scale": 1.38,
-    "rotation": 0.24
-  },
-  {
-    "x": -77.4,
-    "z": 56.1,
-    "type": "BirchTree_1",
-    "scale": 0.77,
-    "rotation": 2.39
-  },
-  {
-    "x": 72.9,
-    "z": -17.8,
-    "type": "Pine_4",
-    "scale": 1.21,
-    "rotation": 3.54
-  },
-  {
-    "x": 78.9,
-    "z": 40.3,
-    "type": "MapleTree_1",
-    "scale": 1.06,
-    "rotation": 2.98
-  },
-  {
-    "x": -12.4,
-    "z": -64.1,
-    "type": "MapleTree_1",
-    "scale": 0.8,
-    "rotation": 6.12
-  },
-  {
-    "x": 9,
-    "z": 76.3,
-    "type": "BirchTree_5",
-    "scale": 1.26,
-    "rotation": 3.31
-  },
-  {
-    "x": -88.4,
-    "z": 2.1,
-    "type": "BirchTree_1",
-    "scale": 1.05,
-    "rotation": 1.38
-  },
-  {
-    "x": 20.8,
-    "z": 51.4,
-    "type": "CommonTree_5",
-    "scale": 1.21,
-    "rotation": 0.98
-  },
-  {
-    "x": -92.7,
-    "z": -30.8,
-    "type": "MapleTree_1",
-    "scale": 1.52,
-    "rotation": 2.67
-  },
-  {
-    "x": 58.2,
-    "z": 15.8,
+    "x": -110.2,
+    "z": -66.8,
     "type": "BirchTree_2",
-    "scale": 1.3,
-    "rotation": 4.39
-  },
-  {
-    "x": 70.5,
-    "z": -18.1,
-    "type": "MapleTree_1",
-    "scale": 1.59,
-    "rotation": 4.46
-  },
-  {
-    "x": -5.7,
-    "z": -74.7,
-    "type": "MapleTree_4",
-    "scale": 1.23,
-    "rotation": 3.11
-  },
-  {
-    "x": 56.7,
-    "z": -74.1,
-    "type": "BirchTree_4",
-    "scale": 0.86,
-    "rotation": 4.89
-  },
-  {
-    "x": 65.5,
-    "z": -8.9,
-    "type": "MapleTree_1",
-    "scale": 1.01,
-    "rotation": 1.37
-  },
-  {
-    "x": 56.5,
-    "z": -10.7,
-    "type": "MapleTree_3",
-    "scale": 1.05,
-    "rotation": 3.87
-  },
-  {
-    "x": 36.7,
-    "z": -62.1,
-    "type": "MapleTree_4",
-    "scale": 1.38,
-    "rotation": 3.6
-  },
-  {
-    "x": -66.3,
-    "z": -61.5,
-    "type": "TwistedTree_3",
-    "scale": 1.05,
-    "rotation": 3.19
-  },
-  {
-    "x": -13.2,
-    "z": -60,
-    "type": "Pine_1",
-    "scale": 1.03,
-    "rotation": 2.25
-  },
-  {
-    "x": 44.1,
-    "z": -28.5,
-    "type": "BirchTree_3",
-    "scale": 1.4,
-    "rotation": 5.6
-  },
-  {
-    "x": 24.2,
-    "z": -60.1,
-    "type": "BirchTree_2",
-    "scale": 1.02,
-    "rotation": 1.63
-  },
-  {
-    "x": 42.8,
-    "z": -54.8,
-    "type": "BirchTree_2",
-    "scale": 1.41,
-    "rotation": 2.12
-  },
-  {
-    "x": 81.7,
-    "z": 32.9,
-    "type": "Pine_1",
-    "scale": 2.19,
-    "rotation": 2.12
-  },
-  {
-    "x": -82.3,
-    "z": 0,
-    "type": "Pine_5",
-    "scale": 1.4,
-    "rotation": 2.84
-  },
-  {
-    "x": -80,
-    "z": 39.3,
-    "type": "BirchTree_4",
-    "scale": 1.22,
-    "rotation": 3.54
-  },
-  {
-    "x": -42.6,
-    "z": -72.6,
-    "type": "MapleTree_2",
-    "scale": 1.38,
-    "rotation": 1.87
-  },
-  {
-    "x": -68.3,
-    "z": -1.3,
-    "type": "BirchTree_3",
-    "scale": 1.32,
-    "rotation": 4.04
-  },
-  {
-    "x": 73.3,
-    "z": -21.4,
-    "type": "BirchTree_1",
-    "scale": 1.39,
-    "rotation": 4.28
-  },
-  {
-    "x": 90.9,
-    "z": 25.3,
-    "type": "Pine_1",
-    "scale": 1.61,
-    "rotation": 4.37
-  },
-  {
-    "x": 6.6,
-    "z": -75.8,
-    "type": "MapleTree_3",
-    "scale": 1,
-    "rotation": 3
-  },
-  {
-    "x": 11.4,
-    "z": 82,
-    "type": "MapleTree_4",
-    "scale": 1.09,
-    "rotation": 4.35
-  },
-  {
-    "x": 16.6,
-    "z": -62,
-    "type": "BirchTree_1",
-    "scale": 0.91,
-    "rotation": 2.76
-  },
-  {
-    "x": 47.5,
-    "z": 28.1,
-    "type": "BirchTree_5",
-    "scale": 1.13,
-    "rotation": 4.57
-  },
-  {
-    "x": 51.9,
-    "z": 49.9,
-    "type": "BirchTree_4",
-    "scale": 0.85,
-    "rotation": 3.54
-  },
-  {
-    "x": 63.1,
-    "z": 72,
-    "type": "BirchTree_5",
-    "scale": 0.72,
-    "rotation": 4.96
-  },
-  {
-    "x": 79.5,
-    "z": 28.8,
-    "type": "Pine_5",
-    "scale": 1.84,
-    "rotation": 2.12
-  },
-  {
-    "x": -16,
-    "z": -64.9,
-    "type": "BirchTree_4",
-    "scale": 0.95,
-    "rotation": 1.82
-  },
-  {
-    "x": -56.4,
-    "z": 12.7,
-    "type": "BirchTree_5",
-    "scale": 0.92,
-    "rotation": 1.15
-  },
-  {
-    "x": 0.9,
-    "z": -68.3,
-    "type": "TwistedTree_4",
-    "scale": 0.75,
-    "rotation": 1.17
-  },
-  {
-    "x": 25.2,
-    "z": -82.6,
-    "type": "Pine_2",
-    "scale": 1.19,
-    "rotation": 4.18
-  },
-  {
-    "x": -80.4,
-    "z": -5.2,
-    "type": "BirchTree_1",
-    "scale": 1.3,
-    "rotation": 3.51
-  },
-  {
-    "x": -72.4,
-    "z": -66.4,
-    "type": "BirchTree_5",
-    "scale": 0.81,
-    "rotation": 3.01
-  },
-  {
-    "x": -10.2,
-    "z": -93.9,
-    "type": "BirchTree_3",
-    "scale": 0.84,
-    "rotation": 4.24
-  },
-  {
-    "x": -62.6,
-    "z": 27.6,
-    "type": "BirchTree_3",
-    "scale": 0.96,
-    "rotation": 2.57
-  },
-  {
-    "x": -39.4,
-    "z": -86.5,
-    "type": "BirchTree_5",
-    "scale": 1.17,
-    "rotation": 4.48
-  },
-  {
-    "x": 5,
-    "z": 83.3,
-    "type": "Pine_2",
-    "scale": 1.78,
-    "rotation": 5.55
-  },
-  {
-    "x": -55.6,
-    "z": -62.6,
-    "type": "CommonTree_4",
-    "scale": 0.95,
-    "rotation": 2.36
-  },
-  {
-    "x": -52.4,
-    "z": -48.3,
-    "type": "BirchTree_4",
-    "scale": 1.25,
-    "rotation": 4.93
-  },
-  {
-    "x": -61,
-    "z": -62.4,
-    "type": "Pine_2",
-    "scale": 1.99,
-    "rotation": 4.28
-  },
-  {
-    "x": 30.4,
-    "z": 43.2,
-    "type": "BirchTree_5",
-    "scale": 0.72,
-    "rotation": 0.4
-  },
-  {
-    "x": 70.6,
-    "z": 28.5,
-    "type": "Pine_4",
-    "scale": 1.49,
-    "rotation": 5.53
-  },
-  {
-    "x": 46.6,
-    "z": -63.6,
-    "type": "CommonTree_1",
-    "scale": 0.93,
-    "rotation": 2.68
-  },
-  {
-    "x": -80.7,
-    "z": -56.6,
-    "type": "Pine_2",
-    "scale": 2.07,
-    "rotation": 1.21
-  },
-  {
-    "x": 23,
-    "z": -48.4,
-    "type": "MapleTree_4",
-    "scale": 0.82,
-    "rotation": 1.83
-  },
-  {
-    "x": 66.9,
-    "z": 0,
-    "type": "Pine_2",
-    "scale": 1.99,
-    "rotation": 3.04
-  },
-  {
-    "x": -57.6,
-    "z": -42.1,
-    "type": "MapleTree_3",
-    "scale": 1.1,
-    "rotation": 0.81
-  },
-  {
-    "x": -64.6,
-    "z": -6.9,
-    "type": "BirchTree_5",
-    "scale": 1.06,
-    "rotation": 5.71
-  },
-  {
-    "x": -63,
-    "z": -59,
-    "type": "BirchTree_3",
-    "scale": 0.93,
-    "rotation": 6.01
-  },
-  {
-    "x": -43,
-    "z": -72.1,
-    "type": "BirchTree_2",
-    "scale": 0.8,
-    "rotation": 2.68
-  },
-  {
-    "x": 23.8,
-    "z": 80.8,
-    "type": "Pine_4",
-    "scale": 1.06,
-    "rotation": 0.85
-  },
-  {
-    "x": -78.1,
-    "z": -52.7,
-    "type": "CommonTree_4",
-    "scale": 1.36,
-    "rotation": 5.92
-  },
-  {
-    "x": 61.7,
-    "z": 6.3,
-    "type": "BirchTree_5",
-    "scale": 1.13,
-    "rotation": 6.23
-  },
-  {
-    "x": 19,
-    "z": -82.6,
-    "type": "MapleTree_1",
-    "scale": 1.51,
-    "rotation": 6.25
-  },
-  {
-    "x": 73.8,
-    "z": 30,
-    "type": "BirchTree_2",
-    "scale": 0.8,
-    "rotation": 1.7
-  },
-  {
-    "x": 87.4,
-    "z": 7.5,
-    "type": "TwistedTree_1",
-    "scale": 0.97,
-    "rotation": 0.42
-  },
-  {
-    "x": -70.9,
-    "z": -38.5,
-    "type": "BirchTree_2",
-    "scale": 0.86,
-    "rotation": 2.78
-  },
-  {
-    "x": 67.1,
-    "z": -44.9,
-    "type": "Pine_1",
-    "scale": 2.12,
-    "rotation": 1.84
-  },
-  {
-    "x": 82.6,
-    "z": 17,
-    "type": "BirchTree_4",
-    "scale": 0.71,
-    "rotation": 1.28
-  },
-  {
-    "x": 72.9,
-    "z": 17.7,
-    "type": "CommonTree_3",
-    "scale": 1.12,
-    "rotation": 0.75
-  },
-  {
-    "x": -9.2,
-    "z": -61.6,
-    "type": "BirchTree_3",
-    "scale": 0.82,
-    "rotation": 2.3
-  },
-  {
-    "x": -19.7,
-    "z": -67,
-    "type": "BirchTree_5",
-    "scale": 1.5,
-    "rotation": 2.09
-  },
-  {
-    "x": 68,
-    "z": -54.4,
-    "type": "MapleTree_1",
-    "scale": 1,
-    "rotation": 0.22
-  },
-  {
-    "x": 38.4,
-    "z": -88.7,
-    "type": "Pine_3",
-    "scale": 1.6,
-    "rotation": 2.59
-  },
-  {
-    "x": 18.4,
-    "z": -86.1,
-    "type": "MapleTree_4",
-    "scale": 1.47,
-    "rotation": 3.24
-  },
-  {
-    "x": -82.9,
-    "z": -54.9,
-    "type": "BirchTree_4",
-    "scale": 1.22,
-    "rotation": 0.39
-  },
-  {
-    "x": -35.7,
-    "z": 73.4,
-    "type": "MapleTree_2",
-    "scale": 1.27,
-    "rotation": 4.71
-  },
-  {
-    "x": 75.7,
-    "z": -24,
-    "type": "CommonTree_5",
-    "scale": 1.49,
-    "rotation": 4.5
-  },
-  {
-    "x": 83.7,
-    "z": -12.2,
-    "type": "MapleTree_2",
-    "scale": 1.07,
-    "rotation": 5.31
-  },
-  {
-    "x": -51.9,
-    "z": 17.8,
-    "type": "TwistedTree_2",
-    "scale": 0.91,
-    "rotation": 1.5
-  },
-  {
-    "x": -64.1,
-    "z": 13.6,
-    "type": "Pine_4",
-    "scale": 1.29,
-    "rotation": 1.09
-  },
-  {
-    "x": -92.9,
-    "z": 15.6,
-    "type": "CommonTree_1",
-    "scale": 0.91,
-    "rotation": 5.27
-  },
-  {
-    "x": 29.5,
-    "z": 44.2,
-    "type": "CommonTree_2",
-    "scale": 1.49,
-    "rotation": 1.96
-  },
-  {
-    "x": -73.5,
-    "z": -6.2,
-    "type": "BirchTree_2",
-    "scale": 1.12,
-    "rotation": 1.25
-  },
-  {
-    "x": -81.8,
-    "z": 38.4,
-    "type": "MapleTree_5",
-    "scale": 1.42,
-    "rotation": 3.45
-  },
-  {
-    "x": -44.1,
-    "z": -31,
-    "type": "BirchTree_2",
-    "scale": 1.24,
-    "rotation": 1.3
-  },
-  {
-    "x": 81,
-    "z": 56.6,
-    "type": "CommonTree_2",
-    "scale": 1.38,
-    "rotation": 4.58
-  },
-  {
-    "x": -94.3,
-    "z": -16.7,
-    "type": "MapleTree_1",
-    "scale": 1.29,
-    "rotation": 2.22
-  },
-  {
-    "x": -82.6,
-    "z": -44.6,
-    "type": "BirchTree_3",
-    "scale": 1.13,
-    "rotation": 1.08
-  },
-  {
-    "x": -49.4,
-    "z": -39.4,
-    "type": "MapleTree_4",
-    "scale": 1.17,
-    "rotation": 6.27
-  },
-  {
-    "x": 36.2,
-    "z": 40.7,
-    "type": "Pine_1",
-    "scale": 1.69,
-    "rotation": 5.17
-  },
-  {
-    "x": -67.8,
-    "z": 66,
-    "type": "MapleTree_4",
-    "scale": 1.57,
-    "rotation": 6.06
-  },
-  {
-    "x": 7.8,
-    "z": 66,
-    "type": "MapleTree_4",
-    "scale": 1.56,
+    "scale": 2.13,
     "rotation": 4.67
   },
   {
-    "x": -55.2,
-    "z": -39.7,
-    "type": "Pine_3",
-    "scale": 1.12,
-    "rotation": 3.15
+    "x": -111.8,
+    "z": -54.4,
+    "type": "MapleTree_1",
+    "scale": 2.07,
+    "rotation": 0.64
   },
   {
-    "x": -72.6,
-    "z": 7.6,
-    "type": "BirchTree_1",
-    "scale": 1.38,
-    "rotation": 0.5
-  },
-  {
-    "x": -27.9,
-    "z": 90.1,
-    "type": "Pine_5",
-    "scale": 1.57,
-    "rotation": 5.47
-  },
-  {
-    "x": -53.7,
-    "z": -33.4,
+    "x": -105.4,
+    "z": -35.5,
     "type": "BirchTree_2",
-    "scale": 1.48,
-    "rotation": 0.54
+    "scale": 3.83,
+    "rotation": 3.98
   },
   {
-    "x": -3.1,
-    "z": -78.3,
-    "type": "MapleTree_3",
-    "scale": 1.29,
-    "rotation": 4.48
+    "x": -111.8,
+    "z": -26.4,
+    "type": "MapleTree_1",
+    "scale": 2.76,
+    "rotation": 4.12
   },
   {
-    "x": -56,
-    "z": 71.2,
-    "type": "MapleTree_4",
-    "scale": 0.97,
-    "rotation": 5.39
-  },
-  {
-    "x": -39.8,
-    "z": -72.5,
-    "type": "BirchTree_5",
-    "scale": 1.34,
-    "rotation": 2.51
-  },
-  {
-    "x": 33,
-    "z": 74,
-    "type": "BirchTree_1",
-    "scale": 1.28,
-    "rotation": 0.66
-  },
-  {
-    "x": 58.5,
+    "x": -109,
     "z": -15.8,
-    "type": "Pine_4",
-    "scale": 1.66,
-    "rotation": 5.58
-  },
-  {
-    "x": 25.3,
-    "z": 58.7,
-    "type": "Pine_5",
-    "scale": 2.12,
-    "rotation": 3.65
-  },
-  {
-    "x": 19.8,
-    "z": -97.9,
-    "type": "Pine_3",
-    "scale": 1.31,
-    "rotation": 2.32
-  },
-  {
-    "x": 51.7,
-    "z": 16.6,
-    "type": "Pine_2",
-    "scale": 1.07,
-    "rotation": 0.05
-  },
-  {
-    "x": -46.7,
-    "z": 63.6,
-    "type": "BirchTree_1",
-    "scale": 0.76,
-    "rotation": 3.55
-  },
-  {
-    "x": -78.2,
-    "z": -46,
-    "type": "MapleTree_1",
-    "scale": 1.14,
-    "rotation": 3.5
-  },
-  {
-    "x": -36.3,
-    "z": -39.5,
-    "type": "CommonTree_2",
-    "scale": 1.05,
-    "rotation": 4.99
-  },
-  {
-    "x": -75.9,
-    "z": -18.9,
-    "type": "BirchTree_1",
-    "scale": 1.02,
-    "rotation": 3.53
-  },
-  {
-    "x": -54.2,
-    "z": -37.5,
-    "type": "BirchTree_1",
-    "scale": 1.33,
-    "rotation": 4.24
-  },
-  {
-    "x": 61.7,
-    "z": -60.6,
-    "type": "MapleTree_5",
-    "scale": 1.18,
-    "rotation": 4.45
-  },
-  {
-    "x": 58.8,
-    "z": -23.7,
-    "type": "Pine_4",
-    "scale": 1.15,
-    "rotation": 5.17
-  },
-  {
-    "x": 7.6,
-    "z": -61.8,
-    "type": "MapleTree_1",
-    "scale": 1.22,
-    "rotation": 5.09
-  },
-  {
-    "x": 19,
-    "z": -61.3,
-    "type": "BirchTree_4",
-    "scale": 1.34,
-    "rotation": 1.06
-  },
-  {
-    "x": 13,
-    "z": 67.3,
-    "type": "BirchTree_4",
-    "scale": 1.26,
-    "rotation": 2.87
-  },
-  {
-    "x": 5.7,
-    "z": -51.7,
     "type": "BirchTree_2",
-    "scale": 1.12,
-    "rotation": 4.6
+    "scale": 3.41,
+    "rotation": 2.76
   },
   {
-    "x": 64,
-    "z": 7.2,
-    "type": "BirchTree_3",
-    "scale": 1.43,
-    "rotation": 4.99
-  },
-  {
-    "x": 50.2,
-    "z": -20.5,
-    "type": "BirchTree_2",
-    "scale": 0.99,
-    "rotation": 2.57
-  },
-  {
-    "x": 77.6,
-    "z": -5.8,
-    "type": "BirchTree_4",
-    "scale": 0.94,
-    "rotation": 1.72
-  },
-  {
-    "x": -73.2,
-    "z": 56.6,
-    "type": "BirchTree_5",
-    "scale": 0.78,
-    "rotation": 3.11
-  },
-  {
-    "x": 30.4,
-    "z": -66.5,
-    "type": "BirchTree_5",
-    "scale": 1.15,
-    "rotation": 2.69
-  },
-  {
-    "x": -87.6,
-    "z": -20.2,
-    "type": "MapleTree_4",
-    "scale": 0.85,
-    "rotation": 0.07
-  },
-  {
-    "x": 48.5,
-    "z": -67.6,
-    "type": "MapleTree_1",
-    "scale": 1.12,
-    "rotation": 5.23
-  },
-  {
-    "x": 58.3,
-    "z": -79.2,
-    "type": "BirchTree_1",
-    "scale": 1.46,
-    "rotation": 1.92
-  },
-  {
-    "x": 63.3,
-    "z": -22.4,
-    "type": "BirchTree_4",
-    "scale": 1.19,
-    "rotation": 0.2
-  },
-  {
-    "x": 54,
-    "z": -53.8,
-    "type": "BirchTree_1",
-    "scale": 1.05,
-    "rotation": 5.81
-  },
-  {
-    "x": 50.1,
-    "z": 50.5,
-    "type": "CommonTree_3",
-    "scale": 1.25,
-    "rotation": 0.22
-  },
-  {
-    "x": 74.9,
-    "z": 53.3,
-    "type": "MapleTree_4",
-    "scale": 1.33,
-    "rotation": 0.95
-  },
-  {
-    "x": 83.7,
-    "z": -38.5,
-    "type": "BirchTree_3",
-    "scale": 0.87,
-    "rotation": 2.07
-  },
-  {
-    "x": -80.9,
-    "z": -4.4,
-    "type": "MapleTree_1",
-    "scale": 1.3,
-    "rotation": 0.75
-  },
-  {
-    "x": -58.1,
-    "z": -4.7,
-    "type": "Pine_5",
-    "scale": 1.3,
-    "rotation": 3.33
-  },
-  {
-    "x": -67.8,
-    "z": -24.6,
-    "type": "MapleTree_3",
-    "scale": 1.21,
-    "rotation": 0.87
-  },
-  {
-    "x": -86.6,
-    "z": -43.5,
-    "type": "BirchTree_1",
-    "scale": 1.39,
-    "rotation": 3.16
-  },
-  {
-    "x": -39.8,
-    "z": 91.7,
-    "type": "BirchTree_3",
-    "scale": 1.14,
-    "rotation": 2.58
-  },
-  {
-    "x": 40.4,
-    "z": -49.6,
-    "type": "Pine_5",
-    "scale": 2.08,
-    "rotation": 1.32
-  },
-  {
-    "x": -17,
-    "z": 88.6,
-    "type": "TwistedTree_1",
-    "scale": 0.78,
-    "rotation": 3.82
-  },
-  {
-    "x": -56.2,
-    "z": -13.8,
-    "type": "MapleTree_5",
-    "scale": 1.12,
-    "rotation": 6.1
-  },
-  {
-    "x": 85.6,
-    "z": -49.7,
-    "type": "BirchTree_3",
-    "scale": 1.04,
-    "rotation": 5.39
-  },
-  {
-    "x": -67,
-    "z": -37.6,
-    "type": "BirchTree_4",
-    "scale": 0.98,
-    "rotation": 1.51
-  },
-  {
-    "x": -75.2,
-    "z": 18,
-    "type": "CommonTree_3",
-    "scale": 1.42,
-    "rotation": 5.82
-  },
-  {
-    "x": -5.5,
-    "z": -89.1,
-    "type": "CommonTree_5",
-    "scale": 1.46,
-    "rotation": 1.37
-  },
-  {
-    "x": 76.1,
-    "z": 14.2,
-    "type": "Pine_5",
-    "scale": 1.5,
-    "rotation": 5.36
-  },
-  {
-    "x": -85.3,
-    "z": 43.7,
-    "type": "TwistedTree_1",
-    "scale": 0.9,
-    "rotation": 4.19
-  },
-  {
-    "x": 0.4,
-    "z": -63.3,
-    "type": "BirchTree_1",
-    "scale": 0.99,
-    "rotation": 5.85
-  },
-  {
-    "x": 74.8,
-    "z": -48.2,
-    "type": "Pine_3",
-    "scale": 1.65,
-    "rotation": 4.34
-  },
-  {
-    "x": -30.8,
-    "z": 77.8,
-    "type": "MapleTree_2",
-    "scale": 1.13,
-    "rotation": 2.03
-  },
-  {
-    "x": 76.3,
-    "z": -10.7,
-    "type": "CommonTree_5",
-    "scale": 1.32,
-    "rotation": 2.11
-  },
-  {
-    "x": 26.2,
-    "z": 64.3,
-    "type": "BirchTree_1",
-    "scale": 1.49,
-    "rotation": 0.41
-  },
-  {
-    "x": -72.8,
-    "z": 26.4,
-    "type": "CommonTree_2",
-    "scale": 0.92,
-    "rotation": 3.87
-  },
-  {
-    "x": 38.4,
-    "z": 41.3,
-    "type": "Pine_4",
-    "scale": 2.11,
-    "rotation": 4.29
-  },
-  {
-    "x": -58.6,
-    "z": 29,
-    "type": "BirchTree_3",
-    "scale": 1.08,
-    "rotation": 5.37
-  },
-  {
-    "x": -49.9,
-    "z": 35.3,
-    "type": "Pine_1",
-    "scale": 1.71,
-    "rotation": 0.51
-  },
-  {
-    "x": -65.5,
-    "z": 52.7,
-    "type": "BirchTree_5",
-    "scale": 1.33,
-    "rotation": 4.99
-  },
-  {
-    "x": -53.9,
-    "z": 5.2,
-    "type": "MapleTree_4",
-    "scale": 1.11,
-    "rotation": 0.17
-  },
-  {
-    "x": 77.2,
-    "z": -27.7,
-    "type": "Pine_5",
-    "scale": 1.38,
-    "rotation": 4.58
-  },
-  {
-    "x": -73.1,
-    "z": -2.9,
-    "type": "MapleTree_1",
-    "scale": 1.31,
-    "rotation": 4.5
-  },
-  {
-    "x": 49.8,
-    "z": 75.2,
-    "type": "BirchTree_4",
-    "scale": 1.25,
-    "rotation": 3.28
-  },
-  {
-    "x": -16.7,
-    "z": 69.3,
-    "type": "Pine_5",
-    "scale": 2.13,
-    "rotation": 5.54
-  },
-  {
-    "x": 58.1,
-    "z": -12,
-    "type": "BirchTree_3",
-    "scale": 0.95,
-    "rotation": 3.06
-  },
-  {
-    "x": 22.3,
-    "z": 91.5,
-    "type": "BirchTree_4",
-    "scale": 1.2,
-    "rotation": 5.35
-  },
-  {
-    "x": 53.3,
-    "z": 56,
-    "type": "BirchTree_2",
-    "scale": 0.84,
-    "rotation": 4.56
-  },
-  {
-    "x": 95.1,
-    "z": -2.1,
-    "type": "Pine_5",
-    "scale": 2.09,
-    "rotation": 2.97
-  },
-  {
-    "x": 17.1,
-    "z": -55.3,
-    "type": "Pine_5",
-    "scale": 1.69,
-    "rotation": 5.55
-  },
-  {
-    "x": 71.9,
-    "z": -25.5,
-    "type": "MapleTree_1",
-    "scale": 0.99,
-    "rotation": 5.51
-  },
-  {
-    "x": -61.2,
-    "z": 38.2,
-    "type": "Pine_1",
-    "scale": 1.08,
-    "rotation": 3.5
-  },
-  {
-    "x": -4.8,
-    "z": -78.9,
-    "type": "BirchTree_3",
-    "scale": 0.9,
-    "rotation": 2.61
-  },
-  {
-    "x": -33.8,
-    "z": 86.6,
-    "type": "BirchTree_1",
-    "scale": 0.72,
-    "rotation": 6.22
-  },
-  {
-    "x": 29.2,
-    "z": -77.6,
-    "type": "BirchTree_3",
-    "scale": 1.28,
-    "rotation": 2.55
-  },
-  {
-    "x": -3.4,
-    "z": -78,
-    "type": "BirchTree_3",
-    "scale": 1.4,
-    "rotation": 4.18
-  },
-  {
-    "x": 73.2,
-    "z": -67,
-    "type": "Pine_3",
-    "scale": 1.76,
-    "rotation": 1.23
-  },
-  {
-    "x": 42.7,
-    "z": -49,
-    "type": "MapleTree_4",
-    "scale": 1.09,
-    "rotation": 2.21
-  },
-  {
-    "x": 7.2,
-    "z": 70.3,
-    "type": "BirchTree_4",
-    "scale": 1.1,
-    "rotation": 4.51
-  },
-  {
-    "x": -82.5,
-    "z": -32.6,
-    "type": "BirchTree_2",
-    "scale": 0.73,
-    "rotation": 5.76
-  },
-  {
-    "x": -32.3,
-    "z": 88.2,
-    "type": "BirchTree_1",
-    "scale": 0.84,
-    "rotation": 3.61
-  },
-  {
-    "x": -25.2,
-    "z": -86.9,
-    "type": "BirchTree_5",
-    "scale": 1.34,
-    "rotation": 4.24
-  },
-  {
-    "x": 44.4,
-    "z": -42,
-    "type": "BirchTree_3",
-    "scale": 0.84,
-    "rotation": 2.7
-  },
-  {
-    "x": 28,
-    "z": -45,
-    "type": "Pine_3",
-    "scale": 1.79,
-    "rotation": 1.34
-  },
-  {
-    "x": 45.4,
-    "z": -33.6,
-    "type": "BirchTree_1",
-    "scale": 0.72,
-    "rotation": 0.38
-  },
-  {
-    "x": 52.7,
-    "z": -2.8,
-    "type": "BirchTree_1",
-    "scale": 0.72,
-    "rotation": 1.88
-  },
-  {
-    "x": -59.4,
-    "z": 9.1,
-    "type": "BirchTree_5",
-    "scale": 1.23,
-    "rotation": 0.92
-  },
-  {
-    "x": -30.3,
-    "z": 78.6,
-    "type": "TwistedTree_4",
-    "scale": 0.99,
-    "rotation": 1.75
-  },
-  {
-    "x": -53.6,
-    "z": 64.5,
-    "type": "BirchTree_3",
-    "scale": 1.14,
-    "rotation": 1.92
-  },
-  {
-    "x": 32.9,
-    "z": 78.8,
-    "type": "BirchTree_5",
-    "scale": 1.16,
-    "rotation": 6.15
-  },
-  {
-    "x": -62.1,
-    "z": 6.5,
-    "type": "MapleTree_4",
-    "scale": 1.57,
-    "rotation": 2.14
-  },
-  {
-    "x": 26.5,
-    "z": -77.5,
-    "type": "BirchTree_5",
-    "scale": 1.07,
-    "rotation": 4.65
-  },
-  {
-    "x": 71.7,
-    "z": -46.2,
-    "type": "MapleTree_4",
-    "scale": 1.35,
-    "rotation": 3.04
-  },
-  {
-    "x": -50,
-    "z": 35,
-    "type": "BirchTree_2",
-    "scale": 1.45,
-    "rotation": 4.17
-  },
-  {
-    "x": -68,
-    "z": -49.1,
-    "type": "BirchTree_5",
-    "scale": 1.23,
-    "rotation": 2.09
-  },
-  {
-    "x": -6.8,
-    "z": 68.4,
-    "type": "BirchTree_4",
-    "scale": 0.8,
-    "rotation": 0.3
-  },
-  {
-    "x": 57,
-    "z": -23.6,
-    "type": "MapleTree_1",
-    "scale": 1.28,
-    "rotation": 3.72
-  },
-  {
-    "x": -50.9,
-    "z": 19.6,
-    "type": "Pine_1",
-    "scale": 1.51,
-    "rotation": 5.33
-  },
-  {
-    "x": -24.4,
-    "z": -61.3,
-    "type": "BirchTree_3",
-    "scale": 1.36,
-    "rotation": 2.44
-  },
-  {
-    "x": -60.2,
-    "z": 30.2,
-    "type": "BirchTree_2",
-    "scale": 0.85,
-    "rotation": 3.76
-  },
-  {
-    "x": -8.1,
-    "z": -61,
-    "type": "Pine_5",
-    "scale": 1.8,
-    "rotation": 3.53
-  },
-  {
-    "x": 79.5,
-    "z": -41.4,
-    "type": "MapleTree_5",
-    "scale": 1.06,
-    "rotation": 2.06
-  },
-  {
-    "x": -38.4,
-    "z": -41.4,
-    "type": "BirchTree_4",
-    "scale": 1.34,
-    "rotation": 1.09
-  },
-  {
-    "x": 70.4,
-    "z": 59.8,
-    "type": "Pine_1",
-    "scale": 2.14,
-    "rotation": 6.16
-  },
-  {
-    "x": -47.8,
-    "z": 33.6,
-    "type": "BirchTree_2",
-    "scale": 0.77,
-    "rotation": 4.47
-  },
-  {
-    "x": 61,
-    "z": -4.8,
-    "type": "CommonTree_1",
-    "scale": 1,
-    "rotation": 2.1
-  },
-  {
-    "x": -50.2,
-    "z": -27.2,
-    "type": "BirchTree_5",
-    "scale": 1.01,
-    "rotation": 5.87
-  },
-  {
-    "x": -9.1,
-    "z": 74.9,
-    "type": "MapleTree_2",
-    "scale": 0.87,
-    "rotation": 4.99
-  },
-  {
-    "x": -18,
-    "z": -65.7,
-    "type": "MapleTree_3",
-    "scale": 0.91,
-    "rotation": 1.35
-  },
-  {
-    "x": -70.4,
-    "z": 5.7,
-    "type": "BirchTree_4",
-    "scale": 1.27,
-    "rotation": 6.16
-  },
-  {
-    "x": 4.8,
-    "z": 92.9,
-    "type": "BirchTree_2",
-    "scale": 1.05,
-    "rotation": 5.26
-  },
-  {
-    "x": 30.4,
-    "z": -63.3,
-    "type": "BirchTree_3",
-    "scale": 1.24,
-    "rotation": 2.83
-  },
-  {
-    "x": -11.3,
-    "z": 66.7,
-    "type": "BirchTree_2",
-    "scale": 0.8,
-    "rotation": 4.66
-  },
-  {
-    "x": -5.1,
-    "z": 58,
-    "type": "Pine_2",
-    "scale": 1.69,
-    "rotation": 3.08
-  },
-  {
-    "x": 28.7,
-    "z": -90.7,
-    "type": "BirchTree_3",
-    "scale": 1.43,
-    "rotation": 2.04
-  },
-  {
-    "x": 11.9,
-    "z": 51.7,
-    "type": "TwistedTree_5",
-    "scale": 0.99,
-    "rotation": 3.07
-  },
-  {
-    "x": -52.8,
-    "z": -56.5,
-    "type": "CommonTree_5",
-    "scale": 1.54,
-    "rotation": 5.33
-  },
-  {
-    "x": 72.6,
-    "z": 8.8,
-    "type": "Pine_5",
-    "scale": 1.31,
-    "rotation": 1.39
-  },
-  {
-    "x": -67.6,
-    "z": 16.6,
-    "type": "MapleTree_4",
-    "scale": 1.17,
-    "rotation": 3.99
-  },
-  {
-    "x": 59.1,
-    "z": -14.8,
-    "type": "BirchTree_3",
-    "scale": 1.32,
-    "rotation": 0.3
-  },
-  {
-    "x": 88.6,
-    "z": 8.2,
-    "type": "CommonTree_4",
-    "scale": 0.98,
-    "rotation": 1.79
-  },
-  {
-    "x": -74.4,
-    "z": -28,
-    "type": "MapleTree_1",
-    "scale": 0.9,
-    "rotation": 5.93
-  },
-  {
-    "x": 53.8,
-    "z": -68.5,
-    "type": "CommonTree_3",
-    "scale": 1.06,
-    "rotation": 4.81
-  },
-  {
-    "x": -49.4,
-    "z": 22.6,
-    "type": "Pine_5",
-    "scale": 1.52,
-    "rotation": 0.54
-  },
-  {
-    "x": 7.5,
-    "z": -85.6,
-    "type": "MapleTree_1",
-    "scale": 1.56,
-    "rotation": 2.91
-  },
-  {
-    "x": -27.9,
-    "z": -76.2,
-    "type": "BirchTree_2",
-    "scale": 1.49,
-    "rotation": 1.14
-  },
-  {
-    "x": 35.2,
-    "z": -58.5,
-    "type": "BirchTree_5",
-    "scale": 0.99,
-    "rotation": 5.34
-  },
-  {
-    "x": 2.9,
-    "z": 65.8,
-    "type": "BirchTree_2",
-    "scale": 1.32,
-    "rotation": 4.29
-  },
-  {
-    "x": -16.4,
-    "z": 98.5,
-    "type": "MapleTree_1",
-    "scale": 0.88,
-    "rotation": 1.19
-  },
-  {
-    "x": -45.4,
-    "z": -81.5,
-    "type": "BirchTree_5",
-    "scale": 1.45,
-    "rotation": 5.02
-  },
-  {
-    "x": -65.9,
-    "z": 41.8,
-    "type": "BirchTree_3",
-    "scale": 0.86,
-    "rotation": 4.83
-  },
-  {
-    "x": 29.2,
-    "z": -62.2,
-    "type": "MapleTree_4",
-    "scale": 1.38,
-    "rotation": 4.54
-  },
-  {
-    "x": 57.7,
-    "z": 14.3,
-    "type": "BirchTree_1",
-    "scale": 1.24,
-    "rotation": 3.14
-  },
-  {
-    "x": -70.8,
-    "z": -10.5,
-    "type": "MapleTree_3",
-    "scale": 1.13,
-    "rotation": 4.25
-  },
-  {
-    "x": -44.8,
-    "z": 34.3,
-    "type": "MapleTree_5",
-    "scale": 1.07,
-    "rotation": 5.82
-  },
-  {
-    "x": -65.5,
-    "z": 24.9,
-    "type": "BirchTree_2",
-    "scale": 1.05,
-    "rotation": 1.32
-  },
-  {
-    "x": 20,
-    "z": 49.8,
-    "type": "BirchTree_4",
-    "scale": 1.37,
-    "rotation": 2.45
-  },
-  {
-    "x": -63.2,
-    "z": -66.9,
-    "type": "BirchTree_4",
-    "scale": 0.86,
-    "rotation": 0.67
-  },
-  {
-    "x": 32.9,
-    "z": 45,
-    "type": "CommonTree_5",
-    "scale": 1.23,
-    "rotation": 5.94
-  },
-  {
-    "x": 91.7,
-    "z": -8.9,
-    "type": "MapleTree_3",
-    "scale": 0.83,
-    "rotation": 6.05
-  },
-  {
-    "x": 14,
-    "z": 58.6,
-    "type": "BirchTree_5",
-    "scale": 1.09,
-    "rotation": 2.16
-  },
-  {
-    "x": 25.8,
-    "z": 51.4,
-    "type": "Pine_2",
-    "scale": 1.63,
-    "rotation": 5.18
-  },
-  {
-    "x": 31.1,
-    "z": 48.7,
-    "type": "BirchTree_2",
-    "scale": 1.26,
-    "rotation": 5.05
-  },
-  {
-    "x": -52.4,
-    "z": -27.3,
-    "type": "Pine_2",
-    "scale": 1.45,
-    "rotation": 5.39
-  },
-  {
-    "x": 25.8,
-    "z": 64,
-    "type": "BirchTree_5",
-    "scale": 0.88,
-    "rotation": 3.47
-  },
-  {
-    "x": -58.7,
-    "z": 42.3,
-    "type": "CommonTree_1",
-    "scale": 1.44,
-    "rotation": 5.45
-  },
-  {
-    "x": 15,
-    "z": -70.5,
-    "type": "Pine_4",
-    "scale": 1.02,
-    "rotation": 1.12
-  },
-  {
-    "x": 60.3,
-    "z": -24.5,
-    "type": "BirchTree_3",
-    "scale": 0.76,
-    "rotation": 5.45
-  },
-  {
-    "x": 48.1,
-    "z": -83.2,
-    "type": "CommonTree_2",
-    "scale": 1.47,
-    "rotation": 1.82
-  },
-  {
-    "x": -18.3,
-    "z": -89.9,
-    "type": "CommonTree_2",
-    "scale": 1.09,
-    "rotation": 3.74
-  },
-  {
-    "x": -68.6,
-    "z": -31.4,
-    "type": "Pine_3",
-    "scale": 1.32,
-    "rotation": 1.65
-  },
-  {
-    "x": 89.6,
-    "z": 8.5,
+    "x": -110.2,
+    "z": -1.7,
     "type": "TwistedTree_3",
-    "scale": 1.19,
-    "rotation": 3.38
+    "scale": 2.04,
+    "rotation": 4.84
   },
   {
-    "x": -22.5,
-    "z": -87.6,
-    "type": "BirchTree_3",
-    "scale": 0.91,
-    "rotation": 4.57
-  },
-  {
-    "x": -94.5,
-    "z": -6.1,
-    "type": "BirchTree_2",
-    "scale": 0.84,
-    "rotation": 5.01
-  },
-  {
-    "x": -65.8,
-    "z": -59.9,
-    "type": "BirchTree_2",
-    "scale": 1.13,
-    "rotation": 0.34
-  },
-  {
-    "x": 25.2,
-    "z": 63.7,
-    "type": "MapleTree_4",
-    "scale": 1.04,
-    "rotation": 4.04
-  },
-  {
-    "x": -71.3,
-    "z": 70,
-    "type": "TwistedTree_5",
-    "scale": 0.88,
-    "rotation": 5.57
-  },
-  {
-    "x": -3.9,
-    "z": -58.1,
-    "type": "Pine_2",
-    "scale": 1.92,
-    "rotation": 5.55
-  },
-  {
-    "x": 60.2,
-    "z": -39.1,
-    "type": "TwistedTree_1",
-    "scale": 0.62,
-    "rotation": 1.65
-  },
-  {
-    "x": -74,
-    "z": -13.8,
-    "type": "MapleTree_5",
-    "scale": 1.16,
-    "rotation": 2.04
-  },
-  {
-    "x": 17.9,
-    "z": -49.7,
-    "type": "TwistedTree_1",
-    "scale": 1.06,
-    "rotation": 5.94
-  },
-  {
-    "x": 24.8,
-    "z": 96.6,
-    "type": "BirchTree_4",
-    "scale": 1.35,
-    "rotation": 0.5
-  },
-  {
-    "x": -30.6,
-    "z": -80.9,
-    "type": "MapleTree_4",
-    "scale": 1.51,
-    "rotation": 3.31
-  },
-  {
-    "x": 77.2,
-    "z": -38.2,
-    "type": "MapleTree_5",
-    "scale": 1.24,
-    "rotation": 5.87
-  },
-  {
-    "x": -9.5,
-    "z": -58.5,
-    "type": "BirchTree_3",
-    "scale": 0.8,
-    "rotation": 0.47
-  },
-  {
-    "x": -62.1,
-    "z": -37.9,
-    "type": "Pine_2",
-    "scale": 1.15,
-    "rotation": 3.88
-  },
-  {
-    "x": -25,
-    "z": 63.5,
-    "type": "BirchTree_5",
-    "scale": 0.98,
-    "rotation": 2.32
-  },
-  {
-    "x": 63.9,
-    "z": 5.2,
-    "type": "MapleTree_5",
-    "scale": 0.9,
-    "rotation": 0.19
-  },
-  {
-    "x": -65.5,
-    "z": 42.9,
-    "type": "MapleTree_1",
-    "scale": 1.17,
-    "rotation": 0.99
-  },
-  {
-    "x": 92.8,
-    "z": 35.3,
-    "type": "Pine_2",
-    "scale": 1.05,
-    "rotation": 3.95
-  },
-  {
-    "x": -98.3,
-    "z": 17.5,
-    "type": "MapleTree_1",
-    "scale": 1.32,
-    "rotation": 5.84
-  },
-  {
-    "x": 28.4,
-    "z": -95.4,
-    "type": "BirchTree_2",
-    "scale": 0.87,
-    "rotation": 1.07
-  },
-  {
-    "x": -92.5,
-    "z": 33.9,
-    "type": "BirchTree_3",
-    "scale": 1.15,
-    "rotation": 0.23
-  },
-  {
-    "x": 16.5,
-    "z": 51.7,
-    "type": "BirchTree_4",
-    "scale": 0.86,
-    "rotation": 3.83
-  },
-  {
-    "x": -19.7,
-    "z": 60.7,
-    "type": "BirchTree_5",
-    "scale": 1.33,
-    "rotation": 5.26
-  },
-  {
-    "x": 44.6,
-    "z": -66,
-    "type": "MapleTree_3",
-    "scale": 1.08,
-    "rotation": 5.99
-  },
-  {
-    "x": 36.6,
-    "z": -46.8,
-    "type": "MapleTree_5",
-    "scale": 1.5,
-    "rotation": 6.23
-  },
-  {
-    "x": -23,
-    "z": -83.5,
-    "type": "BirchTree_4",
-    "scale": 1.47,
-    "rotation": 2.27
-  },
-  {
-    "x": 41.5,
-    "z": -78.7,
-    "type": "Pine_1",
-    "scale": 1.46,
-    "rotation": 2.02
-  },
-  {
-    "x": -60.3,
-    "z": -63.4,
-    "type": "CommonTree_3",
-    "scale": 0.84,
-    "rotation": 4.95
-  },
-  {
-    "x": 4.8,
-    "z": -60,
-    "type": "BirchTree_5",
-    "scale": 0.76,
-    "rotation": 4.52
-  },
-  {
-    "x": 97,
-    "z": 17,
-    "type": "MapleTree_3",
-    "scale": 1.24,
-    "rotation": 5.16
-  },
-  {
-    "x": -69.2,
-    "z": -23.4,
-    "type": "Pine_1",
-    "scale": 1.05,
-    "rotation": 3.63
-  },
-  {
-    "x": -76.3,
-    "z": -39.8,
-    "type": "BirchTree_5",
-    "scale": 1.26,
-    "rotation": 4.99
-  },
-  {
-    "x": -9.1,
-    "z": -96.9,
-    "type": "MapleTree_1",
-    "scale": 0.84,
-    "rotation": 3.31
-  },
-  {
-    "x": -97.1,
-    "z": -21,
-    "type": "Pine_3",
-    "scale": 1.02,
-    "rotation": 1.97
-  },
-  {
-    "x": 87.7,
-    "z": -15.4,
-    "type": "BirchTree_3",
-    "scale": 1.08,
-    "rotation": 1.96
-  },
-  {
-    "x": 16,
-    "z": 60.5,
-    "type": "BirchTree_5",
-    "scale": 1.28,
-    "rotation": 4.97
-  },
-  {
-    "x": -38.3,
-    "z": -56.7,
-    "type": "Pine_3",
-    "scale": 1.96,
-    "rotation": 2.38
-  },
-  {
-    "x": -41.7,
-    "z": 41,
-    "type": "BirchTree_3",
-    "scale": 1.16,
-    "rotation": 1.06
-  },
-  {
-    "x": 68.5,
-    "z": -38.5,
-    "type": "BirchTree_3",
-    "scale": 1.4,
-    "rotation": 1.57
-  },
-  {
-    "x": -31.6,
-    "z": 81.8,
-    "type": "BirchTree_5",
-    "scale": 1.08,
-    "rotation": 1.28
-  },
-  {
-    "x": -75.1,
+    "x": -105.2,
     "z": 16.2,
-    "type": "MapleTree_2",
-    "scale": 1.44,
-    "rotation": 1.91
-  },
-  {
-    "x": -78.8,
-    "z": -37.2,
-    "type": "BirchTree_3",
-    "scale": 0.72,
-    "rotation": 1.01
-  },
-  {
-    "x": -72.5,
-    "z": -36.3,
-    "type": "TwistedTree_5",
-    "scale": 1.14,
-    "rotation": 0.34
-  },
-  {
-    "x": 80,
-    "z": 15.4,
-    "type": "BirchTree_2",
-    "scale": 0.95,
-    "rotation": 4.9
-  },
-  {
-    "x": 78.3,
-    "z": -30.3,
-    "type": "CommonTree_2",
-    "scale": 1.51,
-    "rotation": 5.61
-  },
-  {
-    "x": 25.7,
-    "z": -53.5,
-    "type": "BirchTree_1",
-    "scale": 1.49,
-    "rotation": 2.72
-  },
-  {
-    "x": 95.9,
-    "z": -15.5,
-    "type": "Pine_1",
-    "scale": 2.19,
-    "rotation": 3.68
-  },
-  {
-    "x": -57.5,
-    "z": 9.3,
-    "type": "BirchTree_5",
-    "scale": 0.74,
-    "rotation": 3.97
-  },
-  {
-    "x": -56.5,
-    "z": 20,
-    "type": "BirchTree_1",
-    "scale": 1.28,
-    "rotation": 5.7
-  },
-  {
-    "x": 6.4,
-    "z": 98.8,
-    "type": "BirchTree_3",
-    "scale": 0.78,
-    "rotation": 0.36
-  },
-  {
-    "x": 45.9,
-    "z": 49.5,
-    "type": "MapleTree_5",
-    "scale": 0.91,
-    "rotation": 4.05
-  },
-  {
-    "x": -75.6,
-    "z": 36.3,
-    "type": "MapleTree_3",
-    "scale": 1.23,
-    "rotation": 6.22
-  },
-  {
-    "x": -53,
-    "z": 7.4,
-    "type": "MapleTree_1",
-    "scale": 1.01,
-    "rotation": 1.94
-  },
-  {
-    "x": -47.5,
-    "z": 56.8,
-    "type": "BirchTree_3",
-    "scale": 1.22,
-    "rotation": 3
-  },
-  {
-    "x": -58.2,
-    "z": -57,
-    "type": "CommonTree_1",
-    "scale": 1.26,
-    "rotation": 2.37
-  },
-  {
-    "x": 3.2,
-    "z": -73,
-    "type": "CommonTree_5",
-    "scale": 0.96,
-    "rotation": 5.54
-  },
-  {
-    "x": 74.2,
-    "z": -48.5,
-    "type": "Pine_2",
-    "scale": 1.27,
-    "rotation": 5.91
-  },
-  {
-    "x": -51.7,
-    "z": -58.5,
-    "type": "Pine_3",
-    "scale": 1.91,
-    "rotation": 3.38
-  },
-  {
-    "x": 50.6,
-    "z": 75,
-    "type": "BirchTree_4",
-    "scale": 1.02,
-    "rotation": 1.1
-  },
-  {
-    "x": 32.2,
-    "z": -46.5,
-    "type": "Pine_4",
-    "scale": 1.21,
-    "rotation": 0.42
-  },
-  {
-    "x": -71.2,
-    "z": 66.3,
-    "type": "BirchTree_5",
-    "scale": 0.88,
-    "rotation": 2.59
-  },
-  {
-    "x": -24.5,
-    "z": 69.2,
-    "type": "Pine_1",
-    "scale": 1.91,
-    "rotation": 3.38
-  },
-  {
-    "x": -41.2,
-    "z": -66.1,
-    "type": "BirchTree_4",
-    "scale": 1.39,
-    "rotation": 1.03
-  },
-  {
-    "x": 51.3,
-    "z": 18.7,
-    "type": "MapleTree_1",
-    "scale": 1.35,
-    "rotation": 5.82
-  },
-  {
-    "x": -59.9,
-    "z": 29.5,
-    "type": "BirchTree_5",
-    "scale": 1.29,
-    "rotation": 0.29
-  },
-  {
-    "x": -88,
-    "z": -17.7,
-    "type": "Pine_2",
-    "scale": 2.09,
-    "rotation": 3.64
-  },
-  {
-    "x": -34.5,
-    "z": -54.1,
-    "type": "MapleTree_1",
-    "scale": 1,
-    "rotation": 5.46
-  },
-  {
-    "x": -15.7,
-    "z": -96.4,
-    "type": "MapleTree_4",
-    "scale": 1.09,
-    "rotation": 5.75
-  },
-  {
-    "x": 9.1,
-    "z": -60,
-    "type": "BirchTree_3",
-    "scale": 0.75,
-    "rotation": 2.18
-  },
-  {
-    "x": 34.4,
-    "z": -48.1,
-    "type": "Pine_3",
-    "scale": 1.1,
-    "rotation": 3.99
-  },
-  {
-    "x": 12.3,
-    "z": -67.3,
-    "type": "MapleTree_5",
-    "scale": 1.3,
-    "rotation": 2.49
-  },
-  {
-    "x": 47.3,
-    "z": -22.8,
-    "type": "Pine_2",
-    "scale": 1.76,
-    "rotation": 5.08
-  },
-  {
-    "x": 65.2,
-    "z": -33.5,
-    "type": "MapleTree_5",
-    "scale": 0.91,
-    "rotation": 6.11
-  },
-  {
-    "x": -15,
-    "z": 50.7,
-    "type": "BirchTree_2",
-    "scale": 1.25,
-    "rotation": 6.15
-  },
-  {
-    "x": 29,
-    "z": 86.8,
-    "type": "CommonTree_4",
-    "scale": 0.96,
-    "rotation": 0.67
-  },
-  {
-    "x": -15.1,
-    "z": -80.4,
-    "type": "CommonTree_2",
-    "scale": 1.4,
-    "rotation": 4.86
-  },
-  {
-    "x": 24.5,
-    "z": -80.2,
-    "type": "MapleTree_5",
-    "scale": 0.84,
-    "rotation": 5.4
-  },
-  {
-    "x": 47.2,
-    "z": 49.3,
-    "type": "CommonTree_1",
-    "scale": 1.39,
-    "rotation": 1.34
-  },
-  {
-    "x": 72.4,
-    "z": -0.4,
-    "type": "BirchTree_3",
-    "scale": 0.94,
-    "rotation": 6.22
-  },
-  {
-    "x": -43.8,
-    "z": 34,
-    "type": "BirchTree_4",
-    "scale": 0.94,
-    "rotation": 4.89
-  },
-  {
-    "x": 29.7,
-    "z": 80.2,
-    "type": "BirchTree_5",
-    "scale": 1.14,
-    "rotation": 1.72
-  },
-  {
-    "x": -70.3,
-    "z": 5.7,
-    "type": "CommonTree_2",
-    "scale": 1.18,
-    "rotation": 5.2
-  },
-  {
-    "x": 88.5,
-    "z": 33,
-    "type": "MapleTree_4",
-    "scale": 1.12,
-    "rotation": 2.79
-  },
-  {
-    "x": -86.1,
-    "z": -30.5,
-    "type": "BirchTree_4",
-    "scale": 1.37,
-    "rotation": 0.35
-  },
-  {
-    "x": 23.8,
-    "z": -53,
-    "type": "MapleTree_4",
-    "scale": 1.35,
-    "rotation": 5.46
-  },
-  {
-    "x": 98.2,
-    "z": 8.2,
-    "type": "Pine_5",
-    "scale": 1.41,
-    "rotation": 2.28
-  },
-  {
-    "x": 57.8,
-    "z": -50.7,
-    "type": "BirchTree_5",
-    "scale": 1.47,
-    "rotation": 1.23
-  },
-  {
-    "x": -33.2,
-    "z": 81.4,
-    "type": "MapleTree_2",
-    "scale": 1.38,
-    "rotation": 5.17
-  },
-  {
-    "x": -47.4,
-    "z": -50.4,
-    "type": "Pine_1",
-    "scale": 2.01,
-    "rotation": 5.77
-  },
-  {
-    "x": 49,
-    "z": 42.3,
-    "type": "Pine_3",
-    "scale": 1.35,
-    "rotation": 1.58
-  },
-  {
-    "x": -50.6,
-    "z": 18.9,
     "type": "TwistedTree_1",
-    "scale": 1.05,
-    "rotation": 3.63
-  },
-  {
-    "x": 36.2,
-    "z": 44.8,
-    "type": "BirchTree_4",
-    "scale": 1.32,
-    "rotation": 2.36
-  },
-  {
-    "x": -8.9,
-    "z": -68.7,
-    "type": "BirchTree_5",
-    "scale": 0.72,
-    "rotation": 3.23
-  },
-  {
-    "x": 93.4,
-    "z": -11.2,
-    "type": "CommonTree_3",
-    "scale": 1.48,
-    "rotation": 3.95
-  },
-  {
-    "x": -63.5,
-    "z": -15.8,
-    "type": "Pine_4",
-    "scale": 1.67,
-    "rotation": 1.11
-  },
-  {
-    "x": 88.5,
-    "z": 33.5,
-    "type": "TwistedTree_3",
-    "scale": 1.06,
-    "rotation": 2.14
-  },
-  {
-    "x": 45.9,
-    "z": -44.8,
-    "type": "BirchTree_1",
-    "scale": 0.77,
-    "rotation": 3.82
-  },
-  {
-    "x": 15.9,
-    "z": 94.4,
-    "type": "Pine_2",
-    "scale": 2.17,
-    "rotation": 4.9
-  },
-  {
-    "x": 57.3,
-    "z": 81.2,
-    "type": "MapleTree_3",
-    "scale": 1.33,
-    "rotation": 1.56
-  },
-  {
-    "x": 85.9,
-    "z": -30.3,
-    "type": "MapleTree_2",
-    "scale": 1.48,
-    "rotation": 2.34
-  },
-  {
-    "x": 26.7,
-    "z": 47.2,
-    "type": "MapleTree_1",
-    "scale": 1.52,
-    "rotation": 4
-  },
-  {
-    "x": -13,
-    "z": 54.7,
-    "type": "CommonTree_2",
-    "scale": 1.52,
-    "rotation": 2.89
-  },
-  {
-    "x": -83.2,
-    "z": -31.2,
-    "type": "MapleTree_2",
-    "scale": 0.86,
-    "rotation": 1.11
-  },
-  {
-    "x": 0.3,
-    "z": -81,
-    "type": "BirchTree_4",
-    "scale": 1.13,
-    "rotation": 2.52
-  },
-  {
-    "x": 63.9,
-    "z": 11.5,
-    "type": "CommonTree_5",
-    "scale": 1.01,
-    "rotation": 0.61
-  },
-  {
-    "x": -60.7,
-    "z": -31.6,
-    "type": "BirchTree_3",
-    "scale": 1.31,
-    "rotation": 2.7
-  },
-  {
-    "x": 59.4,
-    "z": 29.5,
-    "type": "Pine_1",
-    "scale": 1.68,
-    "rotation": 6.15
-  },
-  {
-    "x": -72.6,
-    "z": -25.4,
-    "type": "Pine_2",
-    "scale": 1.98,
-    "rotation": 1.24
-  },
-  {
-    "x": 33.4,
-    "z": -53.8,
-    "type": "MapleTree_4",
-    "scale": 1.05,
-    "rotation": 0.06
-  },
-  {
-    "x": -64.9,
-    "z": 42.3,
-    "type": "MapleTree_2",
-    "scale": 1.11,
-    "rotation": 1.17
-  },
-  {
-    "x": 56,
-    "z": 6.9,
-    "type": "Pine_5",
-    "scale": 1.95,
-    "rotation": 5.1
-  },
-  {
-    "x": -10.9,
-    "z": -52.2,
-    "type": "BirchTree_5",
-    "scale": 1.05,
-    "rotation": 6.08
-  },
-  {
-    "x": 43.6,
-    "z": 57.4,
-    "type": "BirchTree_2",
-    "scale": 0.76,
-    "rotation": 1.85
-  },
-  {
-    "x": -62.1,
-    "z": 20.8,
-    "type": "Pine_5",
-    "scale": 1.97,
-    "rotation": 2.12
-  },
-  {
-    "x": -84.4,
-    "z": 6.3,
-    "type": "BirchTree_5",
-    "scale": 1.31,
-    "rotation": 0.01
-  },
-  {
-    "x": 44.1,
-    "z": 57.5,
-    "type": "BirchTree_1",
-    "scale": 0.98,
-    "rotation": 0.13
-  },
-  {
-    "x": 24.3,
-    "z": 57.2,
-    "type": "BirchTree_5",
-    "scale": 0.77,
-    "rotation": 1.94
-  },
-  {
-    "x": 49,
-    "z": 59,
-    "type": "BirchTree_4",
-    "scale": 0.72,
-    "rotation": 3.26
-  },
-  {
-    "x": 65.6,
-    "z": -21.4,
-    "type": "MapleTree_2",
-    "scale": 1.26,
-    "rotation": 0.44
-  },
-  {
-    "x": -37.6,
-    "z": -79.3,
-    "type": "CommonTree_2",
-    "scale": 1.59,
-    "rotation": 3.97
-  },
-  {
-    "x": -57.2,
-    "z": 37.8,
-    "type": "BirchTree_2",
-    "scale": 1.12,
-    "rotation": 1.98
-  },
-  {
-    "x": 42.3,
-    "z": -89.1,
-    "type": "Pine_3",
-    "scale": 1.33,
-    "rotation": 2.81
-  },
-  {
-    "x": -59.8,
-    "z": -24.1,
-    "type": "Pine_5",
-    "scale": 1.02,
-    "rotation": 3.42
-  },
-  {
-    "x": 5.5,
-    "z": -70.9,
-    "type": "Pine_4",
-    "scale": 1.42,
-    "rotation": 2.46
-  },
-  {
-    "x": -25.3,
-    "z": -79.8,
-    "type": "Pine_2",
-    "scale": 1.6,
+    "scale": 2.92,
     "rotation": 4.64
   },
   {
-    "x": -35.7,
-    "z": 81.8,
-    "type": "BirchTree_1",
-    "scale": 1.37,
-    "rotation": 4.35
+    "x": -108.1,
+    "z": 29.6,
+    "type": "BirchTree_5",
+    "scale": 2.62,
+    "rotation": 4.11
   },
   {
-    "x": -68.3,
-    "z": -60.6,
-    "type": "Pine_3",
-    "scale": 1.15,
-    "rotation": 4.39
+    "x": -110.2,
+    "z": 41.8,
+    "type": "MapleTree_2",
+    "scale": 2.7,
+    "rotation": 2.19
   },
   {
-    "x": 24.6,
-    "z": 70.9,
-    "type": "BirchTree_4",
-    "scale": 1.4,
-    "rotation": 3.82
+    "x": -110.3,
+    "z": 52.9,
+    "type": "TwistedTree_3",
+    "scale": 2.1,
+    "rotation": 0.83
   },
   {
-    "x": -19.1,
-    "z": 62,
+    "x": -111.3,
+    "z": 66.8,
+    "type": "MapleTree_2",
+    "scale": 2.1,
+    "rotation": 3.54
+  },
+  {
+    "x": -108.6,
+    "z": 77,
     "type": "MapleTree_4",
-    "scale": 0.98,
-    "rotation": 0.35
+    "scale": 2.16,
+    "rotation": 5.36
   },
   {
-    "x": 34,
-    "z": 47.4,
-    "type": "Pine_5",
-    "scale": 1.07,
-    "rotation": 5.69
+    "x": -92.9,
+    "z": -75.6,
+    "type": "TwistedTree_3",
+    "scale": 2.55,
+    "rotation": 2.5
   },
   {
-    "x": 40.7,
-    "z": -67.8,
-    "type": "BirchTree_4",
-    "scale": 1.47,
-    "rotation": 4.02
-  },
-  {
-    "x": -68.3,
-    "z": 31.6,
-    "type": "MapleTree_2",
-    "scale": 1.02,
-    "rotation": 4.53
-  },
-  {
-    "x": -35.9,
-    "z": -56.5,
-    "type": "BirchTree_1",
-    "scale": 0.9,
-    "rotation": 1.31
-  },
-  {
-    "x": -51.3,
-    "z": 8.9,
-    "type": "BirchTree_1",
-    "scale": 1.01,
-    "rotation": 3.12
-  },
-  {
-    "x": -13.2,
-    "z": 82.1,
-    "type": "BirchTree_3",
-    "scale": 0.91,
-    "rotation": 3.99
-  },
-  {
-    "x": 74.2,
-    "z": -11.9,
-    "type": "MapleTree_1",
-    "scale": 1.37,
-    "rotation": 4.48
-  },
-  {
-    "x": 71.4,
-    "z": -38.9,
-    "type": "CommonTree_5",
-    "scale": 1.57,
-    "rotation": 1.28
-  },
-  {
-    "x": -9.5,
-    "z": -82.2,
-    "type": "Pine_5",
-    "scale": 1.76,
-    "rotation": 5.21
-  },
-  {
-    "x": 54.6,
-    "z": -54.2,
-    "type": "Pine_2",
-    "scale": 1.71,
-    "rotation": 0.06
-  },
-  {
-    "x": -13,
-    "z": -60.5,
-    "type": "BirchTree_1",
-    "scale": 1.34,
-    "rotation": 2.03
-  },
-  {
-    "x": -3.9,
-    "z": 68.1,
-    "type": "BirchTree_5",
-    "scale": 1.13,
-    "rotation": 3.34
-  },
-  {
-    "x": 29.3,
-    "z": 47.9,
-    "type": "BirchTree_3",
-    "scale": 1.4,
-    "rotation": 0.61
-  },
-  {
-    "x": -73.5,
-    "z": -6.7,
-    "type": "BirchTree_5",
-    "scale": 1.48,
-    "rotation": 5.33
-  },
-  {
-    "x": -23.7,
-    "z": -68.6,
-    "type": "BirchTree_2",
-    "scale": 0.99,
-    "rotation": 6.18
-  },
-  {
-    "x": -54.6,
-    "z": 3.9,
-    "type": "BirchTree_5",
-    "scale": 1.36,
-    "rotation": 1.32
-  },
-  {
-    "x": -14.2,
-    "z": 60.8,
-    "type": "BirchTree_1",
-    "scale": 0.82,
-    "rotation": 2.25
-  },
-  {
-    "x": -79.3,
-    "z": 13.9,
-    "type": "Pine_4",
-    "scale": 1.92,
-    "rotation": 2.72
-  },
-  {
-    "x": -43.3,
-    "z": 30.8,
-    "type": "BirchTree_4",
-    "scale": 1.43,
-    "rotation": 4.14
-  },
-  {
-    "x": 31.6,
-    "z": -88.6,
-    "type": "BirchTree_2",
-    "scale": 1.28,
-    "rotation": 0.46
-  },
-  {
-    "x": 1.1,
-    "z": 57.5,
-    "type": "BirchTree_5",
-    "scale": 0.73,
-    "rotation": 5.61
-  },
-  {
-    "x": 4.2,
-    "z": 67.1,
-    "type": "MapleTree_3",
-    "scale": 1.25,
-    "rotation": 4.8
-  },
-  {
-    "x": -37.5,
-    "z": -53.7,
-    "type": "BirchTree_2",
-    "scale": 1.31,
-    "rotation": 1.55
-  },
-  {
-    "x": -39,
-    "z": 84,
-    "type": "Pine_5",
-    "scale": 1.69,
-    "rotation": 0.85
-  },
-  {
-    "x": -58.8,
-    "z": -1.7,
-    "type": "CommonTree_2",
-    "scale": 0.97,
-    "rotation": 1.82
-  },
-  {
-    "x": -16.6,
-    "z": 85.9,
-    "type": "MapleTree_3",
-    "scale": 1.12,
-    "rotation": 5.09
-  },
-  {
-    "x": -13.2,
-    "z": -66,
-    "type": "MapleTree_1",
-    "scale": 1.43,
-    "rotation": 3.72
-  },
-  {
-    "x": 61.8,
-    "z": 6.7,
-    "type": "BirchTree_1",
-    "scale": 0.77,
-    "rotation": 2.41
-  },
-  {
-    "x": -64.6,
-    "z": -46.7,
-    "type": "Pine_5",
-    "scale": 1.23,
-    "rotation": 5.09
-  },
-  {
-    "x": -27.8,
-    "z": 61.9,
-    "type": "MapleTree_2",
-    "scale": 1.24,
-    "rotation": 5.26
-  },
-  {
-    "x": -58.2,
-    "z": -10.2,
-    "type": "TwistedTree_4",
-    "scale": 0.83,
-    "rotation": 0.92
-  },
-  {
-    "x": 59.2,
-    "z": 25.5,
-    "type": "Pine_4",
-    "scale": 2.19,
-    "rotation": 2.25
-  },
-  {
-    "x": -87.9,
-    "z": 13.6,
-    "type": "MapleTree_4",
-    "scale": 0.81,
-    "rotation": 4.32
-  },
-  {
-    "x": 73.8,
-    "z": 15.8,
-    "type": "CommonTree_2",
-    "scale": 1.47,
-    "rotation": 0.07
-  },
-  {
-    "x": 48.9,
-    "z": -79.1,
-    "type": "BirchTree_1",
-    "scale": 0.82,
-    "rotation": 4.73
-  },
-  {
-    "x": -51.2,
-    "z": 39.3,
-    "type": "MapleTree_2",
-    "scale": 0.98,
-    "rotation": 2.67
-  },
-  {
-    "x": 16.6,
-    "z": 94.2,
-    "type": "Pine_2",
-    "scale": 2.19,
-    "rotation": 0.13
-  },
-  {
-    "x": -42.8,
-    "z": -82.7,
-    "type": "BirchTree_2",
-    "scale": 1.2,
+    "x": -92.8,
+    "z": -64.1,
+    "type": "TwistedTree_3",
+    "scale": 2.61,
     "rotation": 5.19
   },
   {
-    "x": 47.9,
-    "z": 64.2,
+    "x": -92.9,
+    "z": -50,
+    "type": "Pine_2",
+    "scale": 2.97,
+    "rotation": 0.5
+  },
+  {
+    "x": -95.5,
+    "z": -37.7,
+    "type": "MapleTree_1",
+    "scale": 3.9,
+    "rotation": 0.63
+  },
+  {
+    "x": -98.6,
+    "z": -25.5,
+    "type": "BirchTree_1",
+    "scale": 2.55,
+    "rotation": 2.32
+  },
+  {
+    "x": -98.2,
+    "z": 13.9,
+    "type": "BirchTree_4",
+    "scale": 2.31,
+    "rotation": 4.08
+  },
+  {
+    "x": -96,
+    "z": 30.5,
+    "type": "TwistedTree_1",
+    "scale": 2.01,
+    "rotation": 5.61
+  },
+  {
+    "x": -94.8,
+    "z": 43,
+    "type": "Pine_3",
+    "scale": 3.96,
+    "rotation": 1.27
+  },
+  {
+    "x": -96.6,
+    "z": 50.5,
+    "type": "MapleTree_2",
+    "scale": 2.21,
+    "rotation": 1.26
+  },
+  {
+    "x": -96.2,
+    "z": 68.8,
+    "type": "TwistedTree_3",
+    "scale": 2.79,
+    "rotation": 4.48
+  },
+  {
+    "x": -98.2,
+    "z": 80.4,
     "type": "Pine_5",
-    "scale": 1.72,
-    "rotation": 3.26
+    "scale": 2.44,
+    "rotation": 1.95
   },
   {
-    "x": 17.3,
-    "z": -49.6,
+    "x": -85.1,
+    "z": -78.9,
+    "type": "MapleTree_4",
+    "scale": 3.54,
+    "rotation": 4.19
+  },
+  {
+    "x": -83.7,
+    "z": -38.8,
+    "type": "BirchTree_4",
+    "scale": 2.88,
+    "rotation": 5.84
+  },
+  {
+    "x": -80.8,
+    "z": -23.1,
+    "type": "BirchTree_1",
+    "scale": 3.27,
+    "rotation": 6.15
+  },
+  {
+    "x": -79.2,
+    "z": -13.8,
+    "type": "BirchTree_1",
+    "scale": 2.26,
+    "rotation": 3.69
+  },
+  {
+    "x": -85.2,
+    "z": 12.6,
+    "type": "Pine_5",
+    "scale": 3.41,
+    "rotation": 5.85
+  },
+  {
+    "x": -78.9,
+    "z": 25.1,
+    "type": "BirchTree_3",
+    "scale": 3.2,
+    "rotation": 2.59
+  },
+  {
+    "x": -83.5,
+    "z": 43.1,
+    "type": "TwistedTree_3",
+    "scale": 2.34,
+    "rotation": 5.63
+  },
+  {
+    "x": -84.4,
+    "z": 83.2,
+    "type": "Pine_3",
+    "scale": 3.51,
+    "rotation": 2.93
+  },
+  {
+    "x": -68,
+    "z": -79.2,
+    "type": "MapleTree_4",
+    "scale": 3.3,
+    "rotation": 2.44
+  },
+  {
+    "x": -67.1,
+    "z": -38.2,
     "type": "BirchTree_2",
-    "scale": 0.81,
-    "rotation": 5.88
+    "scale": 3.23,
+    "rotation": 5.87
   },
   {
-    "x": 61.7,
-    "z": 60.6,
-    "type": "Pine_4",
-    "scale": 1.87,
-    "rotation": 2.66
-  },
-  {
-    "x": -53.5,
-    "z": -34.5,
-    "type": "CommonTree_5",
-    "scale": 1.44,
-    "rotation": 5.43
-  },
-  {
-    "x": -78.6,
-    "z": 57.8,
+    "x": -70.5,
+    "z": -28,
     "type": "BirchTree_4",
-    "scale": 1.42,
-    "rotation": 1.03
+    "scale": 2.11,
+    "rotation": 2.33
   },
   {
-    "x": 57.4,
-    "z": -15.5,
-    "type": "CommonTree_3",
-    "scale": 1.1,
-    "rotation": 3.28
+    "x": -68.7,
+    "z": -9.9,
+    "type": "MapleTree_1",
+    "scale": 2.75,
+    "rotation": 2.99
   },
   {
-    "x": 43.4,
-    "z": 34.4,
-    "type": "CommonTree_4",
-    "scale": 1.06,
-    "rotation": 0.23
+    "x": -65.8,
+    "z": 2,
+    "type": "BirchTree_5",
+    "scale": 3.78,
+    "rotation": 1.68
   },
   {
-    "x": 64.8,
-    "z": -6.7,
-    "type": "CommonTree_1",
-    "scale": 0.99,
-    "rotation": 6
+    "x": -65.8,
+    "z": 16.7,
+    "type": "MapleTree_3",
+    "scale": 2.02,
+    "rotation": 4.57
   },
   {
-    "x": 16.5,
-    "z": 72.5,
+    "x": -69.8,
+    "z": 29.7,
+    "type": "Pine_1",
+    "scale": 2.38,
+    "rotation": 2.14
+  },
+  {
+    "x": -68.5,
+    "z": 41,
+    "type": "MapleTree_2",
+    "scale": 3.62,
+    "rotation": 3.19
+  },
+  {
+    "x": -71.6,
+    "z": 80.9,
+    "type": "BirchTree_2",
+    "scale": 2.13,
+    "rotation": 6.17
+  },
+  {
+    "x": -54.4,
+    "z": -75.2,
+    "type": "MapleTree_1",
+    "scale": 2.63,
+    "rotation": 5.87
+  },
+  {
+    "x": -54.6,
+    "z": -41.1,
     "type": "BirchTree_4",
-    "scale": 1.36,
-    "rotation": 5.6
+    "scale": 3.4,
+    "rotation": 3.31
   },
   {
-    "x": -19.8,
-    "z": 90,
+    "x": -55.6,
+    "z": -26.5,
+    "type": "MapleTree_3",
+    "scale": 2.37,
+    "rotation": 4.81
+  },
+  {
+    "x": -52.3,
+    "z": -10,
     "type": "BirchTree_4",
-    "scale": 1.11,
-    "rotation": 5.02
+    "scale": 2.65,
+    "rotation": 2.05
+  },
+  {
+    "x": -53.6,
+    "z": 1.2,
+    "type": "BirchTree_3",
+    "scale": 2.47,
+    "rotation": 1.65
+  },
+  {
+    "x": -54.8,
+    "z": 11.5,
+    "type": "BirchTree_1",
+    "scale": 3.17,
+    "rotation": 0.45
+  },
+  {
+    "x": -55.9,
+    "z": 26.2,
+    "type": "BirchTree_4",
+    "scale": 2.93,
+    "rotation": 3.08
+  },
+  {
+    "x": -54.9,
+    "z": 42.6,
+    "type": "MapleTree_4",
+    "scale": 2.81,
+    "rotation": 5.32
+  },
+  {
+    "x": -55.4,
+    "z": 80.5,
+    "type": "Pine_1",
+    "scale": 3.21,
+    "rotation": 5.31
+  },
+  {
+    "x": -44.1,
+    "z": -78.8,
+    "type": "BirchTree_3",
+    "scale": 3.49,
+    "rotation": 1.63
+  },
+  {
+    "x": -39.8,
+    "z": -64.7,
+    "type": "TwistedTree_1",
+    "scale": 2.12,
+    "rotation": 2.38
+  },
+  {
+    "x": -42.2,
+    "z": -49.5,
+    "type": "TwistedTree_1",
+    "scale": 2.14,
+    "rotation": 3.12
+  },
+  {
+    "x": -43.8,
+    "z": 56.2,
+    "type": "BirchTree_5",
+    "scale": 3.21,
+    "rotation": 4.25
+  },
+  {
+    "x": -40.1,
+    "z": 68.7,
+    "type": "TwistedTree_3",
+    "scale": 2.55,
+    "rotation": 4.99
+  },
+  {
+    "x": -45.5,
+    "z": 81.2,
+    "type": "BirchTree_1",
+    "scale": 2.78,
+    "rotation": 3.11
+  },
+  {
+    "x": -27.7,
+    "z": -76.2,
+    "type": "MapleTree_2",
+    "scale": 2.64,
+    "rotation": 2.2
+  },
+  {
+    "x": -32.5,
+    "z": -62.1,
+    "type": "BirchTree_4",
+    "scale": 2.06,
+    "rotation": 2.86
+  },
+  {
+    "x": -30.4,
+    "z": -54.9,
+    "type": "BirchTree_1",
+    "scale": 2.84,
+    "rotation": 5.62
+  },
+  {
+    "x": -31.7,
+    "z": -42.2,
+    "type": "Pine_5",
+    "scale": 3.35,
+    "rotation": 3.78
+  },
+  {
+    "x": -26.9,
+    "z": 43,
+    "type": "Pine_5",
+    "scale": 3.18,
+    "rotation": 2.62
+  },
+  {
+    "x": -27.2,
+    "z": 52.5,
+    "type": "BirchTree_4",
+    "scale": 3.08,
+    "rotation": 0.36
   },
   {
     "x": -29.1,
-    "z": 52.1,
+    "z": 66.9,
     "type": "Pine_2",
-    "scale": 1.1,
-    "rotation": 1.86
+    "scale": 3.88,
+    "rotation": 2.64
   },
   {
-    "x": 6.5,
-    "z": 60,
-    "type": "BirchTree_4",
-    "scale": 0.89,
-    "rotation": 3.4
+    "x": -26.6,
+    "z": 79.9,
+    "type": "TwistedTree_1",
+    "scale": 2.8,
+    "rotation": 1.29
   },
   {
-    "x": -44.3,
-    "z": -76.6,
-    "type": "BirchTree_4",
-    "scale": 1.48,
-    "rotation": 0.96
+    "x": -18.2,
+    "z": -77.3,
+    "type": "BirchTree_2",
+    "scale": 3.77,
+    "rotation": 2.81
   },
   {
-    "x": -68.3,
-    "z": -56.2,
-    "type": "MapleTree_2",
-    "scale": 1.4,
-    "rotation": 0.74
+    "x": -13.7,
+    "z": -63.6,
+    "type": "MapleTree_4",
+    "scale": 2.1,
+    "rotation": 4.76
   },
   {
-    "x": -16.5,
-    "z": -77.2,
-    "type": "CommonTree_2",
-    "scale": 1.52,
+    "x": -18,
+    "z": -49.3,
+    "type": "MapleTree_4",
+    "scale": 3.56,
+    "rotation": 2.99
+  },
+  {
+    "x": -14.3,
+    "z": 56.1,
+    "type": "BirchTree_2",
+    "scale": 2.09,
+    "rotation": 3.75
+  },
+  {
+    "x": -18.4,
+    "z": 67.4,
+    "type": "Pine_3",
+    "scale": 2.48,
+    "rotation": 5.69
+  },
+  {
+    "x": -13,
+    "z": 76.6,
+    "type": "Pine_1",
+    "scale": 3.7,
+    "rotation": 3.7
+  },
+  {
+    "x": -1.9,
+    "z": -78.8,
+    "type": "TwistedTree_3",
+    "scale": 2.95,
     "rotation": 5.16
   },
   {
-    "x": -31.8,
-    "z": 65.1,
+    "x": -2.3,
+    "z": -68.6,
+    "type": "Pine_1",
+    "scale": 2.09,
+    "rotation": 0.98
+  },
+  {
+    "x": -1.7,
+    "z": -52.2,
+    "type": "Pine_1",
+    "scale": 2.49,
+    "rotation": 3.68
+  },
+  {
+    "x": 0,
+    "z": 53.2,
+    "type": "TwistedTree_3",
+    "scale": 2.88,
+    "rotation": 2.48
+  },
+  {
+    "x": -1.4,
+    "z": 64.2,
+    "type": "BirchTree_4",
+    "scale": 2.2,
+    "rotation": 1.82
+  },
+  {
+    "x": -0.3,
+    "z": 76.8,
     "type": "BirchTree_2",
-    "scale": 1.36,
+    "scale": 3.97,
     "rotation": 3.32
   },
   {
-    "x": 52,
-    "z": 82.4,
-    "type": "Pine_2",
-    "scale": 1.43,
-    "rotation": 5.35
+    "x": 7.4,
+    "z": -78.9,
+    "type": "MapleTree_1",
+    "scale": 3.36,
+    "rotation": 1.54
   },
   {
-    "x": -76.9,
-    "z": -55.2,
-    "type": "BirchTree_2",
-    "scale": 1.24,
-    "rotation": 1.74
+    "x": 11,
+    "z": -62.5,
+    "type": "Pine_3",
+    "scale": 3.19,
+    "rotation": 3.13
   },
   {
-    "x": -80.4,
-    "z": -38.1,
-    "type": "MapleTree_3",
-    "scale": 1.57,
-    "rotation": 1.09
+    "x": 13.9,
+    "z": -50.3,
+    "type": "MapleTree_2",
+    "scale": 3.74,
+    "rotation": 2.86
   },
   {
-    "x": 76.5,
-    "z": -46.9,
-    "type": "BirchTree_3",
-    "scale": 1.36,
-    "rotation": 0.81
-  },
-  {
-    "x": 55.9,
-    "z": 53.1,
+    "x": 13.2,
+    "z": 53.8,
     "type": "BirchTree_4",
-    "scale": 1.12,
-    "rotation": 0.88
+    "scale": 2.74,
+    "rotation": 4.57
   },
   {
-    "x": 26.5,
-    "z": 75.5,
-    "type": "TwistedTree_4",
-    "scale": 0.67,
-    "rotation": 5.17
+    "x": 7.6,
+    "z": 63.9,
+    "type": "BirchTree_4",
+    "scale": 2.9,
+    "rotation": 5.15
+  },
+  {
+    "x": 7.9,
+    "z": 79.6,
+    "type": "MapleTree_2",
+    "scale": 3.49,
+    "rotation": 3.37
+  },
+  {
+    "x": 22.4,
+    "z": -77.6,
+    "type": "MapleTree_1",
+    "scale": 2.23,
+    "rotation": 2.6
+  },
+  {
+    "x": 26.3,
+    "z": -61.9,
+    "type": "TwistedTree_3",
+    "scale": 2.86,
+    "rotation": 5.39
+  },
+  {
+    "x": 20.4,
+    "z": -51.4,
+    "type": "MapleTree_3",
+    "scale": 2.73,
+    "rotation": 1.51
+  },
+  {
+    "x": 22.9,
+    "z": 53.3,
+    "type": "MapleTree_1",
+    "scale": 2.71,
+    "rotation": 3.94
+  },
+  {
+    "x": 24.1,
+    "z": 66.4,
+    "type": "Pine_3",
+    "scale": 2.77,
+    "rotation": 4.87
+  },
+  {
+    "x": 21.9,
+    "z": 79.1,
+    "type": "MapleTree_3",
+    "scale": 3.98,
+    "rotation": 0.07
+  },
+  {
+    "x": 39.5,
+    "z": -78.6,
+    "type": "TwistedTree_3",
+    "scale": 2.72,
+    "rotation": 2.93
+  },
+  {
+    "x": 35.7,
+    "z": -67.1,
+    "type": "MapleTree_1",
+    "scale": 2.54,
+    "rotation": 1.72
+  },
+  {
+    "x": 39.9,
+    "z": -51.1,
+    "type": "MapleTree_3",
+    "scale": 3.16,
+    "rotation": 3.13
+  },
+  {
+    "x": 38.2,
+    "z": 56.4,
+    "type": "BirchTree_4",
+    "scale": 2.47,
+    "rotation": 0.16
+  },
+  {
+    "x": 39.8,
+    "z": 66.6,
+    "type": "TwistedTree_1",
+    "scale": 2.87,
+    "rotation": 1.13
+  },
+  {
+    "x": 39,
+    "z": 82.8,
+    "type": "Pine_5",
+    "scale": 3.08,
+    "rotation": 4.68
+  },
+  {
+    "x": 51.2,
+    "z": -78.2,
+    "type": "Pine_2",
+    "scale": 2.25,
+    "rotation": 1.78
+  },
+  {
+    "x": 51.3,
+    "z": -52.2,
+    "type": "MapleTree_4",
+    "scale": 3.26,
+    "rotation": 3.49
+  },
+  {
+    "x": 48.6,
+    "z": -41.5,
+    "type": "Pine_3",
+    "scale": 3.74,
+    "rotation": 5.5
+  },
+  {
+    "x": 52.3,
+    "z": -25.1,
+    "type": "BirchTree_4",
+    "scale": 2.58,
+    "rotation": 5.42
+  },
+  {
+    "x": 52.1,
+    "z": -10.1,
+    "type": "TwistedTree_3",
+    "scale": 2.02,
+    "rotation": 1.7
+  },
+  {
+    "x": 48.8,
+    "z": 2.6,
+    "type": "BirchTree_3",
+    "scale": 2.36,
+    "rotation": 2.29
+  },
+  {
+    "x": 48.9,
+    "z": 10.9,
+    "type": "TwistedTree_1",
+    "scale": 2.41,
+    "rotation": 5.03
+  },
+  {
+    "x": 53.3,
+    "z": 25.7,
+    "type": "TwistedTree_3",
+    "scale": 2.21,
+    "rotation": 0.67
+  },
+  {
+    "x": 48.3,
+    "z": 39.5,
+    "type": "TwistedTree_1",
+    "scale": 2.19,
+    "rotation": 1.02
+  },
+  {
+    "x": 50.4,
+    "z": 79.5,
+    "type": "MapleTree_3",
+    "scale": 3.6,
+    "rotation": 3.69
+  },
+  {
+    "x": 65.7,
+    "z": -81.3,
+    "type": "MapleTree_4",
+    "scale": 3.09,
+    "rotation": 4.12
   },
   {
     "x": 61.4,
-    "z": -62,
-    "type": "CommonTree_5",
-    "scale": 1.32,
-    "rotation": 3.25
+    "z": -37.9,
+    "type": "Pine_3",
+    "scale": 3.54,
+    "rotation": 1.48
+  },
+  {
+    "x": 61.8,
+    "z": -26.5,
+    "type": "BirchTree_5",
+    "scale": 2.7,
+    "rotation": 2.8
+  },
+  {
+    "x": 64.7,
+    "z": -14,
+    "type": "MapleTree_3",
+    "scale": 3.92,
+    "rotation": 3.97
+  },
+  {
+    "x": 64.5,
+    "z": 3.1,
+    "type": "BirchTree_5",
+    "scale": 2.8,
+    "rotation": 4.65
+  },
+  {
+    "x": 62.9,
+    "z": 13.3,
+    "type": "Pine_5",
+    "scale": 3.78,
+    "rotation": 2.07
+  },
+  {
+    "x": 60.1,
+    "z": 27.5,
+    "type": "BirchTree_5",
+    "scale": 3.12,
+    "rotation": 4.08
+  },
+  {
+    "x": 60.3,
+    "z": 42.8,
+    "type": "MapleTree_1",
+    "scale": 2.02,
+    "rotation": 0.64
+  },
+  {
+    "x": 62.8,
+    "z": 81,
+    "type": "BirchTree_4",
+    "scale": 2.69,
+    "rotation": 5.71
+  },
+  {
+    "x": 73.4,
+    "z": -77.9,
+    "type": "BirchTree_2",
+    "scale": 3.79,
+    "rotation": 1.06
+  },
+  {
+    "x": 77,
+    "z": -41.8,
+    "type": "MapleTree_2",
+    "scale": 3.71,
+    "rotation": 6.22
+  },
+  {
+    "x": 74.9,
+    "z": -25.3,
+    "type": "MapleTree_1",
+    "scale": 3.49,
+    "rotation": 3.12
+  },
+  {
+    "x": 79.7,
+    "z": -13.5,
+    "type": "Pine_2",
+    "scale": 2.71,
+    "rotation": 0.88
+  },
+  {
+    "x": 79.5,
+    "z": 13.5,
+    "type": "BirchTree_3",
+    "scale": 3.76,
+    "rotation": 2.7
+  },
+  {
+    "x": 75.4,
+    "z": 30.7,
+    "type": "Pine_2",
+    "scale": 3.45,
+    "rotation": 2.33
+  },
+  {
+    "x": 77.4,
+    "z": 43.6,
+    "type": "Pine_5",
+    "scale": 3.53,
+    "rotation": 4.77
+  },
+  {
+    "x": 78.4,
+    "z": 83,
+    "type": "BirchTree_1",
+    "scale": 3.96,
+    "rotation": 2.24
+  },
+  {
+    "x": 90.5,
+    "z": -78.9,
+    "type": "Pine_3",
+    "scale": 3.96,
+    "rotation": 3.14
+  },
+  {
+    "x": 90.4,
+    "z": -53.6,
+    "type": "Pine_3",
+    "scale": 2.19,
+    "rotation": 3.32
+  },
+  {
+    "x": 88.3,
+    "z": -36.6,
+    "type": "MapleTree_4",
+    "scale": 2.1,
+    "rotation": 5.79
+  },
+  {
+    "x": 92.9,
+    "z": -26,
+    "type": "BirchTree_5",
+    "scale": 2.83,
+    "rotation": 3.4
+  },
+  {
+    "x": 89.4,
+    "z": 15.9,
+    "type": "BirchTree_1",
+    "scale": 3.76,
+    "rotation": 1.09
+  },
+  {
+    "x": 89.6,
+    "z": 30.3,
+    "type": "MapleTree_1",
+    "scale": 3.41,
+    "rotation": 6.01
+  },
+  {
+    "x": 88.8,
+    "z": 38.2,
+    "type": "Pine_1",
+    "scale": 3.39,
+    "rotation": 2.53
+  },
+  {
+    "x": 92.3,
+    "z": 53,
+    "type": "MapleTree_3",
+    "scale": 2.92,
+    "rotation": 2.71
+  },
+  {
+    "x": 92.4,
+    "z": 82.1,
+    "type": "TwistedTree_3",
+    "scale": 2.26,
+    "rotation": 3.45
+  },
+  {
+    "x": 101.4,
+    "z": -76,
+    "type": "MapleTree_2",
+    "scale": 3.67,
+    "rotation": 0.66
+  },
+  {
+    "x": 101.7,
+    "z": -68.2,
+    "type": "MapleTree_1",
+    "scale": 3.84,
+    "rotation": 1.28
+  },
+  {
+    "x": 105.1,
+    "z": -54.8,
+    "type": "MapleTree_4",
+    "scale": 3.74,
+    "rotation": 3.51
+  },
+  {
+    "x": 105.2,
+    "z": -36.9,
+    "type": "Pine_5",
+    "scale": 2.54,
+    "rotation": 0.95
+  },
+  {
+    "x": 101.4,
+    "z": -26.9,
+    "type": "MapleTree_2",
+    "scale": 3.11,
+    "rotation": 5.5
+  },
+  {
+    "x": 102.9,
+    "z": -11.5,
+    "type": "TwistedTree_1",
+    "scale": 2.9,
+    "rotation": 0.86
+  },
+  {
+    "x": 106.1,
+    "z": 1.7,
+    "type": "MapleTree_3",
+    "scale": 3.92,
+    "rotation": 5.78
+  },
+  {
+    "x": 106.3,
+    "z": 14.9,
+    "type": "Pine_2",
+    "scale": 3.82,
+    "rotation": 0.94
+  },
+  {
+    "x": 103.5,
+    "z": 29.9,
+    "type": "TwistedTree_1",
+    "scale": 2.96,
+    "rotation": 4.86
+  },
+  {
+    "x": 103.6,
+    "z": 43.4,
+    "type": "MapleTree_2",
+    "scale": 3.57,
+    "rotation": 4.05
+  },
+  {
+    "x": 102.4,
+    "z": 53.3,
+    "type": "BirchTree_4",
+    "scale": 3.06,
+    "rotation": 2.18
+  },
+  {
+    "x": 100,
+    "z": 65.3,
+    "type": "MapleTree_3",
+    "scale": 2.06,
+    "rotation": 4.15
+  },
+  {
+    "x": 104.5,
+    "z": 83.1,
+    "type": "MapleTree_2",
+    "scale": 2.03,
+    "rotation": 4.58
   }
 ]
