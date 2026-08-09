@@ -38,12 +38,12 @@ export const ARMOR: Record<number, number> = {
     3: 0.05, // Acolyte: 5% reduction
     4: 0.05, // Gunslinger: light armor
     5: 0.15, // Assassin: glass cannon, buffed armor
-    6: 0.4,  // Skeleton Tank: 40% reduction (Buffed)
-    7: 0.2,  // Skeleton Archer: 20% reduction (Buffed)
-    8: 0.1,  // Skeleton Mage: 10% reduction (Buffed)
+    6: 0.4, // Skeleton Tank: 40% reduction (Buffed)
+    7: 0.2, // Skeleton Archer: 20% reduction (Buffed)
+    8: 0.1, // Skeleton Mage: 10% reduction (Buffed)
     9: 0.15, // Skeleton Healer: 15% reduction (Buffed)
     10: 0.15, // Skeleton Gunslinger: 15% (Buffed)
-    11: 0.22,  // Skeleton Assassin: 22% reduction (Buffed)
+    11: 0.22, // Skeleton Assassin: 22% reduction (Buffed)
     12: 0.35, // Knight: 35% reduction (high armor)
 };
 
@@ -73,8 +73,8 @@ export interface UnitAttributes {
     attackRange: number;
     baseDamage: number;
     attackInterval: number; // ticks antar normal attack
-    critChance: number;      // critical rate (0.0 to 1.0)
-    critDamage: number;      // damage multiplier (e.g. 1.5 for +50% damage)
+    critChance: number; // critical rate (0.0 to 1.0)
+    critDamage: number; // damage multiplier (e.g. 1.5 for +50% damage)
 }
 
 export const ATTRIBUTES: Record<number, UnitAttributes> = {
@@ -99,7 +99,7 @@ export const ATTRIBUTES: Record<number, UnitAttributes> = {
         attackRange: 12.0,
         baseDamage: 4000,
         attackInterval: 60,
-        critChance: 0.10,
+        critChance: 0.1,
         critDamage: 1.5,
     },
     3: {
@@ -115,7 +115,7 @@ export const ATTRIBUTES: Record<number, UnitAttributes> = {
         attackRange: 7.0,
         baseDamage: 22000,
         attackInterval: 50,
-        critChance: 0.20,
+        critChance: 0.2,
         critDamage: 1.8,
     },
     5: {
@@ -123,7 +123,7 @@ export const ATTRIBUTES: Record<number, UnitAttributes> = {
         attackRange: 1.2,
         baseDamage: 30000,
         attackInterval: 35,
-        critChance: 0.40,
+        critChance: 0.4,
         critDamage: 1.8,
     },
     6: {
@@ -150,7 +150,7 @@ export const ATTRIBUTES: Record<number, UnitAttributes> = {
         attackRange: 12.0,
         baseDamage: 6000,
         attackInterval: 48,
-        critChance: 0.10,
+        critChance: 0.1,
         critDamage: 1.5,
     },
     9: {
@@ -168,7 +168,7 @@ export const ATTRIBUTES: Record<number, UnitAttributes> = {
         attackRange: 7.5,
         baseDamage: 35000,
         attackInterval: 40,
-        critChance: 0.20,
+        critChance: 0.2,
         critDamage: 1.8,
     },
     11: {
@@ -177,7 +177,7 @@ export const ATTRIBUTES: Record<number, UnitAttributes> = {
         attackRange: 1.2,
         baseDamage: 36000,
         attackInterval: 28,
-        critChance: 0.40,
+        critChance: 0.4,
         critDamage: 1.8,
     },
     12: {
@@ -197,15 +197,15 @@ export const DEFAULT_ATTRIBUTES: UnitAttributes = {
     attackRange: 1.8,
     baseDamage: 15000,
     attackInterval: 40,
-    critChance: 0.10,
+    critChance: 0.1,
     critDamage: 1.5,
 };
 
 // ============ BARBARIAN SKILLS ============
 export const BARBARIAN_SKILLS = {
     rage: {
-        immuneTicks: 30, // Rage self-immunity
-        cooldown: 600,
+        immuneTicks: 20, // Rage self-immunity (nerfed: 30→20, creates vulnerability window)
+        cooldown: 750, // (nerfed: 600→750, longer cooldown per blueprint)
     },
     axeCleave: {
         range: 1.8,

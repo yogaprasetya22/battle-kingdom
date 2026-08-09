@@ -29,10 +29,7 @@ import {
     BOUND_Z_MIN,
 } from "../../config";
 
-import {
-    queueDamage,
-    skillFXBatch,
-} from "../../systems/CombatSystem";
+import { queueDamage, skillFXBatch } from "../../systems/CombatSystem";
 
 import {
     gridHead,
@@ -115,12 +112,15 @@ export function updateArcher(
     const tx = d[tBase + IDX_X];
     const ty = d[tBase + IDX_Y];
     const tz = d[tBase + IDX_Z];
+    const targetType = d[tBase + IDX_TYPE] % 6;
+    const isTargetAssassin = targetType === 5; // TYPE_ASSASSIN
 
     const dx = tx - d[base + IDX_X];
     const dz = tz - d[base + IDX_Z];
     const distSq = dx * dx + dz * dz;
 
     // --- TARGETED SKILLS ---
+    // Skill 1: always allowed vs any target (incl. Assassin)
     if (d[base + IDX_SKILL1_CD] === 0 && distSq <= myRange * myRange) {
         d[base + IDX_ANIM] = 2;
         animLockTicks[i] = 20;
@@ -137,7 +137,11 @@ export function updateArcher(
             ty: ty + 0.8,
             tz: tz,
         });
-    } else if (d[base + IDX_SKILL2_CD] === 0 && distSq <= ARCHER_SKILLS.evasiveLeap.range * ARCHER_SKILLS.evasiveLeap.range) {
+    } else if (
+        d[base + IDX_SKILL2_CD] === 0 &&
+        distSq <=
+            ARCHER_SKILLS.evasiveLeap.range * ARCHER_SKILLS.evasiveLeap.range
+    ) {
         d[base + IDX_ANIM] = 1;
         animLockTicks[i] = 15;
         const fromX = d[base + IDX_X];
@@ -158,7 +162,11 @@ export function updateArcher(
             ty: fromY,
             tz: d[base + IDX_Z],
         });
-    } else if (d[base + IDX_SKILL3_CD] === 0 && distSq <= myRange * myRange) {
+    } else if (
+        !isTargetAssassin &&
+        d[base + IDX_SKILL3_CD] === 0 &&
+        distSq <= myRange * myRange
+    ) {
         d[base + IDX_ANIM] = 2;
         animLockTicks[i] = 20;
         const myX = d[base + IDX_X];
@@ -170,7 +178,8 @@ export function updateArcher(
 
         const tCol = Math.floor((targetX - BOUND_X_MIN) / cellSize);
         const tRow = Math.floor((targetZ - BOUND_Z_MIN) / cellSize);
-        const radiusSq = ARCHER_SKILLS.arrowVolley.radius * ARCHER_SKILLS.arrowVolley.radius;
+        const radiusSq =
+            ARCHER_SKILLS.arrowVolley.radius * ARCHER_SKILLS.arrowVolley.radius;
 
         const startRow = Math.max(0, tRow - 1);
         const endRow = Math.min(gridRows - 1, tRow + 1);
@@ -183,12 +192,20 @@ export function updateArcher(
                 let curr = gridHead[cellIdx];
                 while (curr !== -1) {
                     const jBase = curr * STRIDE;
-                    if (d[jBase + IDX_HP] > 0 && d[jBase + IDX_TEAM] !== myTeam) {
+                    if (
+                        d[jBase + IDX_HP] > 0 &&
+                        d[jBase + IDX_TEAM] !== myTeam
+                    ) {
                         const jdx = d[jBase + IDX_X] - targetX;
                         const jdz = d[jBase + IDX_Z] - targetZ;
                         const jdist = jdx * jdx + jdz * jdz;
                         if (jdist <= radiusSq) {
-                            queueDamage(curr, ARCHER_SKILLS.arrowVolley.damage, 25, i);
+                            queueDamage(
+                                curr,
+                                ARCHER_SKILLS.arrowVolley.damage,
+                                25,
+                                i,
+                            );
                         }
                     }
                     curr = gridNext[curr];

@@ -30,10 +30,7 @@ import {
     BOUND_Z_MIN,
 } from "../../config";
 
-import {
-    queueDamage,
-    skillFXBatch,
-} from "../../systems/CombatSystem";
+import { queueDamage, skillFXBatch } from "../../systems/CombatSystem";
 
 import {
     gridHead,
@@ -115,13 +112,15 @@ export function updateGunslinger(
     const tx = d[tBase + IDX_X];
     const ty = d[tBase + IDX_Y];
     const tz = d[tBase + IDX_Z];
+    const targetType = d[tBase + IDX_TYPE] % 6;
+    const isTargetAssassin = targetType === 5; // TYPE_ASSASSIN
 
     const dx = tx - d[base + IDX_X];
     const dz = tz - d[base + IDX_Z];
     const distSq = dx * dx + dz * dz;
 
     // --- TARGETED SKILLS ---
-    // Skill 1: High Noon — single target nuke
+    // Skill 1: High Noon — always allowed vs any target (incl. Assassin)
     if (d[base + IDX_SKILL1_CD] === 0 && distSq <= myRange * myRange) {
         d[base + IDX_ANIM] = 2;
         animLockTicks[i] = 20;
@@ -140,11 +139,16 @@ export function updateGunslinger(
             tz: tz,
         });
     }
-    // Skill 2: Smoke Bomb — self-stealth
-    else if (d[base + IDX_SKILL2_CD] === 0 && distSq <= myRange * myRange) {
+    // Skill 2: Smoke Bomb — blocked vs Assassin (self-stealth pointless vs diver)
+    else if (
+        !isTargetAssassin &&
+        d[base + IDX_SKILL2_CD] === 0 &&
+        distSq <= myRange * myRange
+    ) {
         d[base + IDX_ANIM] = 2;
         animLockTicks[i] = 15;
-        d[base + IDX_EFFECT_STATE] = 1000 + GUNSLINGER_SKILLS.smokeBomb.stealthTicks;
+        d[base + IDX_EFFECT_STATE] =
+            1000 + GUNSLINGER_SKILLS.smokeBomb.stealthTicks;
         d[base + IDX_SKILL2_CD] = GUNSLINGER_SKILLS.smokeBomb.cooldown;
         skillActivated = true;
         skillFXBatch.push({
@@ -156,14 +160,19 @@ export function updateGunslinger(
             z: d[base + IDX_Z],
         });
     }
-    // Skill 3: Fan Fire — AoE cone
-    else if (d[base + IDX_SKILL3_CD] === 0 && distSq <= myRange * myRange) {
+    // Skill 3: Fan Fire — blocked vs Assassin (too heavy AoE visual)
+    else if (
+        !isTargetAssassin &&
+        d[base + IDX_SKILL3_CD] === 0 &&
+        distSq <= myRange * myRange
+    ) {
         d[base + IDX_ANIM] = 2;
         animLockTicks[i] = 20;
         const myTeam = d[base + IDX_TEAM];
         const targetX = tx;
         const targetZ = tz;
-        const radiusSq = GUNSLINGER_SKILLS.fanFire.radius * GUNSLINGER_SKILLS.fanFire.radius;
+        const radiusSq =
+            GUNSLINGER_SKILLS.fanFire.radius * GUNSLINGER_SKILLS.fanFire.radius;
 
         const tCol = Math.floor((targetX - BOUND_X_MIN) / cellSize);
         const tRow = Math.floor((targetZ - BOUND_Z_MIN) / cellSize);
@@ -179,12 +188,19 @@ export function updateGunslinger(
                 let curr = gridHead[cellIdx];
                 while (curr !== -1) {
                     const jBase = curr * STRIDE;
-                    if (d[jBase + IDX_HP] > 0 && d[jBase + IDX_TEAM] !== myTeam) {
+                    if (
+                        d[jBase + IDX_HP] > 0 &&
+                        d[jBase + IDX_TEAM] !== myTeam
+                    ) {
                         const jdx = d[jBase + IDX_X] - targetX;
                         const jdz = d[jBase + IDX_Z] - targetZ;
                         const jdist = jdx * jdx + jdz * jdz;
                         if (jdist <= radiusSq) {
-                            for (let h = 0; h < GUNSLINGER_SKILLS.fanFire.hits; h++) {
+                            for (
+                                let h = 0;
+                                h < GUNSLINGER_SKILLS.fanFire.hits;
+                                h++
+                            ) {
                                 queueDamage(
                                     curr,
                                     GUNSLINGER_SKILLS.fanFire.damage,

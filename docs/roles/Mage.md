@@ -10,14 +10,28 @@ Berikut adalah data numerik dasar unit **Mage** yang diambil langsung dari konfi
 
 | Statistik | Nilai Dasar | Deskripsi |
 | :--- | :--- | :--- |
-| **Darah Maksimal (HP)** | **210.000 HP** | Kapasitas nyawa maksimal unit |
+| **Darah Maksimal (HP)** | **210,000 HP** | Kapasitas nyawa maksimal unit |
 | **Pertahanan (Armor)** | **0%** | Persentase pengurangan damage fisik yang diterima |
 | **Kecepatan Gerak** | **0.02** | Kecepatan unit berpindah tempat per frame |
 | **Jangkauan Serang** | **12 unit** | Jarak maksimal untuk melancarkan serangan dasar |
-| **Damage Dasar** | **4.000** | Nilai damage dasar serangan normal |
+| **Damage Dasar** | **4,000** | Nilai damage dasar serangan normal |
 | **Interval Serangan** | **0.96s (60 ticks)** | Jeda waktu antar serangan dasar |
 | **Critical Rate (Peluang)** | **10%** | Peluang serangan dasar menghasilkan damage kritikal |
 | **Critical Damage (Multiplier)** | **1.5x** | Pengali damage saat serangan kritikal berhasil dipicu |
+
+---
+
+## 🗡️ Counter & Sinergi
+
+> Bagian ini menjelaskan hubungan taktis antar unit: siapa yang dilawan, siapa yang melawan, dan siapa teman satu tim terbaik — berdasarkan logika targeting engine dan mekanik skill.
+
+| Hubungan | Unit | Alasan |
+| :--- | :--- | :--- |
+| **⚔️ Counter** | **Barbarian** | Magic damage bypass armor 20%. Frost Nova stun mencegah Barbarian charge. Fireball splash bunuh Barbarian. |
+| **⚔️ Counter** | **Knight** | Magic damage bypass armor 35% Knight. Taunt tidak efektif vs AoE. Frost Nova stun mengunci Knight. |
+| **🛡️ Di-counter** | **Assassin** | Shadow Step langsung menusuk backline, armor 0% tidak bertahan. |
+| **🛡️ Di-counter** | **Gunslinger** | Smoke Bomb stealth dekati tanpa terdeteksi. High Noon execute. |
+| **🤝 Sinergi** | **Knight** | Knight tank di depan mengumpulkan musuh, Mage hancurkan dengan AoE. |
 
 ---
 
@@ -37,7 +51,7 @@ Memberikan damage sihir dan membekukan (Stun/Freeze) semua musuh di sekitarnya s
 
 | Atribut Skill | Nilai | Deskripsi |
 | :--- | :--- | :--- |
-| **Base Value** | 12.000 | Nilai damage / heal dasar |
+| **Base Value** | 12,000 | Nilai damage / heal dasar |
 | **Jangkauan/Radius** | 1.5 unit | Jarak efektif area skill |
 | **Durasi Efek** | 0.64s (40 ticks) | Durasi status buff/debuff |
 | **Cooldown** | 8.80s (550 ticks) | Waktu jeda penggunaan kembali |
@@ -50,8 +64,8 @@ Memberikan damage sihir besar pada target utama, lalu memantul ke target sekunde
 
 | Atribut Skill | Nilai | Deskripsi |
 | :--- | :--- | :--- |
-| **Base Value** | 22.000 | Nilai damage / heal dasar |
-| **Base Value** | 15.000 | Nilai damage / heal dasar |
+| **Base Value** | 22,000 | Nilai damage / heal dasar |
+| **Base Value** | 15,000 | Nilai damage / heal dasar |
 | **maxChains** | 4 | Parameter lainnya |
 | **Jangkauan/Radius** | 5.0 unit | Jarak efektif area skill |
 | **Cooldown** | 11.20s (700 ticks) | Waktu jeda penggunaan kembali |
@@ -64,8 +78,8 @@ Memberikan damage sihir langsung (Direct Damage) yang sangat masif pada target u
 
 | Atribut Skill | Nilai | Deskripsi |
 | :--- | :--- | :--- |
-| **Base Value** | 60.000 | Nilai damage / heal dasar |
-| **Base Value** | 25.000 | Nilai damage / heal dasar |
+| **Base Value** | 60,000 | Nilai damage / heal dasar |
+| **Base Value** | 25,000 | Nilai damage / heal dasar |
 | **Jangkauan/Radius** | 3.5 unit | Jarak efektif area skill |
 | **Cooldown** | 17.60s (1100 ticks) | Waktu jeda penggunaan kembali |
 
@@ -74,4 +88,4 @@ Memberikan damage sihir langsung (Direct Damage) yang sangat masif pada target u
 
 
 ---
-*Dokumen ini dibuat secara otomatis dari konfigurasi engine terbaru (8/8/2026).*
+*Dokumen ini dibuat secara otomatis dari konfigurasi engine terbaru (8/10/2026).*

@@ -1,5 +1,7 @@
 import {
     STRIDE,
+    UNIT_COUNT,
+    TEAM_SIZE,
     IDX_X,
     IDX_Y,
     IDX_Z,
@@ -29,10 +31,7 @@ import {
     BOUND_Z_MIN,
 } from "../../config";
 
-import {
-    queueDamage,
-    skillFXBatch,
-} from "../../systems/CombatSystem";
+import { queueDamage, skillFXBatch } from "../../systems/CombatSystem";
 
 import {
     gridHead,
@@ -117,19 +116,22 @@ export function updateMage(
     const tx = d[tBase + IDX_X];
     const ty = d[tBase + IDX_Y];
     const tz = d[tBase + IDX_Z];
+    const targetType = d[tBase + IDX_TYPE] % 6;
+    const isTargetAssassin = targetType === 5; // TYPE_ASSASSIN
 
     const dx = tx - d[base + IDX_X];
     const dz = tz - d[base + IDX_Z];
     const distSq = dx * dx + dz * dz;
 
     // --- TARGETED SKILLS ---
-    // Skill 1: Frost Nova — AoE kecil, stun semua musuh dalam radius
+    // Skill 1: Frost Nova — always allowed vs any target (incl. Assassin)
     if (d[base + IDX_SKILL1_CD] === 0 && distSq <= myRange * myRange) {
         d[base + IDX_ANIM] = 2;
         animLockTicks[i] = 20;
         const novaX = tx;
         const novaZ = tz;
-        const novaRadiusSq = MAGE_SKILLS.frostNova.radius * MAGE_SKILLS.frostNova.radius;
+        const novaRadiusSq =
+            MAGE_SKILLS.frostNova.radius * MAGE_SKILLS.frostNova.radius;
         const myTeamNova = d[base + IDX_TEAM];
 
         const tCol = Math.floor((novaX - BOUND_X_MIN) / cellSize);
@@ -147,7 +149,10 @@ export function updateMage(
                 let curr = gridHead[cellIdx];
                 while (curr !== -1) {
                     const jBase = curr * STRIDE;
-                    if (d[jBase + IDX_HP] > 0 && d[jBase + IDX_TEAM] !== myTeamNova) {
+                    if (
+                        d[jBase + IDX_HP] > 0 &&
+                        d[jBase + IDX_TEAM] !== myTeamNova
+                    ) {
                         const jdx = d[jBase + IDX_X] - novaX;
                         const jdz = d[jBase + IDX_Z] - novaZ;
                         const distS = jdx * jdx + jdz * jdz;
@@ -199,8 +204,12 @@ export function updateMage(
             z: novaZ,
         });
     }
-    // Skill 2: Chain Lightning — bounce 4 target
-    else if (d[base + IDX_SKILL2_CD] === 0 && distSq <= myRange * myRange) {
+    // Skill 2: Chain Lightning — blocked vs Assassin (too heavy visual)
+    else if (
+        !isTargetAssassin &&
+        d[base + IDX_SKILL2_CD] === 0 &&
+        distSq <= myRange * myRange
+    ) {
         d[base + IDX_ANIM] = 2;
         animLockTicks[i] = 20;
         const myTeam = d[base + IDX_TEAM];
@@ -224,7 +233,9 @@ export function updateMage(
         hitFlags.fill(0);
         hitFlags[target] = 1;
 
-        const chainRadiusSq = MAGE_SKILLS.chainLightning.chainRadius * MAGE_SKILLS.chainLightning.chainRadius;
+        const chainRadiusSq =
+            MAGE_SKILLS.chainLightning.chainRadius *
+            MAGE_SKILLS.chainLightning.chainRadius;
 
         while (chainCount < MAGE_SKILLS.chainLightning.maxChains) {
             let nextTarget = -1;
@@ -288,46 +299,37 @@ export function updateMage(
             positions: chainPositions,
         });
     }
-    // Skill 3 (ULTI): Meteor Fireball — AoE besar, damage masif
-    else if (d[base + IDX_SKILL3_CD] === 0 && distSq <= myRange * myRange) {
+    // Skill 3 (ULTI): Meteor Fireball — blocked vs Assassin (too heavy visual)
+    else if (
+        !isTargetAssassin &&
+        d[base + IDX_SKILL3_CD] === 0 &&
+        distSq <= myRange * myRange
+    ) {
         d[base + IDX_ANIM] = 2;
         animLockTicks[i] = 20;
         const fbX = tx;
         const fbZ = tz;
-        const fbRadiusSq = MAGE_SKILLS.fireball.radius * MAGE_SKILLS.fireball.radius;
+        const fbRadiusSq =
+            MAGE_SKILLS.fireball.radius * MAGE_SKILLS.fireball.radius;
         const myTeamFb = d[base + IDX_TEAM];
 
         queueDamage(target, MAGE_SKILLS.fireball.damageDirect, 28, i);
 
-        const tCol = Math.floor((fbX - BOUND_X_MIN) / cellSize);
-        const tRow = Math.floor((fbZ - BOUND_Z_MIN) / cellSize);
+        // Simplified hit-detection: distance from blast center (blueprint)
         let candCount = 0;
-
-        const startRow = Math.max(0, tRow - 1);
-        const endRow = Math.min(gridRows - 1, tRow + 1);
-        const startCol = Math.max(0, tCol - 1);
-        const endCol = Math.min(gridCols - 1, tCol + 1);
-
-        for (let r = startRow; r <= endRow; r++) {
-            for (let c = startCol; c <= endCol; c++) {
-                const cellIdx = r * gridCols + c;
-                let curr = gridHead[cellIdx];
-                while (curr !== -1) {
-                    if (curr !== target) {
-                        const jBase = curr * STRIDE;
-                        if (d[jBase + IDX_HP] > 0 && d[jBase + IDX_TEAM] !== myTeamFb) {
-                            const jdx = d[jBase + IDX_X] - fbX;
-                            const jdz = d[jBase + IDX_Z] - fbZ;
-                            const distS = jdx * jdx + jdz * jdz;
-                            if (distS <= fbRadiusSq && candCount < 64) {
-                                tempCandidatesIdx[candCount] = curr;
-                                tempCandidatesDist[candCount] = distS;
-                                candCount++;
-                            }
-                        }
-                    }
-                    curr = gridNext[curr];
-                }
+        const enemyStart = myTeamFb === TEAM_A ? TEAM_SIZE : 0;
+        const enemyEnd = myTeamFb === TEAM_A ? UNIT_COUNT : TEAM_SIZE;
+        for (let e = enemyStart; e < enemyEnd; e++) {
+            if (e === target) continue;
+            const jBase = e * STRIDE;
+            if (d[jBase + IDX_HP] <= 0) continue;
+            const jdx = d[jBase + IDX_X] - fbX;
+            const jdz = d[jBase + IDX_Z] - fbZ;
+            const distS = jdx * jdx + jdz * jdz;
+            if (distS <= fbRadiusSq && candCount < 64) {
+                tempCandidatesIdx[candCount] = e;
+                tempCandidatesDist[candCount] = distS;
+                candCount++;
             }
         }
 

@@ -22,16 +22,9 @@ import {
     getTerrainHeight,
 } from "../../constants";
 
-import {
-    ATTRIBUTES,
-    DEFAULT_ATTRIBUTES,
-    ASSASSIN_SKILLS,
-} from "../../config";
+import { ATTRIBUTES, DEFAULT_ATTRIBUTES, ASSASSIN_SKILLS } from "../../config";
 
-import {
-    queueDamage,
-    skillFXBatch,
-} from "../../systems/CombatSystem";
+import { queueDamage, skillFXBatch } from "../../systems/CombatSystem";
 
 import {
     computeSeparation,
@@ -46,6 +39,7 @@ export function updateAssassin(
     i: number,
     target: number,
     animLockTicks: Int32Array,
+    battleTicks: number,
 ) {
     const base = i * STRIDE;
     const uTypeRaw = d[base + IDX_TYPE];
@@ -56,7 +50,14 @@ export function updateAssassin(
     const attackInterval = attr.attackInterval;
 
     let skillActivated = false;
-    computeSeparation(d, i, mySpeed, tempSep);
+
+    // Stagger separation calculations (run every 2 ticks per unit, ponytail style)
+    if ((battleTicks + i) % 2 === 0) {
+        computeSeparation(d, i, mySpeed, tempSep);
+    } else {
+        tempSep[0] = 0;
+        tempSep[1] = 0;
+    }
 
     if (target === -1) {
         if (animLockTicks[i] === 0) {
@@ -114,10 +115,12 @@ export function updateAssassin(
     // Skill 1: Shadow Step
     if (d[base + IDX_SKILL1_CD] === 0 && distSq <= 64.0) {
         d[base + IDX_ANIM] = 1;
-        animLockTicks[i] = 10;
+        animLockTicks[i] = 30; // Cast delay 30 ticks (blueprint)
         const dist = Math.sqrt(distSq) || 0.001;
-        const behindX = tx - (dx / dist) * ASSASSIN_SKILLS.shadowStep.teleportRange;
-        const behindZ = tz - (dz / dist) * ASSASSIN_SKILLS.shadowStep.teleportRange;
+        const behindX =
+            tx - (dx / dist) * ASSASSIN_SKILLS.shadowStep.teleportRange;
+        const behindZ =
+            tz - (dz / dist) * ASSASSIN_SKILLS.shadowStep.teleportRange;
         const fromX = d[base + IDX_X];
         const fromY = d[base + IDX_Y];
         const fromZ = d[base + IDX_Z];
@@ -142,8 +145,12 @@ export function updateAssassin(
         d[base + IDX_ANIM] = 2;
         animLockTicks[i] = 20;
         const isBackstab = distSq < 4.0;
-        let dmg = isBackstab ? ASSASSIN_SKILLS.backstab.damageBack : ASSASSIN_SKILLS.backstab.damageFront;
-        const isAttackerStealthed = d[base + IDX_EFFECT_STATE] >= 1000 && d[base + IDX_EFFECT_STATE] < 2000;
+        let dmg = isBackstab
+            ? ASSASSIN_SKILLS.backstab.damageBack
+            : ASSASSIN_SKILLS.backstab.damageFront;
+        const isAttackerStealthed =
+            d[base + IDX_EFFECT_STATE] >= 1000 &&
+            d[base + IDX_EFFECT_STATE] < 2000;
         if (isAttackerStealthed) {
             dmg = Math.round(baseDamage * 1.5);
             d[base + IDX_EFFECT_STATE] = 0; // break stealth
@@ -168,13 +175,16 @@ export function updateAssassin(
         d[base + IDX_ANIM] = 2;
         animLockTicks[i] = 20;
         let dmg = ASSASSIN_SKILLS.poisonBlade.damagePerTick;
-        const isAttackerStealthed = d[base + IDX_EFFECT_STATE] >= 1000 && d[base + IDX_EFFECT_STATE] < 2000;
+        const isAttackerStealthed =
+            d[base + IDX_EFFECT_STATE] >= 1000 &&
+            d[base + IDX_EFFECT_STATE] < 2000;
         if (isAttackerStealthed) {
             dmg = Math.round(baseDamage * 1.5);
             d[base + IDX_EFFECT_STATE] = 0; // break stealth
         }
         queueDamage(target, dmg, 10, i);
-        d[tBase + IDX_EFFECT_STATE] = 2000 + ASSASSIN_SKILLS.poisonBlade.durationTicks;
+        d[tBase + IDX_EFFECT_STATE] =
+            2000 + ASSASSIN_SKILLS.poisonBlade.durationTicks;
         d[base + IDX_SKILL3_CD] = ASSASSIN_SKILLS.poisonBlade.cooldown;
         skillActivated = true;
         skillFXBatch.push({
@@ -198,7 +208,9 @@ export function updateAssassin(
                 d[base + IDX_ANIM] = 2;
                 animLockTicks[i] = 20;
                 let dmg = baseDamage;
-                const isAttackerStealthed = d[base + IDX_EFFECT_STATE] >= 1000 && d[base + IDX_EFFECT_STATE] < 2000;
+                const isAttackerStealthed =
+                    d[base + IDX_EFFECT_STATE] >= 1000 &&
+                    d[base + IDX_EFFECT_STATE] < 2000;
                 if (isAttackerStealthed) {
                     dmg = Math.round(baseDamage * 1.5);
                     d[base + IDX_EFFECT_STATE] = 0; // break stealth
@@ -228,6 +240,7 @@ export function updateAssassin(
             const dist = Math.sqrt(distSq) || 0.001;
             applySteering(d, i, dx, dz, dist, mySpeed, tempSep);
 
+            // Only apply stealth if not already stealthed (guard against per-tick re-apply)
             if (d[base + IDX_EFFECT_STATE] < 1000) {
                 d[base + IDX_EFFECT_STATE] = 1000 + 150; // stealth
             }

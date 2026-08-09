@@ -198,8 +198,8 @@ export function spawnFrostNovaBurstFX(
     const colorSpike = isBlue ? 0x88e0ff : 0xffaa66;
     const colorMist = isBlue ? 0x88ccff : 0xff9977;
 
-    const ringGeo = new THREE.RingGeometry(0.15, 0.25, 32);
-    const ringMat = new THREE.MeshBasicMaterial({
+    const ringGeo = pooledRing(0.15, 0.25, 32);
+    const ringMat = getPooledMaterial({
         color: colorRing,
         side: THREE.DoubleSide,
         transparent: true,
@@ -210,8 +210,8 @@ export function spawnFrostNovaBurstFX(
     ring.position.set(x, y + 0.04, z);
     scene.add(ring);
 
-    const innerGeo = new THREE.RingGeometry(0.05, 0.12, 24);
-    const innerMat = new THREE.MeshBasicMaterial({
+    const innerGeo = pooledRing(0.05, 0.12, 24);
+    const innerMat = getPooledMaterial({
         color: colorInner,
         side: THREE.DoubleSide,
         transparent: true,
@@ -225,8 +225,9 @@ export function spawnFrostNovaBurstFX(
     scene.add(inner);
 
     const SPIKE = 10;
+    // Shared cone geometry — tiny 4-sided cone, reused across all 10 spikes
     const spikeGeo = new THREE.ConeGeometry(0.1, 1.0, 4);
-    const spikeMat = new THREE.MeshBasicMaterial({
+    const spikeMat = getPooledMaterial({
         color: colorSpike,
         transparent: true,
         opacity: 0.85,
@@ -249,7 +250,7 @@ export function spawnFrostNovaBurstFX(
     }
 
     const mistGeo = pooledPlane(0.6, 0.6);
-    const mistMat = new THREE.MeshBasicMaterial({
+    const mistMat = getPooledMaterial({
         map: smokeTex,
         color: colorMist,
         transparent: true,
@@ -288,17 +289,14 @@ export function spawnFrostNovaBurstFX(
                 scene.remove(ring);
                 scene.remove(inner);
                 spikes.forEach((s) => scene.remove(s));
-                mists.forEach((m) => {
-                    scene.remove(m);
-                    (m.material as THREE.MeshBasicMaterial).dispose();
-                });
-                ringGeo.dispose();
-                ringMat.dispose();
-                innerGeo.dispose();
-                innerMat.dispose();
+                mists.forEach((m) => scene.remove(m));
+                // Release pooled materials (don't dispose — they're reused)
+                releasePooledMaterial(ringMat);
+                releasePooledMaterial(innerMat);
+                releasePooledMaterial(spikeMat);
+                releasePooledMaterial(mistMat);
+                // spikeGeo is tiny shared cone, not worth pooling infrastructure
                 spikeGeo.dispose();
-                spikeMat.dispose();
-                mistMat.dispose();
                 return false;
             }
             const s = 1 + t * 18;
