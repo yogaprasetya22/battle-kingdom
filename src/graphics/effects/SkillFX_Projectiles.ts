@@ -18,10 +18,16 @@ import {
     blueFlameSmokeTex,
     activeFX,
     fxQualityScale,
+    getPooledMaterial,
+    releasePooledMaterial,
     _tempObj,
     spawnExplosion,
     spawnGasExplosionFX,
 } from "./FXCore";
+
+// Cached shader materials for fireball trail particles — avoids per-fireball GPU shader compilation
+const _flameMatCache = new Map<string, THREE.ShaderMaterial>();
+const _smokeMatCache = new Map<string, THREE.ShaderMaterial>();
 
 export function spawnArrowVolleyFX(
     scene: THREE.Scene,
@@ -214,7 +220,7 @@ export function spawnFireballFX(
     const isBlue = team === 1;
 
     const coreGeo = pooledPlane(1.2, 1.2);
-    const coreMat = new THREE.MeshBasicMaterial({
+    const coreMat = getPooledMaterial({
         map: lightTex,
         color: 0xffffff,
         transparent: true,
@@ -228,7 +234,7 @@ export function spawnFireballFX(
     scene.add(coreMesh);
 
     const wrapGeo = pooledPlane(2.4, 2.4);
-    const wrapMat = new THREE.MeshBasicMaterial({
+    const wrapMat = getPooledMaterial({
         map: fireTex,
         color: isBlue ? 0x00aaff : 0xff5500,
         transparent: true,
@@ -241,89 +247,120 @@ export function spawnFireballFX(
     wrapMesh.position.copy(start);
     scene.add(wrapMesh);
 
-    const maxFlame = 25;
-    const maxSmoke = 25;
+    const qs = fxQualityScale();
+    const maxFlame = Math.max(6, Math.round(25 * qs));
+    const maxSmoke = Math.max(6, Math.round(25 * qs));
     const geo = pooledPlane(1.0, 1.0);
 
-    const flameMat = new THREE.ShaderMaterial({
-        uniforms: { 
-            uMap: { value: flameTex },
-            uColor: { value: isBlue ? new THREE.Color(0.0, 0.4, 1.0) : new THREE.Color(1.0, 0.3, 0.0) }
-        },
-        vertexShader: `
-            attribute float aOpacity;
-            varying vec2 vUv;
-            varying float vOpacity;
-            void main() {
-                vUv = uv;
-                vOpacity = aOpacity;
-                gl_Position = projectionMatrix * modelViewMatrix * instanceMatrix * vec4(position, 1.0);
-            }
-        `,
-        fragmentShader: `
-            uniform sampler2D uMap;
-            uniform vec3 uColor;
-            varying vec2 vUv;
-            varying float vOpacity;
-            void main() {
-                vec4 tex = texture2D(uMap, vUv);
-                if (tex.a < 0.05) discard;
-                gl_FragColor = vec4(tex.rgb * uColor, tex.a * vOpacity);
-            }
-        `,
-        transparent: true,
-        depthWrite: false,
-        blending: THREE.AdditiveBlending,
-        side: THREE.DoubleSide,
-    });
+    // Cache shader materials by color to avoid per-fireball GPU shader compilation
+    const flameCacheKey = isBlue ? "blue" : "red";
+    if (!_flameMatCache.has(flameCacheKey)) {
+        _flameMatCache.set(
+            flameCacheKey,
+            new THREE.ShaderMaterial({
+                uniforms: {
+                    uMap: { value: flameTex },
+                    uColor: {
+                        value: isBlue
+                            ? new THREE.Color(0.0, 0.4, 1.0)
+                            : new THREE.Color(1.0, 0.3, 0.0),
+                    },
+                },
+                vertexShader: /* glsl */ `
+                attribute float aOpacity;
+                varying vec2 vUv;
+                varying float vOpacity;
+                void main() {
+                    vUv = uv;
+                    vOpacity = aOpacity;
+                    gl_Position = projectionMatrix * modelViewMatrix * instanceMatrix * vec4(position, 1.0);
+                }
+            `,
+                fragmentShader: /* glsl */ `
+                uniform sampler2D uMap;
+                uniform vec3 uColor;
+                varying vec2 vUv;
+                varying float vOpacity;
+                void main() {
+                    vec4 tex = texture2D(uMap, vUv);
+                    if (tex.a < 0.05) discard;
+                    gl_FragColor = vec4(tex.rgb * uColor, tex.a * vOpacity);
+                }
+            `,
+                transparent: true,
+                depthWrite: false,
+                blending: THREE.AdditiveBlending,
+                side: THREE.DoubleSide,
+            }),
+        );
+    }
+    if (!_smokeMatCache.has(flameCacheKey)) {
+        _smokeMatCache.set(
+            flameCacheKey,
+            new THREE.ShaderMaterial({
+                uniforms: {
+                    uMap: { value: blueFlameSmokeTex },
+                    uColor: {
+                        value: isBlue
+                            ? new THREE.Color(0.0, 0.2, 0.8)
+                            : new THREE.Color(0.8, 0.2, 0.0),
+                    },
+                },
+                vertexShader: /* glsl */ `
+                attribute float aFrameIdx;
+                attribute float aOpacity;
+                varying vec2 vUv;
+                varying float vOpacity;
+                void main() {
+                    float c = mod(aFrameIdx, 2.0);
+                    float r = floor(aFrameIdx / 2.0);
+                    vUv = vec2((c + uv.x) / 2.0, 1.0 - (r + 1.0 - uv.y) / 2.0);
+                    vOpacity = aOpacity;
+                    gl_Position = projectionMatrix * modelViewMatrix * instanceMatrix * vec4(position, 1.0);
+                }
+            `,
+                fragmentShader: /* glsl */ `
+                uniform sampler2D uMap;
+                uniform vec3 uColor;
+                varying vec2 vUv;
+                varying float vOpacity;
+                void main() {
+                    vec4 tex = texture2D(uMap, vUv);
+                    if (tex.a < 0.05) discard;
+                    gl_FragColor = vec4(tex.rgb * uColor, tex.a * vOpacity * 0.4);
+                }
+            `,
+                transparent: true,
+                depthWrite: false,
+                blending: THREE.NormalBlending,
+                side: THREE.DoubleSide,
+            }),
+        );
+    }
+    const flameMat = _flameMatCache.get(flameCacheKey)!;
+    const smokeMat = _smokeMatCache.get(flameCacheKey)!;
 
     const aFlameOpacity = new Float32Array(maxFlame);
     const flameMesh = new THREE.InstancedMesh(geo, flameMat, maxFlame);
     flameMesh.frustumCulled = false;
-    flameMesh.geometry.setAttribute("aOpacity", new THREE.InstancedBufferAttribute(aFlameOpacity, 1));
+    flameMesh.geometry.setAttribute(
+        "aOpacity",
+        new THREE.InstancedBufferAttribute(aFlameOpacity, 1),
+    );
     scene.add(flameMesh);
-
-    const smokeMat = new THREE.ShaderMaterial({
-        uniforms: { 
-            uMap: { value: blueFlameSmokeTex },
-            uColor: { value: isBlue ? new THREE.Color(0.0, 0.2, 0.8) : new THREE.Color(0.8, 0.2, 0.0) }
-        },
-        vertexShader: `
-            attribute float aFrameIdx;
-            attribute float aOpacity;
-            varying vec2 vUv;
-            varying float vOpacity;
-            void main() {
-                float c = mod(aFrameIdx, 2.0);
-                float r = floor(aFrameIdx / 2.0);
-                vUv = vec2((c + uv.x) / 2.0, 1.0 - (r + 1.0 - uv.y) / 2.0);
-                vOpacity = aOpacity;
-                gl_Position = projectionMatrix * modelViewMatrix * instanceMatrix * vec4(position, 1.0);
-            }
-        `,
-        fragmentShader: `
-            uniform sampler2D uMap;
-            uniform vec3 uColor;
-            varying vec2 vUv;
-            varying float vOpacity;
-            void main() {
-                vec4 tex = texture2D(uMap, vUv);
-                if (tex.a < 0.05) discard;
-                gl_FragColor = vec4(tex.rgb * uColor, tex.a * vOpacity * 0.4);
-            }
-        `,
-        transparent: true,
-        depthWrite: false,
-        blending: THREE.NormalBlending,
-        side: THREE.DoubleSide,
-    });
 
     const aSmokeFrameIdx = new Float32Array(maxSmoke);
     const aSmokeOpacity = new Float32Array(maxSmoke);
     const smokeMesh = new THREE.InstancedMesh(geo, smokeMat, maxSmoke);
     smokeMesh.frustumCulled = false;
-    smokeMesh.geometry.setAttribute("aFrameIdx", new THREE.InstancedBufferAttribute(aSmokeFrameIdx, 1));
-    smokeMesh.geometry.setAttribute("aOpacity", new THREE.InstancedBufferAttribute(aSmokeOpacity, 1));
+    smokeMesh.geometry.setAttribute(
+        "aFrameIdx",
+        new THREE.InstancedBufferAttribute(aSmokeFrameIdx, 1),
+    );
+    smokeMesh.geometry.setAttribute(
+        "aOpacity",
+        new THREE.InstancedBufferAttribute(aSmokeOpacity, 1),
+    );
     scene.add(smokeMesh);
 
     const hideMatrix = new THREE.Matrix4().makeScale(0, 0, 0);
@@ -389,13 +426,15 @@ export function spawnFireballFX(
                     // Spawn blue flame trail
                     if (flames.length < maxFlame) {
                         flames.push({
-                            pos: pos.clone().add(
-                                new THREE.Vector3(
-                                    (Math.random() - 0.5) * 0.4,
-                                    (Math.random() - 0.5) * 0.4,
-                                    (Math.random() - 0.5) * 0.4,
-                                )
-                            ),
+                            pos: pos
+                                .clone()
+                                .add(
+                                    new THREE.Vector3(
+                                        (Math.random() - 0.5) * 0.4,
+                                        (Math.random() - 0.5) * 0.4,
+                                        (Math.random() - 0.5) * 0.4,
+                                    ),
+                                ),
                             vel: new THREE.Vector3(
                                 (Math.random() - 0.5) * 0.5,
                                 0.5 + Math.random() * 0.5,
@@ -413,13 +452,15 @@ export function spawnFireballFX(
                     // Spawn blue smoke trail
                     if (smokes.length < maxSmoke) {
                         smokes.push({
-                            pos: pos.clone().add(
-                                new THREE.Vector3(
-                                    (Math.random() - 0.5) * 0.5,
-                                    (Math.random() - 0.5) * 0.5,
-                                    (Math.random() - 0.5) * 0.5,
-                                )
-                            ),
+                            pos: pos
+                                .clone()
+                                .add(
+                                    new THREE.Vector3(
+                                        (Math.random() - 0.5) * 0.5,
+                                        (Math.random() - 0.5) * 0.5,
+                                        (Math.random() - 0.5) * 0.5,
+                                    ),
+                                ),
                             vel: new THREE.Vector3(
                                 (Math.random() - 0.5) * 0.8,
                                 1.0 + Math.random() * 1.0,
@@ -440,12 +481,11 @@ export function spawnFireballFX(
             if (t >= 1 && flames.length === 0 && smokes.length === 0) {
                 scene.remove(flameMesh);
                 scene.remove(smokeMesh);
-                coreMat.dispose();
-                wrapMat.dispose();
+                releasePooledMaterial(coreMat);
+                releasePooledMaterial(wrapMat);
                 flameMesh.dispose();
                 smokeMesh.dispose();
-                flameMat.dispose();
-                smokeMat.dispose();
+                // ShaderMaterials are cached, do NOT dispose
                 return false;
             }
 
@@ -459,7 +499,11 @@ export function spawnFireballFX(
                 }
                 const tp = p.age / p.life;
                 p.pos.addScaledVector(p.vel, delta);
-                p.scale = THREE.MathUtils.lerp(p.maxScale * 0.2, p.maxScale, tp);
+                p.scale = THREE.MathUtils.lerp(
+                    p.maxScale * 0.2,
+                    p.maxScale,
+                    tp,
+                );
                 p.rotation += p.rotVel * delta;
             }
 
@@ -481,7 +525,10 @@ export function spawnFireballFX(
                 }
             }
             flameMesh.instanceMatrix.needsUpdate = true;
-            (flameMesh.geometry.attributes.aOpacity as THREE.InstancedBufferAttribute).needsUpdate = true;
+            (
+                flameMesh.geometry.attributes
+                    .aOpacity as THREE.InstancedBufferAttribute
+            ).needsUpdate = true;
 
             // Update and render active smoke
             for (let i = smokes.length - 1; i >= 0; i--) {
@@ -493,7 +540,11 @@ export function spawnFireballFX(
                 }
                 const tp = p.age / p.life;
                 p.pos.addScaledVector(p.vel, delta);
-                p.scale = THREE.MathUtils.lerp(p.maxScale * 0.3, p.maxScale, tp);
+                p.scale = THREE.MathUtils.lerp(
+                    p.maxScale * 0.3,
+                    p.maxScale,
+                    tp,
+                );
                 p.rotation += p.rotVel * delta;
             }
 
@@ -516,8 +567,14 @@ export function spawnFireballFX(
                 }
             }
             smokeMesh.instanceMatrix.needsUpdate = true;
-            (smokeMesh.geometry.attributes.aFrameIdx as THREE.InstancedBufferAttribute).needsUpdate = true;
-            (smokeMesh.geometry.attributes.aOpacity as THREE.InstancedBufferAttribute).needsUpdate = true;
+            (
+                smokeMesh.geometry.attributes
+                    .aFrameIdx as THREE.InstancedBufferAttribute
+            ).needsUpdate = true;
+            (
+                smokeMesh.geometry.attributes
+                    .aOpacity as THREE.InstancedBufferAttribute
+            ).needsUpdate = true;
             return true;
         },
     });
@@ -548,7 +605,7 @@ export function spawnDoubleShotFX(
             opacity: 1.0,
             blending: THREE.AdditiveBlending,
             depthWrite: false,
-            side: THREE.DoubleSide
+            side: THREE.DoubleSide,
         });
         const flareMesh = new THREE.Mesh(flareGeo, flareMat);
         flareMesh.position.copy(start);
@@ -562,7 +619,7 @@ export function spawnDoubleShotFX(
             opacity: 0.8,
             blending: THREE.AdditiveBlending,
             depthWrite: false,
-            side: THREE.DoubleSide
+            side: THREE.DoubleSide,
         });
         const ringMesh = new THREE.Mesh(ringGeo, ringMat);
         ringMesh.position.copy(start);
@@ -572,7 +629,9 @@ export function spawnDoubleShotFX(
         // --- 2. SCI-FI LASER BEAM (INSTANT TRACER BOLT) ---
         const dir = new THREE.Vector3().subVectors(end, start);
         const dist = dir.length();
-        const mid = new THREE.Vector3().addVectors(start, end).multiplyScalar(0.5);
+        const mid = new THREE.Vector3()
+            .addVectors(start, end)
+            .multiplyScalar(0.5);
 
         // White core cylinder
         const coreGeo = new THREE.CylinderGeometry(0.04, 0.04, dist, 6);
@@ -602,8 +661,11 @@ export function spawnDoubleShotFX(
         laserGroup.add(glowMesh);
 
         const up = new THREE.Vector3(0, 1, 0);
-        const quat = new THREE.Quaternion().setFromUnitVectors(up, dir.clone().normalize());
-        
+        const quat = new THREE.Quaternion().setFromUnitVectors(
+            up,
+            dir.clone().normalize(),
+        );
+
         laserGroup.position.copy(mid);
         laserGroup.quaternion.copy(quat);
         scene.add(laserGroup);
@@ -617,7 +679,7 @@ export function spawnDoubleShotFX(
             opacity: 1.0,
             blending: THREE.AdditiveBlending,
             depthWrite: false,
-            side: THREE.DoubleSide
+            side: THREE.DoubleSide,
         });
         const shockMesh = new THREE.Mesh(shockGeo, shockMat);
         shockMesh.position.copy(end).y += 0.05;
@@ -688,7 +750,7 @@ export function spawnDoubleShotFX(
                 flashMat.opacity = 1.0 - easeOutQuad(t);
 
                 return true;
-            }
+            },
         });
     } else {
         // Regular Archer double shot (moving projectile)
@@ -705,7 +767,12 @@ export function spawnDoubleShotFX(
 
                     if (!meshGroup) {
                         meshGroup = new THREE.Group();
-                        const geo = new THREE.CylinderGeometry(0.12, 0.12, 1.2, 8);
+                        const geo = new THREE.CylinderGeometry(
+                            0.12,
+                            0.12,
+                            1.2,
+                            8,
+                        );
                         glowMat = new THREE.MeshBasicMaterial({
                             color: isBlue ? 0x00dfff : 0xffdd44,
                             transparent: true,
@@ -723,7 +790,11 @@ export function spawnDoubleShotFX(
                     }
 
                     const t = Math.min(1, age / flight);
-                    const currentPos = new THREE.Vector3().lerpVectors(start, end, easeOutQuad(t));
+                    const currentPos = new THREE.Vector3().lerpVectors(
+                        start,
+                        end,
+                        easeOutQuad(t),
+                    );
                     meshGroup.position.copy(currentPos);
 
                     if (t >= 1) {
@@ -735,7 +806,13 @@ export function spawnDoubleShotFX(
                         });
                         if (glowMat) glowMat.dispose();
 
-                        spawnExplosion(scene, end, isBlue ? 0x0088ff : 0xffbb44, 8, 0.12);
+                        spawnExplosion(
+                            scene,
+                            end,
+                            isBlue ? 0x0088ff : 0xffbb44,
+                            8,
+                            0.12,
+                        );
                         return false;
                     }
                     return true;
