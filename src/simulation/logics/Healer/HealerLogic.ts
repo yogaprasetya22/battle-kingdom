@@ -72,6 +72,29 @@ export function updateHealer(
     let skillActivated = false;
     computeSeparation(d, i, mySpeed, tempSep);
 
+
+    // --- PANIC SHIELD: auto Divine Shield on self when HP <= 30% (blueprint) ---
+    const myHp = d[base + IDX_HP];
+    const myMaxHp = d[base + IDX_MAX_HP];
+    const hpPercent = myHp / myMaxHp;
+    if (!skillActivated && hpPercent <= 0.3 && d[base + IDX_SKILL2_CD] === 0) {
+        d[base + IDX_ANIM] = 2;
+        animLockTicks[i] = 20;
+        d[base + IDX_EFFECT_STATE] = -HEALER_SKILLS.divineShield.durationTicks;
+        d[base + IDX_SKILL2_CD] = HEALER_SKILLS.divineShield.cooldown;
+        skillActivated = true;
+        skillFXBatch.push({
+            type: "skillFX",
+            skill: "divineShield",
+            fx: d[base + IDX_X],
+            fy: d[base + IDX_Y] + 0.8,
+            fz: d[base + IDX_Z],
+            tx: d[base + IDX_X],
+            ty: d[base + IDX_Y] + 0.8,
+            tz: d[base + IDX_Z],
+        });
+    }
+
     // --- SELF-BUFF / AOE SKILL 3 (Holy Sanctuary) ---
     if (d[base + IDX_SKILL3_CD] === 0) {
         const sanctuaryTeam = d[base + IDX_TEAM];

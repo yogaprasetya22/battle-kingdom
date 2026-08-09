@@ -1,5 +1,7 @@
 import {
     STRIDE,
+    UNIT_COUNT,
+    TEAM_SIZE,
     IDX_X,
     IDX_Y,
     IDX_Z,
@@ -143,9 +145,31 @@ export function updateKnight(
                 z: d[base + IDX_Z],
             });
         }
-        // Knight Skill 2: Shield Taunt
+        // Knight Skill 2: Shield Taunt — max 5 nearest enemies within 5.0 radius (blueprint)
         else if (d[base + IDX_SKILL2_CD] === 0 && distSq <= KNIGHT_SKILLS.taunt.range * KNIGHT_SKILLS.taunt.range) {
-            d[tBase + IDX_TARGET] = i;
+            const myTeam = d[base + IDX_TEAM];
+            const tauntRangeSq = KNIGHT_SKILLS.taunt.range * KNIGHT_SKILLS.taunt.range;
+            const tauntCandidates: { idx: number; distSq: number }[] = [];
+            const enemyStart = myTeam === TEAM_A ? TEAM_SIZE : 0;
+            const enemyEnd = myTeam === TEAM_A ? UNIT_COUNT : TEAM_SIZE;
+            for (let e = enemyStart; e < enemyEnd; e++) {
+                const eBase = e * STRIDE;
+                if (d[eBase + IDX_HP] <= 0) continue;
+                const edx = d[eBase + IDX_X] - d[base + IDX_X];
+                const edz = d[eBase + IDX_Z] - d[base + IDX_Z];
+                const edSq = edx * edx + edz * edz;
+                if (edSq <= tauntRangeSq) {
+                    tauntCandidates.push({ idx: e, distSq: edSq });
+                }
+            }
+            tauntCandidates.sort((a, b) => a.distSq - b.distSq);
+            const tauntLimit = Math.min(5, tauntCandidates.length);
+            const tauntTargets: number[] = [];
+            for (let t = 0; t < tauntLimit; t++) {
+                const tgt = tauntCandidates[t].idx;
+                d[tgt * STRIDE + IDX_TARGET] = i;
+                tauntTargets.push(tgt);
+            }
             d[base + IDX_SKILL2_CD] = KNIGHT_SKILLS.taunt.cooldown;
             skillActivated = true;
             skillFXBatch.push({
@@ -155,9 +179,8 @@ export function updateKnight(
                 x: d[base + IDX_X],
                 y: d[base + IDX_Y],
                 z: d[base + IDX_Z],
-                tx: tx,
-                ty: ty,
-                tz: tz,
+                count: tauntLimit,
+                targets: tauntTargets,
             });
         }
         // Knight Skill 3: Shield Bash (High Knockback)

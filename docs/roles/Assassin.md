@@ -10,14 +10,30 @@ Berikut adalah data numerik dasar unit **Assassin** yang diambil langsung dari k
 
 | Statistik | Nilai Dasar | Deskripsi |
 | :--- | :--- | :--- |
-| **Darah Maksimal (HP)** | **210.000 HP** | Kapasitas nyawa maksimal unit |
+| **Darah Maksimal (HP)** | **210,000 HP** | Kapasitas nyawa maksimal unit |
 | **Pertahanan (Armor)** | **15%** | Persentase pengurangan damage fisik yang diterima |
 | **Kecepatan Gerak** | **0.055** | Kecepatan unit berpindah tempat per frame |
 | **Jangkauan Serang** | **1.2 unit** | Jarak maksimal untuk melancarkan serangan dasar |
-| **Damage Dasar** | **30.000** | Nilai damage dasar serangan normal |
+| **Damage Dasar** | **30,000** | Nilai damage dasar serangan normal |
 | **Interval Serangan** | **0.56s (35 ticks)** | Jeda waktu antar serangan dasar |
 | **Critical Rate (Peluang)** | **40%** | Peluang serangan dasar menghasilkan damage kritikal |
 | **Critical Damage (Multiplier)** | **1.8x** | Pengali damage saat serangan kritikal berhasil dipicu |
+
+---
+
+## 🗡️ Counter & Sinergi
+
+> Bagian ini menjelaskan hubungan taktis antar unit: siapa yang dilawan, siapa yang melawan, dan siapa teman satu tim terbaik — berdasarkan logika targeting engine dan mekanik skill.
+
+| Hubungan | Unit | Alasan |
+| :--- | :--- | :--- |
+| **⚔️ Counter** | **Mage** | Shadow Step teleport langsung ke backline. Backstab menghabisi Mage (HP 210K, armor 0%). Poison DoT mencegah regen. |
+| **⚔️ Counter** | **Archer** | Shadow Step bypass range busur. Backstab dari belakang ignore Evasive Leap. HP Archer 240K, lebih tinggi dari Mage tapi skill dicegah. |
+| **⚔️ Counter** | **Healer** | Backstab kill Healer (HP 180K, tipe HP terendah). Priority targeting HP rendah menjadikan Healer target utama. |
+| **⚔️ Counter** | **Gunslinger** | Shadow Step chase Smoke Bomb. Speed 0.055 vs 0.03. Backstab burst sebelum Gunslinger kabur. |
+| **🛡️ Di-counter** | **Knight** | Taunt paksa target berubah. Bulwark Stance immune serap Backstab. |
+| **🛡️ Di-counter** | **Archer** | Evasive Leap hindari dive. Arrow Volley punish area masuk. |
+| 🤝 Sinergi | — | Mandiri / self-sufficient |
 
 ---
 
@@ -48,8 +64,8 @@ Memberikan damage fisik sangat tinggi jika menyerang musuh dari belakang, atau d
 
 | Atribut Skill | Nilai | Deskripsi |
 | :--- | :--- | :--- |
-| **Base Value** | 35.000 | Nilai damage / heal dasar |
-| **Base Value** | 18.000 | Nilai damage / heal dasar |
+| **Base Value** | 35,000 | Nilai damage / heal dasar |
+| **Base Value** | 18,000 | Nilai damage / heal dasar |
 | **Cooldown** | 6.72s (420 ticks) | Waktu jeda penggunaan kembali |
 
 
@@ -69,4 +85,4 @@ Memberikan efek racun (Poison DoT) yang mencicil HP target setiap tick selama du
 
 
 ---
-*Dokumen ini dibuat secara otomatis dari konfigurasi engine terbaru (8/8/2026).*
+*Dokumen ini dibuat secara otomatis dari konfigurasi engine terbaru (8/10/2026).*

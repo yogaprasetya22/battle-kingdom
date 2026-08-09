@@ -561,13 +561,20 @@ function tick(d: Float32Array) {
                     }
                 } else if (
                     uType === TYPE_ARCHER ||
-                    uType === TYPE_MAGE ||
-                    uType === TYPE_GUNSLINGER
+                    uType === TYPE_MAGE
                 ) {
                     target = findNearestEnemyDistributed(
                         d,
                         i,
                         rangedClaimCounts,
+                    );
+                } else if (uType === TYPE_GUNSLINGER) {
+                    // Gunslinger true-sight: can target stealthed Assassins
+                    target = findNearestEnemyDistributed(
+                        d,
+                        i,
+                        rangedClaimCounts,
+                        true,
                     );
                 } else {
                     target = findNearestEnemy(d, i);

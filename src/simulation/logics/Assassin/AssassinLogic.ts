@@ -115,7 +115,7 @@ export function updateAssassin(
     // Skill 1: Shadow Step
     if (d[base + IDX_SKILL1_CD] === 0 && distSq <= 64.0) {
         d[base + IDX_ANIM] = 1;
-        animLockTicks[i] = 10;
+        animLockTicks[i] = 30; // Cast delay 30 ticks (blueprint)
         const dist = Math.sqrt(distSq) || 0.001;
         const behindX =
             tx - (dx / dist) * ASSASSIN_SKILLS.shadowStep.teleportRange;

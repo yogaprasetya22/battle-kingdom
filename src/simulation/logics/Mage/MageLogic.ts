@@ -1,5 +1,7 @@
 import {
     STRIDE,
+    UNIT_COUNT,
+    TEAM_SIZE,
     IDX_X,
     IDX_Y,
     IDX_Z,
@@ -313,38 +315,21 @@ export function updateMage(
 
         queueDamage(target, MAGE_SKILLS.fireball.damageDirect, 28, i);
 
-        const tCol = Math.floor((fbX - BOUND_X_MIN) / cellSize);
-        const tRow = Math.floor((fbZ - BOUND_Z_MIN) / cellSize);
+        // Simplified hit-detection: distance from blast center (blueprint)
         let candCount = 0;
-
-        const startRow = Math.max(0, tRow - 1);
-        const endRow = Math.min(gridRows - 1, tRow + 1);
-        const startCol = Math.max(0, tCol - 1);
-        const endCol = Math.min(gridCols - 1, tCol + 1);
-
-        for (let r = startRow; r <= endRow; r++) {
-            for (let c = startCol; c <= endCol; c++) {
-                const cellIdx = r * gridCols + c;
-                let curr = gridHead[cellIdx];
-                while (curr !== -1) {
-                    if (curr !== target) {
-                        const jBase = curr * STRIDE;
-                        if (
-                            d[jBase + IDX_HP] > 0 &&
-                            d[jBase + IDX_TEAM] !== myTeamFb
-                        ) {
-                            const jdx = d[jBase + IDX_X] - fbX;
-                            const jdz = d[jBase + IDX_Z] - fbZ;
-                            const distS = jdx * jdx + jdz * jdz;
-                            if (distS <= fbRadiusSq && candCount < 64) {
-                                tempCandidatesIdx[candCount] = curr;
-                                tempCandidatesDist[candCount] = distS;
-                                candCount++;
-                            }
-                        }
-                    }
-                    curr = gridNext[curr];
-                }
+        const enemyStart = myTeamFb === TEAM_A ? TEAM_SIZE : 0;
+        const enemyEnd = myTeamFb === TEAM_A ? UNIT_COUNT : TEAM_SIZE;
+        for (let e = enemyStart; e < enemyEnd; e++) {
+            if (e === target) continue;
+            const jBase = e * STRIDE;
+            if (d[jBase + IDX_HP] <= 0) continue;
+            const jdx = d[jBase + IDX_X] - fbX;
+            const jdz = d[jBase + IDX_Z] - fbZ;
+            const distS = jdx * jdx + jdz * jdz;
+            if (distS <= fbRadiusSq && candCount < 64) {
+                tempCandidatesIdx[candCount] = e;
+                tempCandidatesDist[candCount] = distS;
+                candCount++;
             }
         }
 

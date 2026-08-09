@@ -138,7 +138,6 @@ export function updateArcher(
             tz: tz,
         });
     } else if (
-        !isTargetAssassin &&
         d[base + IDX_SKILL2_CD] === 0 &&
         distSq <=
             ARCHER_SKILLS.evasiveLeap.range * ARCHER_SKILLS.evasiveLeap.range

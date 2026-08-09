@@ -10,14 +10,27 @@ Berikut adalah data numerik dasar unit **Barbarian** yang diambil langsung dari 
 
 | Statistik | Nilai Dasar | Deskripsi |
 | :--- | :--- | :--- |
-| **Darah Maksimal (HP)** | **500.000 HP** | Kapasitas nyawa maksimal unit |
+| **Darah Maksimal (HP)** | **500,000 HP** | Kapasitas nyawa maksimal unit |
 | **Pertahanan (Armor)** | **20%** | Persentase pengurangan damage fisik yang diterima |
 | **Kecepatan Gerak** | **0.038** | Kecepatan unit berpindah tempat per frame |
 | **Jangkauan Serang** | **1.8 unit** | Jarak maksimal untuk melancarkan serangan dasar |
-| **Damage Dasar** | **12.000** | Nilai damage dasar serangan normal |
+| **Damage Dasar** | **12,000** | Nilai damage dasar serangan normal |
 | **Interval Serangan** | **0.96s (60 ticks)** | Jeda waktu antar serangan dasar |
 | **Critical Rate (Peluang)** | **8%** | Peluang serangan dasar menghasilkan damage kritikal |
 | **Critical Damage (Multiplier)** | **1.6x** | Pengali damage saat serangan kritikal berhasil dipicu |
+
+---
+
+## 🗡️ Counter & Sinergi
+
+> Bagian ini menjelaskan hubungan taktis antar unit: siapa yang dilawan, siapa yang melawan, dan siapa teman satu tim terbaik — berdasarkan logika targeting engine dan mekanik skill.
+
+| Hubungan | Unit | Alasan |
+| :--- | :--- | :--- |
+| **⚔️ Counter** | **Knight** | Rage immune menetralisir Taunt + Shield Bash Knight. DPS Barbarian melampaui sustain Knight. |
+| **🛡️ Di-counter** | **Mage** | Magic damage bypass armor. Frost Nova stun, Fireball splash AoE hancurkan Barbarian. |
+| **🛡️ Di-counter** | **Archer** | Kite dari jarak jauh. Arrow Volley AoE susah dihindari oleh unit melee lambat. |
+| **🤝 Sinergi** | **Healer** | Healer Divine Shield + Rejuvenation menjaga Barbarian tetap hidup di garis depan. |
 
 ---
 
@@ -49,7 +62,7 @@ Memberikan damage fisik besar ke musuh di depan dalam jangkauan tebasannya.
 | Atribut Skill | Nilai | Deskripsi |
 | :--- | :--- | :--- |
 | **Jangkauan/Radius** | 1.8 unit | Jarak efektif area skill |
-| **Base Value** | 18.000 | Nilai damage / heal dasar |
+| **Base Value** | 18,000 | Nilai damage / heal dasar |
 | **Cooldown** | 6.40s (400 ticks) | Waktu jeda penggunaan kembali |
 
 
@@ -68,4 +81,4 @@ Memberikan teriakan perang yang meredam nyali musuh dalam radius jangkauan.
 
 
 ---
-*Dokumen ini dibuat secara otomatis dari konfigurasi engine terbaru (8/8/2026).*
+*Dokumen ini dibuat secara otomatis dari konfigurasi engine terbaru (8/10/2026).*

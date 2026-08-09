@@ -10,14 +10,29 @@ Berikut adalah data numerik dasar unit **Gunslinger** yang diambil langsung dari
 
 | Statistik | Nilai Dasar | Deskripsi |
 | :--- | :--- | :--- |
-| **Darah Maksimal (HP)** | **200.000 HP** | Kapasitas nyawa maksimal unit |
+| **Darah Maksimal (HP)** | **200,000 HP** | Kapasitas nyawa maksimal unit |
 | **Pertahanan (Armor)** | **5%** | Persentase pengurangan damage fisik yang diterima |
 | **Kecepatan Gerak** | **0.03** | Kecepatan unit berpindah tempat per frame |
 | **Jangkauan Serang** | **7 unit** | Jarak maksimal untuk melancarkan serangan dasar |
-| **Damage Dasar** | **22.000** | Nilai damage dasar serangan normal |
+| **Damage Dasar** | **22,000** | Nilai damage dasar serangan normal |
 | **Interval Serangan** | **0.80s (50 ticks)** | Jeda waktu antar serangan dasar |
 | **Critical Rate (Peluang)** | **20%** | Peluang serangan dasar menghasilkan damage kritikal |
 | **Critical Damage (Multiplier)** | **1.8x** | Pengali damage saat serangan kritikal berhasil dipicu |
+
+---
+
+## 🗡️ Counter & Sinergi
+
+> Bagian ini menjelaskan hubungan taktis antar unit: siapa yang dilawan, siapa yang melawan, dan siapa teman satu tim terbaik — berdasarkan logika targeting engine dan mekanik skill.
+
+| Hubungan | Unit | Alasan |
+| :--- | :--- | :--- |
+| **⚔️ Counter** | **Barbarian** | Smoke Bomb escape aman. High Noon execute single-target tinggi. Barbarian lambat, mudah di-kite. |
+| **⚔️ Counter** | **Mage** | Smoke Bomb stealth dekati tanpa terdeteksi. High Noon execute. Fan Fire AoE bunuh Mage saat approach. |
+| **⚔️ Counter** | **Healer** | High Noon execute Healer sebelum sempat Divine Shield. Fan Fire membersihkan Healer dari cluster. |
+| **🛡️ Di-counter** | **Assassin** | Shadow Step kejar Smoke Bomb. Speed unggul jauh. |
+| **🛡️ Di-counter** | **Archer** | Arrow Volley area denial. Evasive Leap jaga jarak aman. |
+| 🤝 Sinergi | — | Mandiri / self-sufficient |
 
 ---
 
@@ -37,7 +52,7 @@ Memberikan damage fisik masif instan ke satu target musuh.
 
 | Atribut Skill | Nilai | Deskripsi |
 | :--- | :--- | :--- |
-| **Base Value** | 35.000 | Nilai damage / heal dasar |
+| **Base Value** | 35,000 | Nilai damage / heal dasar |
 | **Cooldown** | 8.00s (500 ticks) | Waktu jeda penggunaan kembali |
 
 
@@ -60,7 +75,7 @@ Memberikan damage fisik area (AoE) sebanyak 3 kali hantaman berturut-turut pada 
 | Atribut Skill | Nilai | Deskripsi |
 | :--- | :--- | :--- |
 | **Jangkauan/Radius** | 2.5 unit | Jarak efektif area skill |
-| **Base Value** | 18.000 | Nilai damage / heal dasar |
+| **Base Value** | 18,000 | Nilai damage / heal dasar |
 | **hits** | 3 | Parameter lainnya |
 | **Cooldown** | 11.20s (700 ticks) | Waktu jeda penggunaan kembali |
 
@@ -69,4 +84,4 @@ Memberikan damage fisik area (AoE) sebanyak 3 kali hantaman berturut-turut pada 
 
 
 ---
-*Dokumen ini dibuat secara otomatis dari konfigurasi engine terbaru (8/8/2026).*
+*Dokumen ini dibuat secara otomatis dari konfigurasi engine terbaru (8/10/2026).*
