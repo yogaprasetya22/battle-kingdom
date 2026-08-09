@@ -10,11 +10,11 @@ Berikut adalah data numerik dasar unit **Mage** yang diambil langsung dari konfi
 
 | Statistik | Nilai Dasar | Deskripsi |
 | :--- | :--- | :--- |
-| **Darah Maksimal (HP)** | **210,000 HP** | Kapasitas nyawa maksimal unit |
+| **Darah Maksimal (HP)** | **210.000 HP** | Kapasitas nyawa maksimal unit |
 | **Pertahanan (Armor)** | **0%** | Persentase pengurangan damage fisik yang diterima |
 | **Kecepatan Gerak** | **0.02** | Kecepatan unit berpindah tempat per frame |
 | **Jangkauan Serang** | **12 unit** | Jarak maksimal untuk melancarkan serangan dasar |
-| **Damage Dasar** | **4,000** | Nilai damage dasar serangan normal |
+| **Damage Dasar** | **8.000** | Nilai damage dasar serangan normal |
 | **Interval Serangan** | **0.96s (60 ticks)** | Jeda waktu antar serangan dasar |
 | **Critical Rate (Peluang)** | **10%** | Peluang serangan dasar menghasilkan damage kritikal |
 | **Critical Damage (Multiplier)** | **1.5x** | Pengali damage saat serangan kritikal berhasil dipicu |
@@ -51,7 +51,7 @@ Memberikan damage sihir dan membekukan (Stun/Freeze) semua musuh di sekitarnya s
 
 | Atribut Skill | Nilai | Deskripsi |
 | :--- | :--- | :--- |
-| **Base Value** | 12,000 | Nilai damage / heal dasar |
+| **Base Value** | 12.000 | Nilai damage / heal dasar |
 | **Jangkauan/Radius** | 1.5 unit | Jarak efektif area skill |
 | **Durasi Efek** | 0.64s (40 ticks) | Durasi status buff/debuff |
 | **Cooldown** | 8.80s (550 ticks) | Waktu jeda penggunaan kembali |
@@ -64,8 +64,8 @@ Memberikan damage sihir besar pada target utama, lalu memantul ke target sekunde
 
 | Atribut Skill | Nilai | Deskripsi |
 | :--- | :--- | :--- |
-| **Base Value** | 22,000 | Nilai damage / heal dasar |
-| **Base Value** | 15,000 | Nilai damage / heal dasar |
+| **Base Value** | 22.000 | Nilai damage / heal dasar |
+| **Base Value** | 15.000 | Nilai damage / heal dasar |
 | **maxChains** | 4 | Parameter lainnya |
 | **Jangkauan/Radius** | 5.0 unit | Jarak efektif area skill |
 | **Cooldown** | 11.20s (700 ticks) | Waktu jeda penggunaan kembali |
@@ -78,14 +78,14 @@ Memberikan damage sihir langsung (Direct Damage) yang sangat masif pada target u
 
 | Atribut Skill | Nilai | Deskripsi |
 | :--- | :--- | :--- |
-| **Base Value** | 60,000 | Nilai damage / heal dasar |
-| **Base Value** | 25,000 | Nilai damage / heal dasar |
+| **Base Value** | 60.000 | Nilai damage / heal dasar |
+| **Base Value** | 25.000 | Nilai damage / heal dasar |
 | **Jangkauan/Radius** | 3.5 unit | Jarak efektif area skill |
-| **Cooldown** | 17.60s (1100 ticks) | Waktu jeda penggunaan kembali |
+| **Cooldown** | 13.60s (850 ticks) | Waktu jeda penggunaan kembali |
 
 
 * **Efek Visual**: Mage meluncurkan meteor api besar menyala merah-jingga yang meninggalkan ekor bara api (embers), lalu meledak hebat saat menyentuh target.
 
 
 ---
-*Dokumen ini dibuat secara otomatis dari konfigurasi engine terbaru (8/10/2026).*
+*Dokumen ini dibuat secara otomatis dari konfigurasi engine terbaru (10/8/2026).*

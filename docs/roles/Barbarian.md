@@ -10,11 +10,11 @@ Berikut adalah data numerik dasar unit **Barbarian** yang diambil langsung dari 
 
 | Statistik | Nilai Dasar | Deskripsi |
 | :--- | :--- | :--- |
-| **Darah Maksimal (HP)** | **500,000 HP** | Kapasitas nyawa maksimal unit |
+| **Darah Maksimal (HP)** | **500.000 HP** | Kapasitas nyawa maksimal unit |
 | **Pertahanan (Armor)** | **20%** | Persentase pengurangan damage fisik yang diterima |
 | **Kecepatan Gerak** | **0.038** | Kecepatan unit berpindah tempat per frame |
 | **Jangkauan Serang** | **1.8 unit** | Jarak maksimal untuk melancarkan serangan dasar |
-| **Damage Dasar** | **12,000** | Nilai damage dasar serangan normal |
+| **Damage Dasar** | **12.000** | Nilai damage dasar serangan normal |
 | **Interval Serangan** | **0.96s (60 ticks)** | Jeda waktu antar serangan dasar |
 | **Critical Rate (Peluang)** | **8%** | Peluang serangan dasar menghasilkan damage kritikal |
 | **Critical Damage (Multiplier)** | **1.6x** | Pengali damage saat serangan kritikal berhasil dipicu |
@@ -50,8 +50,8 @@ Memberikan imunitas penuh kepada diri sendiri (Immunity Ticks), mencegah segala 
 
 | Atribut Skill | Nilai | Deskripsi |
 | :--- | :--- | :--- |
-| **Durasi Efek** | 0.48s (30 ticks) | Durasi status buff/debuff |
-| **Cooldown** | 9.60s (600 ticks) | Waktu jeda penggunaan kembali |
+| **Durasi Efek** | 0.32s (20 ticks) | Durasi status buff/debuff |
+| **Cooldown** | 12.00s (750 ticks) | Waktu jeda penggunaan kembali |
 
 
 * **Efek Visual**: Barbarian mengeluarkan aura kemarahan membara (suar api merah-oranye) di sekujur tubuhnya.
@@ -62,7 +62,7 @@ Memberikan damage fisik besar ke musuh di depan dalam jangkauan tebasannya.
 | Atribut Skill | Nilai | Deskripsi |
 | :--- | :--- | :--- |
 | **Jangkauan/Radius** | 1.8 unit | Jarak efektif area skill |
-| **Base Value** | 18,000 | Nilai damage / heal dasar |
+| **Base Value** | 18.000 | Nilai damage / heal dasar |
 | **Cooldown** | 6.40s (400 ticks) | Waktu jeda penggunaan kembali |
 
 
@@ -75,10 +75,12 @@ Memberikan teriakan perang yang meredam nyali musuh dalam radius jangkauan.
 | :--- | :--- | :--- |
 | **Jangkauan/Radius** | 4.0 unit | Jarak efektif area skill |
 | **Cooldown** | 8.00s (500 ticks) | Waktu jeda penggunaan kembali |
+| **damageDebuff** | -0.2 | Parameter lainnya |
+| **Durasi Efek** | 1.60s (100 ticks) | Durasi status buff/debuff |
 
 
 * **Efek Visual**: Mengeluarkan riak gelombang suara melingkar berwarna merah yang membesar dari kaki Barbarian.
 
 
 ---
-*Dokumen ini dibuat secara otomatis dari konfigurasi engine terbaru (8/10/2026).*
+*Dokumen ini dibuat secara otomatis dari konfigurasi engine terbaru (10/8/2026).*

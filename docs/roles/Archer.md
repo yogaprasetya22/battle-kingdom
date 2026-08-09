@@ -10,11 +10,11 @@ Berikut adalah data numerik dasar unit **Archer** yang diambil langsung dari kon
 
 | Statistik | Nilai Dasar | Deskripsi |
 | :--- | :--- | :--- |
-| **Darah Maksimal (HP)** | **240,000 HP** | Kapasitas nyawa maksimal unit |
+| **Darah Maksimal (HP)** | **240.000 HP** | Kapasitas nyawa maksimal unit |
 | **Pertahanan (Armor)** | **10%** | Persentase pengurangan damage fisik yang diterima |
 | **Kecepatan Gerak** | **0.025** | Kecepatan unit berpindah tempat per frame |
 | **Jangkauan Serang** | **6 unit** | Jarak maksimal untuk melancarkan serangan dasar |
-| **Damage Dasar** | **12,000** | Nilai damage dasar serangan normal |
+| **Damage Dasar** | **12.000** | Nilai damage dasar serangan normal |
 | **Interval Serangan** | **0.64s (40 ticks)** | Jeda waktu antar serangan dasar |
 | **Critical Rate (Peluang)** | **15%** | Peluang serangan dasar menghasilkan damage kritikal |
 | **Critical Damage (Multiplier)** | **1.6x** | Pengali damage saat serangan kritikal berhasil dipicu |
@@ -51,7 +51,7 @@ Memberikan damage fisik beruntun ke satu target dengan jeda tembakan sangat sing
 
 | Atribut Skill | Nilai | Deskripsi |
 | :--- | :--- | :--- |
-| **Base Value** | 15,000 | Nilai damage / heal dasar |
+| **Base Value** | 15.000 | Nilai damage / heal dasar |
 | **Cooldown** | 6.40s (400 ticks) | Waktu jeda penggunaan kembali |
 | **delayBetweenShots** | 120 | Parameter lainnya |
 
@@ -65,7 +65,7 @@ Menghindar ke belakang sejauh beberapa unit saat didekati musuh untuk menjaga ja
 | :--- | :--- | :--- |
 | **Jangkauan/Radius** | 2.5 unit | Jarak efektif area skill |
 | **distance** | 4.0 | Parameter lainnya |
-| **Cooldown** | 6.08s (380 ticks) | Waktu jeda penggunaan kembali |
+| **Cooldown** | 5.28s (330 ticks) | Waktu jeda penggunaan kembali |
 
 
 * **Efek Visual**: Archer melompat mundur secara instan disertai kepulan debu (puff) dan kilatan cahaya putih.
@@ -76,7 +76,7 @@ Memberikan damage fisik area (AoE) yang sangat merusak bagi semua musuh yang ber
 | Atribut Skill | Nilai | Deskripsi |
 | :--- | :--- | :--- |
 | **Jangkauan/Radius** | 2.5 unit | Jarak efektif area skill |
-| **Base Value** | 12,000 | Nilai damage / heal dasar |
+| **Base Value** | 18.000 | Nilai damage / heal dasar |
 | **Cooldown** | 8.80s (550 ticks) | Waktu jeda penggunaan kembali |
 | **arrowCount** | 60 | Parameter lainnya |
 
@@ -85,4 +85,4 @@ Memberikan damage fisik area (AoE) yang sangat merusak bagi semua musuh yang ber
 
 
 ---
-*Dokumen ini dibuat secara otomatis dari konfigurasi engine terbaru (8/10/2026).*
+*Dokumen ini dibuat secara otomatis dari konfigurasi engine terbaru (10/8/2026).*

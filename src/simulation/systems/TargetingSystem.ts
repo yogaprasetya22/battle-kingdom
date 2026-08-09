@@ -372,7 +372,6 @@ export function findLowestHpEnemy(d: Float32Array, i: number): number {
         const fxdx = d[jBase + IDX_X] - myX;
         const fxdz = d[jBase + IDX_Z] - myZ;
         const fdistSq = fxdx * fxdx + fxdz * fxdz;
-        if (fdistSq > sectorMaxDistSq) continue;
         if (
             enemyType !== TYPE_TANK &&
             enemyType !== TYPE_KNIGHT &&

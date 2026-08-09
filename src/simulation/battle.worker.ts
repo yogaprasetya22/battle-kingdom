@@ -385,7 +385,7 @@ function tick(d: Float32Array) {
         const base = i * STRIDE;
         if (d[base + IDX_HP] === -999) {
             d[base + IDX_HP] = d[base + IDX_MAX_HP];
-            d[base + IDX_X] = SPAWN_A_X - SPAWN_INSIDE_OFFSET_X;
+            d[base + IDX_X] = SPAWN_A_X - SPAWN_INSIDE_OFFSET_X + (Math.random() - 0.5) * 3.0;
             d[base + IDX_Z] = (Math.random() - 0.5) * 2 * SPAWN_INSIDE_SPREAD_Z;
             d[base + IDX_Y] = getTerrainHeight(
                 d[base + IDX_X],
@@ -412,7 +412,7 @@ function tick(d: Float32Array) {
         const base = i * STRIDE;
         if (d[base + IDX_HP] === -999) {
             d[base + IDX_HP] = d[base + IDX_MAX_HP];
-            d[base + IDX_X] = SPAWN_B_X + SPAWN_INSIDE_OFFSET_X;
+            d[base + IDX_X] = SPAWN_B_X + SPAWN_INSIDE_OFFSET_X + (Math.random() - 0.5) * 3.0;
             d[base + IDX_Z] = (Math.random() - 0.5) * 2 * SPAWN_INSIDE_SPREAD_Z;
             d[base + IDX_Y] = getTerrainHeight(
                 d[base + IDX_X],
