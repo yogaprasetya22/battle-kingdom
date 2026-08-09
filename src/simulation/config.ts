@@ -326,6 +326,7 @@ export const GUNSLINGER_SKILLS = {
 export const ASSASSIN_SKILLS = {
     shadowStep: {
         teleportRange: 3.0,
+        activationRange: 30.0, // range to cast shadowStep directly to target (increased from 8.0)
         cooldown: 350,
     },
     backstab: {

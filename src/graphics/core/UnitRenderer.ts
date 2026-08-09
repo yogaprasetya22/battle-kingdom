@@ -828,8 +828,8 @@ export function updateFrame(data: Float32Array, delta: number) {
                 unit.meshes[m].visible = true;
             }
 
-            // Fast path for weapon LOD — assassin dual daggers use tighter distance
-            const weaponLodDist = baseType === 5 ? 100 : WEAPON_LOD_DIST_SQ;
+            // Fast path for weapon LOD
+            const weaponLodDist = WEAPON_LOD_DIST_SQ;
             const showWeapons = distSq < weaponLodDist;
 
             if (unit.weapons && unit.weapons.length > 0) {
@@ -1055,14 +1055,14 @@ export function updateFrame(data: Float32Array, delta: number) {
             // ★ ANIMATION LOD — stagger by unit index to avoid sync spikes
             const t0Anim = performance.now();
             let skipFrames = 1;
-            if (distSq > 2225) {
+            if (distSq > 8000) {
                 skipFrames = 4;
-            } else if (distSq > 1200) {
+            } else if (distSq > 4000) {
                 skipFrames = 2;
             }
             const frameCount = animFrameCount;
 
-            const assassinTooFar = baseType === 5 && distSq > 12225;
+            const assassinTooFar = baseType === 5 && distSq > 16000;
             const shouldUpdateMixer =
                 inView &&
                 showMesh &&

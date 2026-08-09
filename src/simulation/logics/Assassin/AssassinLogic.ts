@@ -113,7 +113,8 @@ export function updateAssassin(
 
     // --- TARGETED SKILLS ---
     // Skill 1: Shadow Step
-    if (d[base + IDX_SKILL1_CD] === 0 && distSq <= 64.0) {
+    const actRange = ASSASSIN_SKILLS.shadowStep.activationRange || 30.0;
+    if (d[base + IDX_SKILL1_CD] === 0 && distSq <= actRange * actRange) {
         d[base + IDX_ANIM] = 1;
         animLockTicks[i] = 30; // Cast delay 30 ticks (blueprint)
         const dist = Math.sqrt(distSq) || 0.001;
