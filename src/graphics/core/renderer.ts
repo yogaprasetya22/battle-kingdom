@@ -53,6 +53,35 @@ export function spawnSkillFX(event: { skill: string; [key: string]: any }) {
         return;
     }
 
+    // Resolve team dynamically if not provided (worker event omission fallback)
+    if (event.team === undefined && sharedData) {
+        const sx = event.fx !== undefined ? event.fx : event.x;
+        const sz = event.fz !== undefined ? event.fz : event.z;
+        if (sx !== undefined && sz !== undefined) {
+            let closestIdx = -1;
+            let closestDistSq = Infinity;
+            const UNIT_COUNT = 100; // TEAM_SIZE 50 * 2
+            const STRIDE = 15;
+            for (let i = 0; i < UNIT_COUNT; i++) {
+                const base = i * STRIDE;
+                if (sharedData[base + 3] > 0) { // IDX_HP = 3
+                    const ux = sharedData[base + 0]; // IDX_X = 0
+                    const uz = sharedData[base + 2]; // IDX_Z = 2
+                    const dx = ux - sx;
+                    const dz = uz - sz;
+                    const distSq = dx * dx + dz * dz;
+                    if (distSq < closestDistSq) {
+                        closestDistSq = distSq;
+                        closestIdx = i;
+                    }
+                }
+            }
+            if (closestIdx !== -1 && closestDistSq < 36.0) { // within 6 units range
+                event.team = sharedData[closestIdx * STRIDE + 5]; // IDX_TEAM = 5
+            }
+        }
+    }
+
     // Play procedural/spatial sound FX based on skill
     switch (event.skill) {
         case "arrowVolley": {

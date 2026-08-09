@@ -121,6 +121,10 @@ export class DayCycleManager {
      */
     public update() {
         const now = performance.now();
+        // Throttle update to 20Hz (every 50ms) to prevent continuous WebGL state/uniform cache invalidation
+        if (now - this.lastUpdateTime < 50) {
+            return;
+        }
         this.lastUpdateTime = now;
 
         const elapsed = (now - this.startTime) / 1000; // convert to seconds
@@ -220,9 +224,9 @@ export class DayCycleManager {
                 this.fogColorB,
                 0.5,
             );
-            // Jauhkan sedikit saja: naikkan targetFar dan naikkan near ke 25% dari far agar tidak menutup unit depan
-            const targetFar = 90 + (1 - this.fogDensity / 0.003) * 60;
-            this.scene.fog.near = targetFar * 0.25;
+            // Push fog further back: far ranges from 120 (night) to 200 (noon), and near starts at 45% of far
+            const targetFar = 120 + (1 - this.fogDensity / 0.003) * 80;
+            this.scene.fog.near = targetFar * 0.45;
             this.scene.fog.far = targetFar;
         }
 

@@ -102,6 +102,7 @@ export function dispatchSkillFX(scene: THREE.Scene, event: { skill: string; [key
                 event.ty,
                 event.tz,
                 event.skill === "turretShoot",
+                event.team,
             );
             break;
 
@@ -113,15 +114,15 @@ export function dispatchSkillFX(scene: THREE.Scene, event: { skill: string; [key
         }
 
         case "fireball":
-            spawnFireballFX(scene, event.fx, event.fy, event.fz, event.tx, event.ty, event.tz);
+            spawnFireballFX(scene, event.fx, event.fy, event.fz, event.tx, event.ty, event.tz, event.team);
             break;
 
         case "frostNova":
-            spawnFrostNovaBurstFX(scene, event.x, event.y, event.z);
+            spawnFrostNovaBurstFX(scene, event.x, event.y, event.z, event.team);
             break;
 
         case "basicAttack":
-            spawnBasicAttackFX(scene, event.uType, event.fx, event.fy, event.fz, event.tx, event.ty, event.tz);
+            spawnBasicAttackFX(scene, event.uType, event.fx, event.fy, event.fz, event.tx, event.ty, event.tz, event.team);
             break;
 
         case "basicHeal":
@@ -138,12 +139,12 @@ export function dispatchSkillFX(scene: THREE.Scene, event: { skill: string; [key
 
         case "divineShield":
             tempVec1.set(event.tx, event.ty, event.tz);
-            spawnDivineShieldFX(scene, tempVec1);
+            spawnDivineShieldFX(scene, tempVec1, event.team);
             break;
 
         case "holySanctuary":
             tempVec1.set(event.x, event.y, event.z);
-            spawnHolySanctuaryFX(scene, tempVec1);
+            spawnHolySanctuaryFX(scene, tempVec1, event.team);
             break;
 
         case "highNoon":
@@ -171,7 +172,7 @@ export function dispatchSkillFX(scene: THREE.Scene, event: { skill: string; [key
             break;
 
         case "iceShatter":
-            spawnIceShatterFX(scene, event.x, event.y, event.z);
+            spawnIceShatterFX(scene, event.x, event.y, event.z, event.team);
             break;
     }
 }
