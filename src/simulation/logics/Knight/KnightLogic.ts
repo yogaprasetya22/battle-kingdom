@@ -111,8 +111,7 @@ export function updateKnight(
             } else if (animLockTicks[i] === 0) {
                 d[base + IDX_ANIM] = 0;
             }
-            d[base + IDX_X] += tempSep[0];
-            d[base + IDX_Z] += tempSep[1];
+            // No separation push while attacking turret to prevent shaking
         }
         clampAndHeighten(d, i);
         return;
@@ -230,8 +229,7 @@ export function updateKnight(
             } else if (animLockTicks[i] === 0) {
                 d[base + IDX_ANIM] = 0;
             }
-            d[base + IDX_X] += tempSep[0];
-            d[base + IDX_Z] += tempSep[1];
+            // No separation push while attacking unit to prevent shaking
         } else {
             if (animLockTicks[i] === 0) {
                 d[base + IDX_ANIM] = 1;
