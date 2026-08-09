@@ -54,6 +54,7 @@ Melakukan teleportasi langsung di belakang punggung target terdekat.
 | Atribut Skill | Nilai | Deskripsi |
 | :--- | :--- | :--- |
 | **Jangkauan/Radius** | 3.0 unit | Jarak efektif area skill |
+| **activationRange** | 30.0 | Parameter lainnya |
 | **Cooldown** | 5.60s (350 ticks) | Waktu jeda penggunaan kembali |
 
 
