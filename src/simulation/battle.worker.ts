@@ -59,6 +59,7 @@ import {
 import {
     buildGrid,
     findNearestEnemy,
+    findNearestEnemyDistributed,
     findLowestHpAlly,
     findLowestHpEnemy,
 } from "./systems/TargetingSystem";
@@ -156,8 +157,10 @@ function initUnits(d: Float32Array, matchup: string = "mix") {
         for (let j = 0; j < (config.archer ?? 0); j++) arr.push(TYPE_ARCHER);
         for (let j = 0; j < (config.mage ?? 0); j++) arr.push(TYPE_MAGE);
         for (let j = 0; j < (config.healer ?? 0); j++) arr.push(TYPE_HEALER);
-        for (let j = 0; j < (config.gunslinger ?? 0); j++) arr.push(TYPE_GUNSLINGER);
-        for (let j = 0; j < (config.assassin ?? 0); j++) arr.push(TYPE_ASSASSIN);
+        for (let j = 0; j < (config.gunslinger ?? 0); j++)
+            arr.push(TYPE_GUNSLINGER);
+        for (let j = 0; j < (config.assassin ?? 0); j++)
+            arr.push(TYPE_ASSASSIN);
         for (let j = 0; j < (config.knight ?? 0); j++) arr.push(TYPE_KNIGHT);
         // Skeleton Special Roles (types 6 to 11):
         for (let j = 0; j < (config.skel_tank ?? 0); j++) arr.push(6);
@@ -283,7 +286,9 @@ function tick(d: Float32Array) {
                 type: "skillFX",
                 skill: "turretShoot",
                 team: TEAM_A,
-                fx: TURRET_A_X + 2.0, fy: 2.3, fz: TURRET_Z + 0.5,
+                fx: TURRET_A_X + 2.0,
+                fy: 2.3,
+                fz: TURRET_Z + 0.5,
                 tx: d[nearestEnemyA * STRIDE + IDX_X],
                 ty: d[nearestEnemyA * STRIDE + IDX_Y] + 1,
                 tz: d[nearestEnemyA * STRIDE + IDX_Z],
@@ -316,7 +321,9 @@ function tick(d: Float32Array) {
                 type: "skillFX",
                 skill: "turretShoot",
                 team: TEAM_B,
-                fx: TURRET_B_X - 2.0, fy: 2.3, fz: TURRET_Z + 0.5,
+                fx: TURRET_B_X - 2.0,
+                fy: 2.3,
+                fz: TURRET_Z + 0.5,
                 tx: d[nearestEnemyB * STRIDE + IDX_X],
                 ty: d[nearestEnemyB * STRIDE + IDX_Y] + 1,
                 tz: d[nearestEnemyB * STRIDE + IDX_Z],
@@ -418,6 +425,27 @@ function tick(d: Float32Array) {
             d[base + IDX_SKILL3_CD] = 0;
             d[base + IDX_TARGET] = -1;
             d[base + IDX_IMMUNE_CD] = 0;
+        }
+    }
+
+    // Pre-count target claims for ranged units (Archer/Mage/Gunslinger)
+    // so findNearestEnemyDistributed can apply claim-based penalty.
+    const rangedClaimCounts = new Int32Array(UNIT_COUNT);
+    for (let i = startIndex; i < endIndex; i++) {
+        const uBase = i * STRIDE;
+        const hp = d[uBase + IDX_HP];
+        if (hp <= 0) continue;
+        const uTypeRaw = d[uBase + IDX_TYPE];
+        const uType = uTypeRaw % 6;
+        if (
+            uType === TYPE_ARCHER ||
+            uType === TYPE_MAGE ||
+            uType === TYPE_GUNSLINGER
+        ) {
+            const tgt = Math.round(d[uBase + IDX_TARGET]);
+            if (tgt >= 0 && tgt < UNIT_COUNT) {
+                rangedClaimCounts[tgt]++;
+            }
         }
     }
 
@@ -531,6 +559,16 @@ function tick(d: Float32Array) {
                     if (target === -1) {
                         target = findNearestEnemy(d, i);
                     }
+                } else if (
+                    uType === TYPE_ARCHER ||
+                    uType === TYPE_MAGE ||
+                    uType === TYPE_GUNSLINGER
+                ) {
+                    target = findNearestEnemyDistributed(
+                        d,
+                        i,
+                        rangedClaimCounts,
+                    );
                 } else {
                     target = findNearestEnemy(d, i);
                 }
@@ -555,7 +593,7 @@ function tick(d: Float32Array) {
         } else if (uType === TYPE_GUNSLINGER) {
             updateGunslinger(d, i, target, animLockTicks);
         } else if (uType === TYPE_ASSASSIN) {
-            updateAssassin(d, i, target, animLockTicks);
+            updateAssassin(d, i, target, animLockTicks, battleTicks);
         }
     }
 

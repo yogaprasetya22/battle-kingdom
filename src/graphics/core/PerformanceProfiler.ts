@@ -2,7 +2,7 @@
  * PerformanceProfiler.ts
  * A high-accuracy performance profiling and diagnostics utility for Three.js,
  * Web Workers, animations, skills, targeting, and physics tick tracking.
- * 
+ *
  * Usage:
  * 1. Import `perfProfiler` in `renderer.ts` or `main.ts`
  * 2. Call `perfProfiler.startFrame()` at the beginning of the render loop.
@@ -62,7 +62,7 @@ class PerformanceProfiler {
         billboards: 0,
         movementPhysics: 0,
         targeting: 0,
-        render: 0
+        render: 0,
     };
 
     private activityMetrics = {
@@ -70,7 +70,7 @@ class PerformanceProfiler {
         basicAttacks: 0,
         activeStuns: 0,
         activeBuffs: 0,
-        activeDeaths: 0
+        activeDeaths: 0,
     };
 
     private lastWorkerTickTime = 0;
@@ -80,7 +80,9 @@ class PerformanceProfiler {
         // Expose to window for console control
         if (typeof window !== "undefined") {
             (window as any).perfProfiler = this;
-            console.log("🚀 Performance Profiler Initialized. Type `perfProfiler.exportReport()` in console to download performance diagnostics data.");
+            console.log(
+                "🚀 Performance Profiler Initialized. Type `perfProfiler.exportReport()` in console to download performance diagnostics data.",
+            );
         }
     }
 
@@ -110,7 +112,8 @@ class PerformanceProfiler {
             // Ignore tab-wake spikes (>5s gap) which would collapse the average
             if (dt > 0 && dt < 5000) {
                 this.frameTimes.push(dt);
-                if (this.frameTimes.length > FPS_WINDOW) this.frameTimes.shift();
+                if (this.frameTimes.length > FPS_WINDOW)
+                    this.frameTimes.shift();
             }
         }
         this.prevRafTs = now;
@@ -127,10 +130,11 @@ class PerformanceProfiler {
 
         // Use rAF-to-rAF interval for FPS — matches what the device actually displays
         // Fallback to cpuWorkMs only if no rAF timestamps recorded yet
-        const lastDt = this.frameTimes.length > 0
-            ? this.frameTimes[this.frameTimes.length - 1]
-            : cpuWorkMs;
-        
+        const lastDt =
+            this.frameTimes.length > 0
+                ? this.frameTimes[this.frameTimes.length - 1]
+                : cpuWorkMs;
+
         // Instantaneous FPS for per-frame report to capture exact drop spikes (e.g. down to 28 fps)
         const instantFps = lastDt > 0 ? 1000 / lastDt : 0;
         const smoothedFps = this._smoothedFps();
@@ -147,16 +151,19 @@ class PerformanceProfiler {
             triangles = this.webGLRendererRef.info.render.triangles;
             geometries = this.webGLRendererRef.info.memory.geometries;
             textures = this.webGLRendererRef.info.memory.textures;
-            programs = this.webGLRendererRef.info.programs ? this.webGLRendererRef.info.programs.length : 0;
+            programs = this.webGLRendererRef.info.programs
+                ? this.webGLRendererRef.info.programs.length
+                : 0;
         }
 
-        const frameTimeMs = this.frameTimes.length > 0
-            ? this.frameTimes[this.frameTimes.length - 1]
-            : cpuWorkMs;
+        const frameTimeMs =
+            this.frameTimes.length > 0
+                ? this.frameTimes[this.frameTimes.length - 1]
+                : cpuWorkMs;
 
         const report: ProfilerReport = {
             timestamp: Date.now(),
-            fps: Math.round(instantFps),
+            fps: Math.round(smoothedFps),
             isSkeleton: this.isSkeletonMode,
             frameTimeMs: parseFloat(frameTimeMs.toFixed(2)),
             drawCalls,
@@ -166,20 +173,31 @@ class PerformanceProfiler {
             programs,
             workerTickTimeMs: this.lastWorkerTickTime,
             systems: {
-                animationsMs: parseFloat(this.systemTimes.animations.toFixed(2)),
-                billboardsMs: parseFloat(this.systemTimes.billboards.toFixed(2)),
-                movementPhysicsMs: parseFloat(this.systemTimes.movementPhysics.toFixed(2)),
+                animationsMs: parseFloat(
+                    this.systemTimes.animations.toFixed(2),
+                ),
+                billboardsMs: parseFloat(
+                    this.systemTimes.billboards.toFixed(2),
+                ),
+                movementPhysicsMs: parseFloat(
+                    this.systemTimes.movementPhysics.toFixed(2),
+                ),
                 targetingMs: parseFloat(this.systemTimes.targeting.toFixed(2)),
-                renderTimeMs: parseFloat(cpuWorkMs.toFixed(2))
+                renderTimeMs: parseFloat(cpuWorkMs.toFixed(2)),
             },
             activity: {
                 skillsTriggered: { ...this.activityMetrics.skillsTriggered },
                 basicAttacks: this.activityMetrics.basicAttacks,
                 activeStuns: this.activityMetrics.activeStuns,
                 activeBuffs: this.activityMetrics.activeBuffs,
-                activeDeaths: this.activityMetrics.activeDeaths
+                activeDeaths: this.activityMetrics.activeDeaths,
             },
-            bottlenecks: this.detectBottlenecks(instantFps, frameTimeMs, drawCalls, triangles)
+            bottlenecks: this.detectBottlenecks(
+                instantFps,
+                frameTimeMs,
+                drawCalls,
+                triangles,
+            ),
         };
 
         this.logHistory.push(report);
@@ -195,7 +213,10 @@ class PerformanceProfiler {
     }
 
     // System duration trackers
-    public trackSystemTime(systemName: keyof typeof PerformanceProfiler.prototype.systemTimes, durationMs: number) {
+    public trackSystemTime(
+        systemName: keyof typeof PerformanceProfiler.prototype.systemTimes,
+        durationMs: number,
+    ) {
         this.systemTimes[systemName] = durationMs;
     }
 
@@ -205,7 +226,8 @@ class PerformanceProfiler {
 
     // Event & action triggers
     public logSkill(skillName: string) {
-        this.activityMetrics.skillsTriggered[skillName] = (this.activityMetrics.skillsTriggered[skillName] || 0) + 1;
+        this.activityMetrics.skillsTriggered[skillName] =
+            (this.activityMetrics.skillsTriggered[skillName] || 0) + 1;
     }
 
     public logBasicAttack() {
@@ -253,47 +275,71 @@ class PerformanceProfiler {
         console.log("📊 Performance recording STOPPED.");
     }
 
-    private detectBottlenecks(fps: number, frameTimeMs: number, drawCalls: number, triangles: number): string[] {
+    private detectBottlenecks(
+        fps: number,
+        frameTimeMs: number,
+        drawCalls: number,
+        triangles: number,
+    ): string[] {
         const issues: string[] = [];
         // Threshold: 55fps gives ~8% headroom below 60Hz vSync — avoids false alarms
         // where the rolling average naturally sits at 59.8 on a 60Hz display.
         // ponytail: hardcoded 55 — upgrade path is user-configurable targetFps field
         if (fps > 0 && fps < 55) {
-            issues.push(`Low FPS (${Math.round(fps)} fps, frame ${Math.round(frameTimeMs)}ms)`);
+            issues.push(
+                `Low FPS (${Math.round(fps)} fps, frame ${Math.round(frameTimeMs)}ms)`,
+            );
         }
         if (drawCalls > 150) {
             issues.push(`High Draw Calls (${drawCalls}) - CPU/GPU overhead`);
         }
         if (triangles > 500000) {
-            issues.push(`High Triangle Count (${triangles}) - GPU geometry limit`);
+            issues.push(
+                `High Triangle Count (${triangles}) - GPU geometry limit`,
+            );
         }
-        
+
         // Threshold: Skeletal animations (CPU skinning/mixing) is heavier than VAT (GPU shader uniform updates)
         const animThreshold = this.isSkeletonMode ? 4.0 : 1.5;
         if (this.systemTimes.animations > animThreshold) {
-            const animType = this.isSkeletonMode ? "Skeletal CPU Animation" : "VAT GPU Animation";
-            issues.push(`${animType} bottleneck (${this.systemTimes.animations.toFixed(1)}ms)`);
+            const animType = this.isSkeletonMode
+                ? "Skeletal CPU Animation"
+                : "VAT GPU Animation";
+            issues.push(
+                `${animType} bottleneck (${this.systemTimes.animations.toFixed(1)}ms)`,
+            );
         }
-        
+
         if (this.systemTimes.billboards > 3) {
-            issues.push(`Billboard UI/Matrix computation bottleneck (${this.systemTimes.billboards.toFixed(1)}ms)`);
+            issues.push(
+                `Billboard UI/Matrix computation bottleneck (${this.systemTimes.billboards.toFixed(1)}ms)`,
+            );
         }
         if (this.lastWorkerTickTime > 12) {
-            issues.push(`Web Worker CPU simulation delay (${this.lastWorkerTickTime.toFixed(1)}ms)`);
+            issues.push(
+                `Web Worker CPU simulation delay (${this.lastWorkerTickTime.toFixed(1)}ms)`,
+            );
         }
         return issues;
     }
 
     public exportReport() {
         if (this.logHistory.length === 0) {
-            console.warn("No data captured yet. Run `perfProfiler.startLogging()` first.");
+            console.warn(
+                "No data captured yet. Run `perfProfiler.startLogging()` first.",
+            );
             return;
         }
 
-        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(this.logHistory, null, 2));
-        const downloadAnchor = document.createElement('a');
+        const dataStr =
+            "data:text/json;charset=utf-8," +
+            encodeURIComponent(JSON.stringify(this.logHistory, null, 2));
+        const downloadAnchor = document.createElement("a");
         downloadAnchor.setAttribute("href", dataStr);
-        downloadAnchor.setAttribute("download", `battle_performance_diagnostics_${Date.now()}.json`);
+        downloadAnchor.setAttribute(
+            "download",
+            `battle_performance_diagnostics_${Date.now()}.json`,
+        );
         document.body.appendChild(downloadAnchor);
         downloadAnchor.click();
         downloadAnchor.remove();

@@ -2,7 +2,7 @@
  * AssassinVisual.ts — Pembunuh Bayaran (Assassin).
  * Model: Rogue.glb, Senjata: dual daggers (tangan kanan + kiri).
  * Animasi: Melee Dualwield.
- * 
+ *
  * OPTIMIZATION: Lazy-load weapons on first visibility + weapon LOD at distance.
  * Dual daggers are expensive to clone; defer until first use and hide at distance.
  */
@@ -57,8 +57,8 @@ export class AssassinVisual implements IUnitVisual {
     }
 
     loadAssets(): void {
-        // Weapons deferred to first visibility via ensureWeaponsLoaded()
-        // Saves ~2-3ms per assassin at startup with 60+ units
+        // Weapons loaded lazily via getWeaponsForLOD() to avoid
+        // preloading daggers for ALL pool units (2 extra geometries each)
     }
 
     private _ensureWeaponsLoaded(): void {

@@ -43,7 +43,10 @@ import {
     nameBarsB,
     initNameBars,
 } from "../ui/ui_billboards";
-import { spawnIceShatterFX, spawnComicExplosion } from "../effects/SkillFX_Misc";
+import {
+    spawnIceShatterFX,
+    spawnComicExplosion,
+} from "../effects/SkillFX_Misc";
 import { weaponCache } from "../units/UnitVisualHelpers";
 import {
     createUnitVisual,
@@ -446,20 +449,61 @@ export function changeModel(
                             const typesA: number[] = [];
                             const typesB: number[] = [];
                             const fillTypes = (arr: number[], config: any) => {
-                                for (let j = 0; j < (config.tank ?? 0); j++) arr.push(0);
-                                for (let j = 0; j < (config.archer ?? 0); j++) arr.push(1);
-                                for (let j = 0; j < (config.mage ?? 0); j++) arr.push(2);
-                                for (let j = 0; j < (config.healer ?? 0); j++) arr.push(3);
-                                for (let j = 0; j < (config.gunslinger ?? 0); j++) arr.push(4);
-                                for (let j = 0; j < (config.assassin ?? 0); j++) arr.push(5);
-                                for (let j = 0; j < (config.knight ?? 0); j++) arr.push(12);
+                                for (let j = 0; j < (config.tank ?? 0); j++)
+                                    arr.push(0);
+                                for (let j = 0; j < (config.archer ?? 0); j++)
+                                    arr.push(1);
+                                for (let j = 0; j < (config.mage ?? 0); j++)
+                                    arr.push(2);
+                                for (let j = 0; j < (config.healer ?? 0); j++)
+                                    arr.push(3);
+                                for (
+                                    let j = 0;
+                                    j < (config.gunslinger ?? 0);
+                                    j++
+                                )
+                                    arr.push(4);
+                                for (let j = 0; j < (config.assassin ?? 0); j++)
+                                    arr.push(5);
+                                for (let j = 0; j < (config.knight ?? 0); j++)
+                                    arr.push(12);
                                 // Skeleton Special Roles (types 6 to 11):
-                                for (let j = 0; j < (config.skel_tank ?? 0); j++) arr.push(6);
-                                for (let j = 0; j < (config.skel_archer ?? 0); j++) arr.push(7);
-                                for (let j = 0; j < (config.skel_mage ?? 0); j++) arr.push(8);
-                                for (let j = 0; j < (config.skel_healer ?? 0); j++) arr.push(9);
-                                for (let j = 0; j < (config.skel_gunslinger ?? 0); j++) arr.push(10);
-                                for (let j = 0; j < (config.skel_assassin ?? 0); j++) arr.push(11);
+                                for (
+                                    let j = 0;
+                                    j < (config.skel_tank ?? 0);
+                                    j++
+                                )
+                                    arr.push(6);
+                                for (
+                                    let j = 0;
+                                    j < (config.skel_archer ?? 0);
+                                    j++
+                                )
+                                    arr.push(7);
+                                for (
+                                    let j = 0;
+                                    j < (config.skel_mage ?? 0);
+                                    j++
+                                )
+                                    arr.push(8);
+                                for (
+                                    let j = 0;
+                                    j < (config.skel_healer ?? 0);
+                                    j++
+                                )
+                                    arr.push(9);
+                                for (
+                                    let j = 0;
+                                    j < (config.skel_gunslinger ?? 0);
+                                    j++
+                                )
+                                    arr.push(10);
+                                for (
+                                    let j = 0;
+                                    j < (config.skel_assassin ?? 0);
+                                    j++
+                                )
+                                    arr.push(11);
                             };
                             fillTypes(typesA, confA);
                             fillTypes(typesB, confB);
@@ -515,7 +559,9 @@ export function changeModel(
                                   ? teamMatA!
                                   : teamMatB!;
 
-                        const isSkeleton = (uType >= 6 && uType <= 11) || modelName.toLowerCase().includes("skeleton");
+                        const isSkeleton =
+                            (uType >= 6 && uType <= 11) ||
+                            modelName.toLowerCase().includes("skeleton");
 
                         const srcGLTF = gltfModels[uType];
                         const unitVis = createUnitVisual(
@@ -528,7 +574,9 @@ export function changeModel(
                         unitInstances[i] = unitVis;
 
                         // Save original materials for skeleton units
-                        const originalMaterials = unitVis.meshes.map((m) => m.material);
+                        const originalMaterials = unitVis.meshes.map(
+                            (m) => m.material,
+                        );
 
                         // Override scale sesuai tipe unit
                         const scale = getUnitScale(baseType);
@@ -733,7 +781,10 @@ export function updateFrame(data: Float32Array, delta: number) {
                         if (i < TEAM_SIZE) {
                             nameBarsA.setMatrixAt(i, _deadNameMatrix);
                         } else {
-                            nameBarsB.setMatrixAt(i - TEAM_SIZE, _deadNameMatrix);
+                            nameBarsB.setMatrixAt(
+                                i - TEAM_SIZE,
+                                _deadNameMatrix,
+                            );
                         }
                     }
                 }
@@ -766,7 +817,6 @@ export function updateFrame(data: Float32Array, delta: number) {
                     nameBarsB.setMatrixAt(i - TEAM_SIZE, _deadNameMatrix);
                 }
             }
-
         } else {
             _unitSphere.center.set(x, y, z);
             const inView = true;
@@ -778,10 +828,10 @@ export function updateFrame(data: Float32Array, delta: number) {
                 unit.meshes[m].visible = true;
             }
 
-            // Fast path for weapon LOD
-            const weaponLodDist = baseType === 5 ? 300 : WEAPON_LOD_DIST_SQ;
+            // Fast path for weapon LOD — assassin dual daggers use tighter distance
+            const weaponLodDist = baseType === 5 ? 100 : WEAPON_LOD_DIST_SQ;
             const showWeapons = distSq < weaponLodDist;
- 
+
             if (unit.weapons && unit.weapons.length > 0) {
                 for (let w = 0; w < unit.weapons.length; w++) {
                     unit.weapons[w].visible = showMesh && showWeapons;
@@ -802,7 +852,7 @@ export function updateFrame(data: Float32Array, delta: number) {
                         unit.meshes[m].material = unit.originalMaterials[m];
                     }
                 }
-                
+
                 // Snap instantly to spawn coordinates to prevent flying up / jittering from y = -999
                 unit.root.position.set(x, y, z);
                 unit.root.scale.setScalar(scale);
@@ -885,7 +935,7 @@ export function updateFrame(data: Float32Array, delta: number) {
                 }
                 _iceInstanced.setMatrixAt(i, _iceDead);
                 _iceNeedsUpdate = true;
-                if (unit.currentEffectState > 0) {
+                if (unit.currentEffectState === 1) {
                     spawnIceShatterFX(
                         scene,
                         unit.root.position.x,
@@ -895,7 +945,16 @@ export function updateFrame(data: Float32Array, delta: number) {
                     unit.currentEffectState = 0;
                 }
             } else {
-                if (unit.currentEffectState !== effect) {
+                // Normalize effect to category to avoid per-tick material swap from stealth countdown
+                // Categories: 2=stealthed(1000-1999), 1=stun(1-999), -1=buff(<0), 0=normal(0)
+                const effectCat = isStealthed
+                    ? 2
+                    : effect > 0
+                      ? 1
+                      : effect < 0
+                        ? -1
+                        : 0;
+                if (unit.currentEffectState !== effectCat) {
                     let activeMat = unit.team === TEAM_A ? teamMatA : teamMatB;
                     if (baseType === 3)
                         activeMat =
@@ -923,7 +982,8 @@ export function updateFrame(data: Float32Array, delta: number) {
                         _iceInstanced.setMatrixAt(i, _iceDead);
                         _iceNeedsUpdate = true;
                         if (effect < 0) {
-                            activeMat = unit.team === TEAM_A ? buffMatA : buffMatB;
+                            activeMat =
+                                unit.team === TEAM_A ? buffMatA : buffMatB;
                             if (activeMat) {
                                 for (let m = 0; m < unit.meshes.length; m++) {
                                     unit.meshes[m].material = activeMat;
@@ -932,7 +992,8 @@ export function updateFrame(data: Float32Array, delta: number) {
                         } else {
                             if (unit.originalMaterials) {
                                 for (let m = 0; m < unit.meshes.length; m++) {
-                                    unit.meshes[m].material = unit.originalMaterials[m];
+                                    unit.meshes[m].material =
+                                        unit.originalMaterials[m];
                                 }
                             } else if (activeMat) {
                                 for (let m = 0; m < unit.meshes.length; m++) {
@@ -941,7 +1002,7 @@ export function updateFrame(data: Float32Array, delta: number) {
                             }
                         }
                     }
-                    unit.currentEffectState = effect;
+                    unit.currentEffectState = effectCat;
                 } else if (!isStealthed && effect > 0) {
                     _iceMatrix.makeTranslation(x, y + 0.5, z);
                     _iceInstanced.setMatrixAt(i, _iceMatrix);
@@ -952,7 +1013,8 @@ export function updateFrame(data: Float32Array, delta: number) {
                     let tx = 0;
                     let tz = 0;
                     if (targetIdx === TARGET_TURRET) {
-                        const turretX = unit.team === TEAM_A ? TURRET_B_X : TURRET_A_X;
+                        const turretX =
+                            unit.team === TEAM_A ? TURRET_B_X : TURRET_A_X;
                         tx = turretX;
                         tz = TURRET_Z;
                     } else {
@@ -990,7 +1052,7 @@ export function updateFrame(data: Float32Array, delta: number) {
                 unit.deathTime &&
                 performance.now() - unit.deathTime < 2000;
 
-            // ★ ANIMATION LOD
+            // ★ ANIMATION LOD — stagger by unit index to avoid sync spikes
             const t0Anim = performance.now();
             let skipFrames = 1;
             if (distSq > 2225) {
@@ -998,8 +1060,7 @@ export function updateFrame(data: Float32Array, delta: number) {
             } else if (distSq > 1200) {
                 skipFrames = 2;
             }
-            if (unit.animationFrameSkipCount === undefined) unit.animationFrameSkipCount = 0;
-            unit.animationFrameSkipCount++;
+            const frameCount = animFrameCount;
 
             const assassinTooFar = baseType === 5 && distSq > 12225;
             const shouldUpdateMixer =
@@ -1010,10 +1071,9 @@ export function updateFrame(data: Float32Array, delta: number) {
 
             if (shouldUpdateMixer) {
                 unit.accumulatedDelta += delta;
-                if (unit.animationFrameSkipCount >= skipFrames) {
+                if ((frameCount + i) % skipFrames === 0) {
                     unit.mixer.update(unit.accumulatedDelta);
                     unit.accumulatedDelta = 0;
-                    unit.animationFrameSkipCount = 0;
                 }
             } else {
                 unit.accumulatedDelta = 0;
@@ -1032,9 +1092,9 @@ export function updateFrame(data: Float32Array, delta: number) {
             const hpRatio = maxHp > 0 ? hp / maxHp : 0;
 
             if (showBillboard) {
-
                 const lastState = (unit as any)._lastBBState;
-                const stateChanged = !lastState ||
+                const stateChanged =
+                    !lastState ||
                     lastState.hp !== hp ||
                     lastState.maxHp !== maxHp ||
                     lastState.x !== meshX ||
@@ -1045,7 +1105,14 @@ export function updateFrame(data: Float32Array, delta: number) {
                 if (cameraMoved || stateChanged) {
                     billboardUpdatedThisFrame = true;
                     if (!lastState) {
-                        (unit as any)._lastBBState = { hp, maxHp, x: meshX, y: billY, z: meshZ, showBillboard };
+                        (unit as any)._lastBBState = {
+                            hp,
+                            maxHp,
+                            x: meshX,
+                            y: billY,
+                            z: meshZ,
+                            showBillboard,
+                        };
                     } else {
                         lastState.hp = hp;
                         lastState.maxHp = maxHp;
@@ -1083,7 +1150,10 @@ export function updateFrame(data: Float32Array, delta: number) {
                         if (i < TEAM_SIZE) {
                             nameBarsA.setMatrixAt(i, _billboardMatrix);
                         } else {
-                            nameBarsB.setMatrixAt(i - TEAM_SIZE, _billboardMatrix);
+                            nameBarsB.setMatrixAt(
+                                i - TEAM_SIZE,
+                                _billboardMatrix,
+                            );
                         }
                     }
 
@@ -1092,12 +1162,20 @@ export function updateFrame(data: Float32Array, delta: number) {
                 }
             } else {
                 const lastState = (unit as any)._lastBBState;
-                const stateChanged = !lastState || lastState.showBillboard !== showBillboard;
+                const stateChanged =
+                    !lastState || lastState.showBillboard !== showBillboard;
 
                 if (stateChanged) {
                     billboardUpdatedThisFrame = true;
                     if (!lastState) {
-                        (unit as any)._lastBBState = { hp, maxHp, x: meshX, y: billY, z: meshZ, showBillboard };
+                        (unit as any)._lastBBState = {
+                            hp,
+                            maxHp,
+                            x: meshX,
+                            y: billY,
+                            z: meshZ,
+                            showBillboard,
+                        };
                     } else {
                         lastState.showBillboard = showBillboard;
                     }
@@ -1110,7 +1188,10 @@ export function updateFrame(data: Float32Array, delta: number) {
                         if (i < TEAM_SIZE) {
                             nameBarsA.setMatrixAt(i, _deadNameMatrix);
                         } else {
-                            nameBarsB.setMatrixAt(i - TEAM_SIZE, _deadNameMatrix);
+                            nameBarsB.setMatrixAt(
+                                i - TEAM_SIZE,
+                                _deadNameMatrix,
+                            );
                         }
                     }
                 }

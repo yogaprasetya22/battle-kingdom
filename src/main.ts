@@ -787,8 +787,15 @@ btnViewerNext.addEventListener("click", () => {
     }
 });
 
-// Handler: keyboard untuk navigasi viewer
+// Handler: keyboard untuk navigasi viewer dan shortcut diagnostik kinerja
 document.addEventListener("keydown", (e) => {
+    // Shortcut Ctrl + . untuk ekspor report profiling kinerja
+    if (e.ctrlKey && e.key === ".") {
+        e.preventDefault();
+        perfProfiler.exportReport();
+        return;
+    }
+
     if (!viewerOverlay.classList.contains("active")) return;
     if (e.key === "Escape") {
         closeViewer();
