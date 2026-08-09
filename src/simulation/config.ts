@@ -15,9 +15,9 @@ export const TICK_MS = 16;
 // ============ SPAWN WAVES ============
 export const SPAWN_INITIAL = 5; // unit awal per tim
 export const SPAWN_PER_WAVE = 1; // tambahan unit per wave
-export const SPAWN_WAVE_INTERVAL = 20; // ticks antar wave
+export const SPAWN_WAVE_INTERVAL = 80; // ticks antar wave (increased for better pacing)
 export const SPAWN_INSIDE_OFFSET_X = 6.5; // jarak spawn di dalam kastil (sumbu X)
-export const SPAWN_INSIDE_SPREAD_Z = 0.75; // max spread Z spawn (Math.random() - 0.5) * 2 * ini
+export const SPAWN_INSIDE_SPREAD_Z = 6.0; // max spread Z spawn (Math.random() - 0.5) * 2 * ini (increased from 0.75)
 
 // ============ MOVEMENT & SEPARATION ============
 export const SEPARATION_RADIUS = 1.5; // naik dari 0.95 — tank menyebar lebih luas, kurangi klaster padat
@@ -97,7 +97,7 @@ export const ATTRIBUTES: Record<number, UnitAttributes> = {
     2: {
         moveSpeed: 0.02,
         attackRange: 12.0,
-        baseDamage: 4000,
+        baseDamage: 8000,
         attackInterval: 60,
         critChance: 0.1,
         critDamage: 1.5,
@@ -113,7 +113,7 @@ export const ATTRIBUTES: Record<number, UnitAttributes> = {
     4: {
         moveSpeed: 0.03,
         attackRange: 7.0,
-        baseDamage: 22000,
+        baseDamage: 18000,
         attackInterval: 50,
         critChance: 0.2,
         critDamage: 1.8,
@@ -121,7 +121,7 @@ export const ATTRIBUTES: Record<number, UnitAttributes> = {
     5: {
         moveSpeed: 0.055,
         attackRange: 1.2,
-        baseDamage: 30000,
+        baseDamage: 16000,
         attackInterval: 35,
         critChance: 0.4,
         critDamage: 1.8,
@@ -215,6 +215,8 @@ export const BARBARIAN_SKILLS = {
     battleCry: {
         range: 4.0,
         cooldown: 500,
+        damageDebuff: -0.2,
+        durationTicks: 100,
     },
 };
 
@@ -249,11 +251,11 @@ export const ARCHER_SKILLS = {
     evasiveLeap: {
         range: 2.5,
         distance: 4.0,
-        cooldown: 380,
+        cooldown: 330,
     },
     arrowVolley: {
         radius: 2.5,
-        damage: 12000, // Naik dari 10
+        damage: 18000, // Naik dari 12
         cooldown: 550,
         arrowCount: 60,
     },
@@ -278,14 +280,14 @@ export const MAGE_SKILLS = {
         damageDirect: 60000,
         damageSplash: 25000,
         radius: 3.5,
-        cooldown: 1100, // Cooldown increased from 800 to prevent fireball spamming
+        cooldown: 850, // Cooldown decreased from 1100 to reduce inactive time
     },
 };
 
 // ============ HEALER / ACOLYTE SKILLS ============
 export const HEALER_SKILLS = {
     rejuvenation: {
-        healAmount: 15000,
+        healAmount: 45000,
         cooldown: 300,
     },
     divineShield: {
@@ -294,7 +296,7 @@ export const HEALER_SKILLS = {
     },
     holySanctuary: {
         radius: 5.0,
-        healAmount: 10000,
+        healAmount: 25000,
         cooldown: 600,
     },
 };
@@ -314,7 +316,7 @@ export const GUNSLINGER_SKILLS = {
     },
     fanFire: {
         radius: 2.5,
-        damage: 18000,
+        damage: 10000,
         hits: 3,
         cooldown: 700,
     },
@@ -332,7 +334,7 @@ export const ASSASSIN_SKILLS = {
         cooldown: 420,
     },
     poisonBlade: {
-        damagePerTick: 5000,
+        damagePerTick: 1200,
         durationTicks: 30,
         cooldown: 550,
     },

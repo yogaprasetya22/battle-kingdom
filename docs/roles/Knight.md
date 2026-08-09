@@ -10,11 +10,11 @@ Berikut adalah data numerik dasar unit **Knight** yang diambil langsung dari kon
 
 | Statistik | Nilai Dasar | Deskripsi |
 | :--- | :--- | :--- |
-| **Darah Maksimal (HP)** | **450,000 HP** | Kapasitas nyawa maksimal unit |
+| **Darah Maksimal (HP)** | **450.000 HP** | Kapasitas nyawa maksimal unit |
 | **Pertahanan (Armor)** | **35%** | Persentase pengurangan damage fisik yang diterima |
 | **Kecepatan Gerak** | **0.033** | Kecepatan unit berpindah tempat per frame |
 | **Jangkauan Serang** | **1.8 unit** | Jarak maksimal untuk melancarkan serangan dasar |
-| **Damage Dasar** | **9,000** | Nilai damage dasar serangan normal |
+| **Damage Dasar** | **9.000** | Nilai damage dasar serangan normal |
 | **Interval Serangan** | **1.12s (70 ticks)** | Jeda waktu antar serangan dasar |
 | **Critical Rate (Peluang)** | **5%** | Peluang serangan dasar menghasilkan damage kritikal |
 | **Critical Damage (Multiplier)** | **1.5x** | Pengali damage saat serangan kritikal berhasil dipicu |
@@ -76,7 +76,7 @@ Memberikan damage sedang dan memukul mundur (Knockback) target sejauh beberapa u
 | Atribut Skill | Nilai | Deskripsi |
 | :--- | :--- | :--- |
 | **Jangkauan/Radius** | 1.8 unit | Jarak efektif area skill |
-| **Base Value** | 14,000 | Nilai damage / heal dasar |
+| **Base Value** | 14.000 | Nilai damage / heal dasar |
 | **knockback** | 1.5 | Parameter lainnya |
 | **Cooldown** | 8.00s (500 ticks) | Waktu jeda penggunaan kembali |
 
@@ -85,4 +85,4 @@ Memberikan damage sedang dan memukul mundur (Knockback) target sejauh beberapa u
 
 
 ---
-*Dokumen ini dibuat secara otomatis dari konfigurasi engine terbaru (8/10/2026).*
+*Dokumen ini dibuat secara otomatis dari konfigurasi engine terbaru (10/8/2026).*
