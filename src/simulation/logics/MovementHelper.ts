@@ -32,6 +32,10 @@ import {
     gridCols,
 } from "../systems/TargetingSystem";
 
+export function isMelee(uType: number): boolean {
+    return !(uType === 1 || uType === 7 || uType === 2 || uType === 8 || uType === 3 || uType === 9 || uType === 4 || uType === 10);
+}
+
 export function computeSeparation(d: Float32Array, i: number, mySpeed: number, outSep: Float32Array) {
     const base = i * STRIDE;
     let sepX = 0;
@@ -67,26 +71,33 @@ export function computeSeparation(d: Float32Array, i: number, mySpeed: number, o
                         const distSq = dxj * dxj + dzj * dzj;
 
                         if (distSq < MIN_DIST_SQ && distSq > 0.0001) {
-                            checkCount++;
-                            // Fast squared-distance spring force approximation (no Math.sqrt!)
-                            const forceFactor = (MIN_DIST_SQ - distSq) / (distSq + 0.01);
+                            const uTypeI = d[base + IDX_TYPE];
+                            const uTypeJ = d[jBase + IDX_TYPE];
+                            const isMeleeI = isMelee(uTypeI);
+                            const isMeleeJ = isMelee(uTypeJ);
 
-                            if (d[jBase + IDX_TEAM] === myTeam) {
-                                // Slide perpendicularly to bypass allies only for melee units if they block the path
-                                const uType = d[base + IDX_TYPE];
-                                const isMelee = !(uType === 1 || uType === 7 || uType === 2 || uType === 8 || uType === 3 || uType === 9 || uType === 4 || uType === 10);
-                                if (isMelee && distSq < 1.0) {
-                                    const dirSign = (i % 2 === 0) ? 1 : -1;
-                                    sepX += -dzj * forceFactor * SEPARATION_STRENGTH * 1.5 * dirSign;
-                                    sepZ += dxj * forceFactor * SEPARATION_STRENGTH * 1.5 * dirSign;
-                                } else {
-                                    sepX += dxj * forceFactor * SEPARATION_STRENGTH;
-                                    sepZ += dzj * forceFactor * SEPARATION_STRENGTH;
-                                }
-                            } else {
-                                sepX += dxj * forceFactor * SEPARATION_STRENGTH;
-                                sepZ += dzj * forceFactor * SEPARATION_STRENGTH;
+                            // Melee vs Ranged: ignore entirely
+                            if (isMeleeI !== isMeleeJ) {
+                                curr = gridNext[curr];
+                                continue;
                             }
+
+                            checkCount++;
+                            let forceFactor = (MIN_DIST_SQ - distSq) / (distSq + 0.01);
+                            let strength = SEPARATION_STRENGTH;
+
+                            if (!isMeleeI && !isMeleeJ) {
+                                // Ranged vs Ranged: radius 0.15 (distSq < 0.15) and strength * 0.1
+                                if (distSq >= 0.15) {
+                                    curr = gridNext[curr];
+                                    continue;
+                                }
+                                forceFactor = (0.15 - distSq) / (distSq + 0.01);
+                                strength = SEPARATION_STRENGTH * 0.1;
+                            }
+
+                            sepX += dxj * forceFactor * strength;
+                            sepZ += dzj * forceFactor * strength;
                         }
                     }
                 }
@@ -128,14 +139,17 @@ export function applySteering(
     const nx = dx / dist;
     const nz = dz / dist;
 
+    let sx = nx;
+    let sz = nz;
+
     const myX = d[base + IDX_X];
     const myZ = d[base + IDX_Z];
     const myTeam = d[base + IDX_TEAM];
-
     const myCol = Math.floor((myX - BOUND_X_MIN) / cellSize);
     const myRow = Math.floor((myZ - BOUND_Z_MIN) / cellSize);
 
     let isBlocked = false;
+    let blockSign = 1;
 
     for (let r = myRow - 1; r <= myRow + 1; r++) {
         if (r < 0 || r >= gridRows || isBlocked) break;
@@ -158,8 +172,14 @@ export function applySteering(
                             if (dot > 0.3) {
                                 const anim = d[jBase + IDX_ANIM];
                                 if (anim === 0 || anim === 2) {
-                                    isBlocked = true;
-                                    break;
+                                    const uTypeI = d[base + IDX_TYPE];
+                                    const uTypeJ = d[jBase + IDX_TYPE];
+                                    if (isMelee(uTypeI) && isMelee(uTypeJ)) {
+                                        const cross = nx * jdz - nz * jdx;
+                                        blockSign = cross >= 0 ? -1 : 1;
+                                        isBlocked = true;
+                                        break;
+                                    }
                                 }
                             }
                         }
@@ -170,16 +190,13 @@ export function applySteering(
         }
     }
 
-    let sx = nx;
-    let sz = nz;
     if (isBlocked) {
-        const sign = (i % 2 === 0) ? 1 : -1;
-        sx = -nz * sign;
-        sz = nx * sign;
+        sx = nx * 0.3 - nz * 0.8 * blockSign;
+        sz = nz * 0.3 + nx * 0.8 * blockSign;
     }
 
-    let vx = sx * mySpeed + tempSep[0];
-    let vz = sz * mySpeed + tempSep[1];
+    let vx = sx * mySpeed + (isBlocked ? tempSep[0] * 0.1 : tempSep[0]);
+    let vz = sz * mySpeed + (isBlocked ? tempSep[1] * 0.1 : tempSep[1]);
     const vMag = Math.sqrt(vx * vx + vz * vz);
     if (vMag > mySpeed) {
         vx = (vx / vMag) * mySpeed;
@@ -261,8 +278,8 @@ export function getMeleeTargetOffset(
 }
 
 export function resolveCollisions(d: Float32Array) {
-    const MIN_DIST = 1.0; // combined body radius threshold
-    const MIN_DIST_SQ = MIN_DIST * MIN_DIST; // 1.0
+    const MIN_DIST = 0.8; // combined body radius threshold
+    const MIN_DIST_SQ = 0.64; // 0.8 * 0.8
 
     for (let i = 0; i < UNIT_COUNT; i++) {
         const base = i * STRIDE;
@@ -285,6 +302,16 @@ export function resolveCollisions(d: Float32Array) {
                     if (curr > i) { // Only process each pair once
                         const jBase = curr * STRIDE;
                         if (d[jBase + IDX_HP] > 0) {
+                            // Collision filtering: only resolve hard collision for melee vs melee
+                            const uTypeI = d[base + IDX_TYPE];
+                            const uTypeJ = d[jBase + IDX_TYPE];
+                            const isMeleeI = !(uTypeI === 1 || uTypeI === 7 || uTypeI === 2 || uTypeI === 8 || uTypeI === 3 || uTypeI === 9 || uTypeI === 4 || uTypeI === 10);
+                            const isMeleeJ = !(uTypeJ === 1 || uTypeJ === 7 || uTypeJ === 2 || uTypeJ === 8 || uTypeJ === 3 || uTypeJ === 9 || uTypeJ === 4 || uTypeJ === 10);
+                            if (!(isMeleeI && isMeleeJ)) {
+                                curr = gridNext[curr];
+                                continue;
+                            }
+
                             const jx = d[jBase + IDX_X];
                             const jz = d[jBase + IDX_Z];
                             const dx = myX - jx;

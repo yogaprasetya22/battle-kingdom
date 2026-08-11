@@ -1016,11 +1016,37 @@ export function updateFrame(data: Float32Array, delta: number) {
                     const moveX = x - unit.root.position.x;
                     const moveZ = z - unit.root.position.z;
                     const moveDistSq = moveX * moveX + moveZ * moveZ;
-                    if (moveDistSq > 0.001) {
+                    // Only update angle if movement is significant (ignores microscopic separation jitter)
+                    if (moveDistSq > 0.0002) {
                         targetAngle = Math.atan2(moveX, moveZ);
                         hasAngle = true;
+                    } else {
+                        // Fallback to previous rotation if movement is too small
+                        hasAngle = false;
                     }
-                } else if (targetIdx !== -1) { // Idle/Attack/Death facing target
+                } else if (state === 2 || state === 0) { // Attack or Idle
+                    if (targetIdx !== -1) {
+                        let tx = 0;
+                        let tz = 0;
+                        if (targetIdx === TARGET_TURRET) {
+                            const turretX =
+                                unit.team === TEAM_A ? TURRET_B_X : TURRET_A_X;
+                            tx = turretX;
+                            tz = TURRET_Z;
+                        } else {
+                            const tBase = targetIdx * STRIDE;
+                            tx = data[tBase + IDX_X];
+                            tz = data[tBase + IDX_Z];
+                        }
+                        const tDx = tx - x;
+                        const tDz = tz - z;
+                        const tDistSq = tDx * tDx + tDz * tDz;
+                        if (tDistSq > 0.01) {
+                            targetAngle = Math.atan2(tDx, tDz);
+                            hasAngle = true;
+                        }
+                    }
+                } else if (targetIdx !== -1) { // Death or other facing target
                     let tx = 0;
                     let tz = 0;
                     if (targetIdx === TARGET_TURRET) {
