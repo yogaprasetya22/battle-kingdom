@@ -76,7 +76,8 @@ export function updateAssassin(
         const dtx = turretX - d[base + IDX_X];
         const dtz = TURRET_Z - d[base + IDX_Z];
         const dtDistSq = dtx * dtx + dtz * dtz;
-        const attackRangeSq = attr.attackRange * attr.attackRange;
+        const personalRange = attr.attackRange - (i % 4) * 0.5;
+        const attackRangeSq = personalRange * personalRange;
 
         if (dtDistSq > attackRangeSq) {
             if (animLockTicks[i] === 0) d[base + IDX_ANIM] = 1; // move
@@ -95,8 +96,6 @@ export function updateAssassin(
             } else if (animLockTicks[i] === 0) {
                 d[base + IDX_ANIM] = 0;
             }
-            d[base + IDX_X] += tempSep[0];
-            d[base + IDX_Z] += tempSep[1];
         }
         clampAndHeighten(d, i);
         return;
@@ -203,7 +202,8 @@ export function updateAssassin(
 
     // --- MOVE & NORMAL ATTACK SYSTEM ---
     if (!skillActivated) {
-        const myRangeSq = myRange * myRange;
+        const personalRange = myRange - (i % 4) * 0.5;
+        const myRangeSq = personalRange * personalRange;
         if (distSq <= myRangeSq) {
             if (d[base + IDX_ATTACK_CD] === 0) {
                 d[base + IDX_ANIM] = 2;
@@ -232,8 +232,6 @@ export function updateAssassin(
             } else if (animLockTicks[i] === 0) {
                 d[base + IDX_ANIM] = 0;
             }
-            d[base + IDX_X] += tempSep[0];
-            d[base + IDX_Z] += tempSep[1];
         } else {
             if (animLockTicks[i] === 0) {
                 d[base + IDX_ANIM] = 1;

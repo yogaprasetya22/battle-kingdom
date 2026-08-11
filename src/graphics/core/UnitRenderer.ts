@@ -1009,7 +1009,18 @@ export function updateFrame(data: Float32Array, delta: number) {
                     _iceNeedsUpdate = true;
                 }
 
-                if (targetIdx !== -1) {
+                let targetAngle = 0;
+                let hasAngle = false;
+
+                if (state === 1) { // Running
+                    const moveX = x - unit.root.position.x;
+                    const moveZ = z - unit.root.position.z;
+                    const moveDistSq = moveX * moveX + moveZ * moveZ;
+                    if (moveDistSq > 0.001) {
+                        targetAngle = Math.atan2(moveX, moveZ);
+                        hasAngle = true;
+                    }
+                } else if (targetIdx !== -1) { // Idle/Attack/Death facing target
                     let tx = 0;
                     let tz = 0;
                     if (targetIdx === TARGET_TURRET) {
@@ -1022,20 +1033,21 @@ export function updateFrame(data: Float32Array, delta: number) {
                         tx = data[tBase + IDX_X];
                         tz = data[tBase + IDX_Z];
                     }
-
                     const tDx = tx - x;
                     const tDz = tz - z;
                     const tDistSq = tDx * tDx + tDz * tDz;
-
-                    // Use pure Y-axis rotation to prevent any pitch/roll tilting (tilted models)
                     if (tDistSq > 0.01) {
-                        const targetAngle = Math.atan2(tDx, tDz);
-                        _lookQuat.setFromAxisAngle(_upVector, targetAngle);
-                        unit.root.quaternion.slerp(
-                            _lookQuat,
-                            Math.min(1, 10 * delta),
-                        );
+                        targetAngle = Math.atan2(tDx, tDz);
+                        hasAngle = true;
                     }
+                }
+
+                if (hasAngle) {
+                    _lookQuat.setFromAxisAngle(_upVector, targetAngle);
+                    unit.root.quaternion.slerp(
+                        _lookQuat,
+                        Math.min(1, 10 * delta),
+                    );
                 }
 
                 if (unit.currentAnimState !== state) {

@@ -37,9 +37,11 @@ import {
     computeSeparation,
     clampAndHeighten,
     applySteering,
+    getMeleeTargetOffset,
 } from "../MovementHelper";
 
 const tempSep = new Float32Array(2);
+const tempOffset = new Float32Array(2);
 
 export function updateTank(
     d: Float32Array,
@@ -208,8 +210,11 @@ export function updateTank(
             if (animLockTicks[i] === 0) {
                 d[base + IDX_ANIM] = 1;
             }
-            const dist = Math.sqrt(distSq) || 0.001;
-            applySteering(d, i, dx, dz, dist, mySpeed, tempSep);
+            getMeleeTargetOffset(d, i, target, d[base + IDX_TEAM], tx, tz, myRange, tempOffset);
+            const odx = tx + tempOffset[0] - d[base + IDX_X];
+            const odz = tz + tempOffset[1] - d[base + IDX_Z];
+            const odist = Math.sqrt(odx * odx + odz * odz) || 0.001;
+            applySteering(d, i, odx, odz, odist, mySpeed, tempSep);
         }
     }
 
