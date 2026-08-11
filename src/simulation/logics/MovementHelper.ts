@@ -142,61 +142,36 @@ export function applySteering(
     let sx = nx;
     let sz = nz;
 
-    const myX = d[base + IDX_X];
-    const myZ = d[base + IDX_Z];
-    const myTeam = d[base + IDX_TEAM];
-    const myCol = Math.floor((myX - BOUND_X_MIN) / cellSize);
-    const myRow = Math.floor((myZ - BOUND_Z_MIN) / cellSize);
-
-    let isBlocked = false;
-    let blockSign = 1;
-
-    for (let r = myRow - 1; r <= myRow + 1; r++) {
-        if (r < 0 || r >= gridRows || isBlocked) break;
-        for (let c = myCol - 1; c <= myCol + 1; c++) {
-            if (c < 0 || c >= gridCols || isBlocked) break;
-            const cellIdx = r * gridCols + c;
-            let curr = gridHead[cellIdx];
-            while (curr !== -1) {
-                if (curr !== i) {
-                    const jBase = curr * STRIDE;
-                    if (d[jBase + IDX_HP] > 0 && d[jBase + IDX_TEAM] === myTeam) {
-                        const jx = d[jBase + IDX_X];
-                        const jz = d[jBase + IDX_Z];
-                        const jdx = jx - myX;
-                        const jdz = jz - myZ;
-                        const jDistSq = jdx * jdx + jdz * jdz;
-
-                        if (jDistSq < 2.0 && jDistSq > 0.001) {
-                            const dot = jdx * nx + jdz * nz;
-                            if (dot > 0.3) {
-                                const anim = d[jBase + IDX_ANIM];
-                                if (anim === 0 || anim === 2) {
-                                    const uTypeI = d[base + IDX_TYPE];
-                                    const uTypeJ = d[jBase + IDX_TYPE];
-                                    if (isMelee(uTypeI) && isMelee(uTypeJ)) {
-                                        const cross = nx * jdz - nz * jdx;
-                                        blockSign = cross >= 0 ? -1 : 1;
-                                        isBlocked = true;
-                                        break;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                curr = gridNext[curr];
-            }
-        }
-    }
+    const sepDot = (nx * tempSep[0]) + (nz * tempSep[1]);
+    const isBlocked = sepDot < -0.1;
 
     if (isBlocked) {
-        sx = nx * 0.3 - nz * 0.8 * blockSign;
-        sz = nz * 0.3 + nx * 0.8 * blockSign;
+        // cross product untuk mengetahui slot kosong ada di kiri atau kanan
+        const cross = nx * tempSep[1] - nz * tempSep[0];
+        const sign = cross >= 0 ? 1 : -1;
+        
+        // Tambahkan wiggle dinamis berbasis index unit untuk memecah kemacetan simetris
+        const wiggle = Math.sin(i * 1.7) * 0.25;
+        const finalSign = sign + wiggle;
+
+        // Pergerakan menyisir samping dominan (85%) dengan sedikit dorongan maju (15%) agar tetap mengalir ke depan
+        sx = -nz * finalSign + nx * 0.15;
+        sz = nx * finalSign + nz * 0.15;
+
+        // Normalisasi arah agar kecepatannya konsisten
+        const sMag = Math.sqrt(sx * sx + sz * sz);
+        if (sMag > 0.001) {
+            sx /= sMag;
+            sz /= sMag;
+        }
+
+        // Reduksi separation lebih agresif agar unit fleksibel menyelip di sela kawan
+        tempSep[0] *= 0.1;
+        tempSep[1] *= 0.1;
     }
 
-    let vx = sx * mySpeed + (isBlocked ? tempSep[0] * 0.1 : tempSep[0]);
-    let vz = sz * mySpeed + (isBlocked ? tempSep[1] * 0.1 : tempSep[1]);
+    let vx = sx * mySpeed + tempSep[0];
+    let vz = sz * mySpeed + tempSep[1];
     const vMag = Math.sqrt(vx * vx + vz * vz);
     if (vMag > mySpeed) {
         vx = (vx / vMag) * mySpeed;
