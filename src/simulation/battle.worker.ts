@@ -85,6 +85,7 @@ import { updateHealer } from "./logics/Healer/HealerLogic";
 import { updateGunslinger } from "./logics/Gunslinger/GunslingerLogic";
 import { updateAssassin } from "./logics/Assassin/AssassinLogic";
 import { updateKnight } from "./logics/Knight/KnightLogic";
+import { resolveCollisions, clampAndHeighten } from "./logics/MovementHelper";
 
 let buf: SharedArrayBuffer | ArrayBuffer | null = null;
 let data: Float32Array | null = null;
@@ -601,6 +602,17 @@ function tick(d: Float32Array) {
             updateGunslinger(d, i, target, animLockTicks);
         } else if (uType === TYPE_ASSASSIN) {
             updateAssassin(d, i, target, animLockTicks, battleTicks);
+        }
+    }
+
+    // Resolve physical overlaps/collisions for all active units
+    resolveCollisions(d);
+
+    // Re-clamp bounds and update heights for corrected units
+    for (let i = startIndex; i < endIndex; i++) {
+        const base = i * STRIDE;
+        if (d[base + IDX_HP] > 0) {
+            clampAndHeighten(d, i);
         }
     }
 
