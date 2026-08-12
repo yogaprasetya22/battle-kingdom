@@ -450,6 +450,16 @@ function tick(d: Float32Array) {
         }
     }
 
+    // ponytail: pre-compute alive status once per tick — avoids O(50) scan per unit (was O(5000)/tick)
+    let anyEnemyAliveA = false; // is there any team-B enemy alive (relevant for team-A units)
+    let anyEnemyAliveB = false; // is there any team-A enemy alive (relevant for team-B units)
+    for (let j = 0; j < TEAM_SIZE; j++) {
+        if (d[j * STRIDE + IDX_HP] > 0) { anyEnemyAliveB = true; break; }
+    }
+    for (let j = TEAM_SIZE; j < UNIT_COUNT; j++) {
+        if (d[j * STRIDE + IDX_HP] > 0) { anyEnemyAliveA = true; break; }
+    }
+
     for (let i = startIndex; i < endIndex; i++) {
         const base = i * STRIDE;
 
@@ -501,16 +511,8 @@ function tick(d: Float32Array) {
         const cachedTarget = Math.round(d[base + IDX_TARGET]);
         let target = cachedTarget;
 
-        // Check if there are any active enemies on the field
-        const enemyStart = myTeam === TEAM_A ? TEAM_SIZE : 0;
-        const enemyEnd = myTeam === TEAM_A ? UNIT_COUNT : TEAM_SIZE;
-        let anyEnemyAlive = false;
-        for (let j = enemyStart; j < enemyEnd; j++) {
-            if (d[j * STRIDE + IDX_HP] > 0) {
-                anyEnemyAlive = true;
-                break;
-            }
-        }
+        // ponytail: use pre-computed per-tick value — no per-unit O(50) scan
+        const anyEnemyAlive = myTeam === TEAM_A ? anyEnemyAliveA : anyEnemyAliveB;
 
         let isTargetInvalid = false;
         if (!anyEnemyAlive) {
