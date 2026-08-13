@@ -265,7 +265,6 @@ function showBattleEnd(winner: "A" | "B", stats: typeof aggregatedStats) {
 
     // Hentikan recording & unduh report kinerja pertempuran otomatis
     perfProfiler.stopLogging();
-    // perfProfiler.exportReport(); // iniyakk
 
     if (statsContainer) {
         statsContainer.innerHTML = `
@@ -356,7 +355,7 @@ function showBattleEnd(winner: "A" | "B", stats: typeof aggregatedStats) {
         <div class="stats-class">🏹 Archer</div>
         <div class="stats-cell">${formatStatValue(stats.teamB.archerDealt)}</div>
         <div class="stats-cell">${formatStatValue(stats.teamB.archerTaken)}</div>
-        <div class="stats-cell">${formatStatValue(stats.teamB.archerKills)}</div>
+        <div class="stats-cell">${stats.teamB.archerKills}</div>
         <div class="stats-cell">${formatStatValue(stats.teamB.archerHealed)}</div>
       </div>
       <div class="stats-grid">
@@ -671,44 +670,6 @@ overlayBtn.addEventListener("click", () => {
     resetWorkers();
 });
 
-selectModel.addEventListener("change", () => {
-    disableControls();
-    overlay.style.display = "none";
-    resetWorkers();
-
-    // Muat model baru
-    loadModel(
-        selectModel.value,
-        selectMatchup.value,
-        () => {
-            // Callback sukses
-            enableControls();
-        },
-        () => {
-            // Callback error (re-enable select so they can choose another one)
-            selectModel.disabled = false;
-            selectMatchup.disabled = false;
-        },
-    );
-});
-
-selectMatchup.addEventListener("change", () => {
-    const customPanel = document.getElementById("custom-classes-panel");
-    if (customPanel) {
-        customPanel.style.display =
-            selectMatchup.value === "custom" ? "flex" : "none";
-    }
-
-    disableControls();
-    overlay.style.display = "none";
-    resetWorkers();
-
-    // Re-clone models to match the new matchup types
-    loadModel(selectModel.value, selectMatchup.value, () => {
-        enableControls();
-    });
-});
-
 // ── Model Viewer ──
 // Inisialisasi CharacterViewer (lazy — baru load saat user klik tombol)
 let characterViewer: CharacterViewer | null = null;
@@ -732,37 +693,39 @@ const viewerCanvasWrap = document.getElementById(
 ) as HTMLDivElement;
 
 // Handler: buka viewer
-btnViewer.addEventListener("click", async () => {
-    // Hentikan pertempuran agar tidak bentrok
-    if (isRunning) {
-        isRunning = false;
-        resetWorkers();
-    }
+if (btnViewer) {
+    btnViewer.addEventListener("click", async () => {
+        // Hentikan pertempuran agar tidak bentrok
+        if (isRunning) {
+            isRunning = false;
+            resetWorkers();
+        }
 
-    // Tampilkan overlay
-    viewerOverlay.classList.add("active");
+        // Tampilkan overlay
+        viewerOverlay.classList.add("active");
 
-    // Jika viewer belum pernah dibuat, buat sekarang
-    if (!characterViewer) {
-        characterViewer = new CharacterViewer();
-        characterViewer.attachToDOM(viewerCanvasWrap);
+        // Jika viewer belum pernah dibuat, buat sekarang
+        if (!characterViewer) {
+            characterViewer = new CharacterViewer();
+            characterViewer.attachToDOM(viewerCanvasWrap);
 
-        // Preload aset (dengan progress ke console)
-        await characterViewer.preloadAssets((msg, pct) => {
-            console.log(`[Viewer] ${msg} (${pct}%)`);
-        });
+            // Preload aset (dengan progress ke console)
+            await characterViewer.preloadAssets((msg, pct) => {
+                console.log(`[Viewer] ${msg} (${pct}%)`);
+            });
 
-        viewerLoaded = true;
-    }
+            viewerLoaded = true;
+        }
 
-    // Mulai render loop viewer
-    characterViewer.startRenderLoop();
+        // Mulai render loop viewer
+        characterViewer.startRenderLoop();
 
-    // Tampilkan karakter pertama
-    if (viewerLoaded) {
-        characterViewer.showCharacter(0);
-    }
-});
+        // Tampilkan karakter pertama
+        if (viewerLoaded) {
+            characterViewer.showCharacter(0);
+        }
+    });
+}
 
 // Handler: tutup viewer
 function closeViewer(): void {
@@ -787,15 +750,7 @@ btnViewerNext.addEventListener("click", () => {
     }
 });
 
-// Handler: keyboard untuk navigasi viewer dan shortcut diagnostik kinerja
 document.addEventListener("keydown", (e) => {
-    // Shortcut Ctrl + . untuk ekspor report profiling kinerja
-    if (e.ctrlKey && e.key === ".") {
-        e.preventDefault();
-        perfProfiler.exportReport();
-        return;
-    }
-
     if (!viewerOverlay.classList.contains("active")) return;
     if (e.key === "Escape") {
         closeViewer();

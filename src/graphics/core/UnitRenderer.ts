@@ -24,12 +24,12 @@ import {
     TURRET_B_X,
     TURRET_Z,
     TARGET_TURRET,
+    IDX_TEAM,
 } from "../../simulation/constants";
 
 import type { UnitVisual } from "./types";
 import type { IUnitVisual } from "../units/base/IUnitVisual";
 import { scene, camera, gltfLoader } from "./scene";
-import { isRunning } from "../../main";
 import { soundFX } from "./SoundFX";
 import {
     hpBarsBg,
@@ -54,6 +54,8 @@ import {
     getUnitScale,
 } from "../units/UnitVisualFactory";
 import { perfProfiler } from "./PerformanceProfiler";
+import { animationClockManager } from "./AnimationClockManager";
+
 
 // ── Shared materials ──
 let teamMatA: THREE.MeshStandardMaterial | null = null;
@@ -135,6 +137,9 @@ const unitInstances: (IUnitVisual | null)[] = [];
 let modelLoaded = false;
 let isCurrentModelSkeleton = false;
 
+
+// ponytail: Movement recording removed to eliminate GC overhead and optimize frame times.
+
 const logPanel = document.getElementById("log-panel");
 
 function logDiag(msg: string, isError = false) {
@@ -209,6 +214,11 @@ export function changeModel(
     });
     unitInstances.length = 0;
     units.length = 0;
+
+    // Fix #3: unregister semua mixer dari clock manager saat model diganti.
+    for (let k = 0; k < UNIT_COUNT; k++) animationClockManager.unregisterMixer(k);
+
+    // Clean old debug collision meshes — removed, no debug meshes anymore
 
     // Dispose old materials
     teamMatA?.dispose();
@@ -610,6 +620,9 @@ export function changeModel(
                             accumulatedDelta: 0,
                             originalMaterials,
                         });
+
+                        // Fix #3: register ke AnimationClockManager global.
+                        animationClockManager.registerMixer(i, unitVis.mixer, false);
                     }
 
                     modelLoaded = true;
@@ -651,14 +664,11 @@ function fadeToAnimation(
     }
 }
 
-// ponytail: Pre-allocate per-frame vectors
-const _right = new THREE.Vector3();
-const _forward = new THREE.Vector3();
+// ponytail: Pre-allocate per-frame vectors — only _lookTarget/_q1/_upVector/_lookQuat used in billboard calc.
 const _lookTarget = new THREE.Vector3();
 const _q1 = new THREE.Quaternion();
 const _upVector = new THREE.Vector3(0, 1, 0);
 const _lookQuat = new THREE.Quaternion();
-let animFrameCount = 0;
 // ponytail: dirty flag — flush ice instanceMatrix once per frame, not per unit
 let _iceNeedsUpdate = false;
 // ponytail: pre-computed billboard quaternion (shared across all units in one frame)
@@ -668,10 +678,6 @@ const _fgMatrix = new THREE.Matrix4();
 const _tempColor = new THREE.Color();
 
 const LERP_SPEED = 12;
-
-// ── Animation batch optimization ──
-let animFrameBatch: number[] = []; // track units yang perlu mixer update
-const MAX_MIXER_UPDATES_PER_FRAME = 20; // batch limit untuk prevent frame drops
 
 const _frustum = new THREE.Frustum();
 const _projScreen = new THREE.Matrix4();
@@ -703,14 +709,6 @@ export function updateFrame(data: Float32Array, delta: number) {
     if (cameraMoved) {
         _lastCameraMatrix.copy(camera.matrixWorld);
     }
-    let billboardUpdatedThisFrame = false;
-
-    _right.set(1, 0, 0).applyQuaternion(camera.quaternion);
-    _forward.set(0, 0, 1).applyQuaternion(camera.quaternion);
-    animFrameCount++;
-
-    // Reset mixer batch queue setiap frame
-    animFrameBatch.length = 0;
 
     _projScreen.multiplyMatrices(
         camera.projectionMatrix,
@@ -722,8 +720,11 @@ export function updateFrame(data: Float32Array, delta: number) {
     _billboardQuat.copy(camera.quaternion);
     _billboardMatrix.makeRotationFromQuaternion(_billboardQuat);
 
-    let animTimeTotal = 0;
-    let billTimeTotal = 0;
+    // ponytail: billboard dirty flag — flush instanceMatrix only when state changed.
+    let billboardUpdatedThisFrame = false;
+
+    const _frameStart = performance.now();
+    const _nowMs = _frameStart;
 
     for (let i = 0; i < UNIT_COUNT; i++) {
         const base = i * STRIDE;
@@ -765,7 +766,7 @@ export function updateFrame(data: Float32Array, delta: number) {
 
         // Handle death state and early continue for fully dead units
         if (hp <= 0 && unit.deathTime) {
-            const elapsed = performance.now() - unit.deathTime;
+            const elapsed = _nowMs - unit.deathTime;
             if (elapsed > 2000) {
                 if (unit.root.visible || (unit as any)._wasAlive) {
                     unit.root.position.set(x, -999, z);
@@ -805,6 +806,7 @@ export function updateFrame(data: Float32Array, delta: number) {
             unit.root.scale.setScalar(0.0001);
             unit.root.visible = false;
             (unit as any)._wasAlive = false;
+
             // Sembunyikan semua billboard untuk unit yang belum spawn
             hpBarsBg.setMatrixAt(i, _deadNameMatrix);
             hpBarsFg.setMatrixAt(i, _deadNameMatrix);
@@ -819,7 +821,9 @@ export function updateFrame(data: Float32Array, delta: number) {
             }
         } else {
             _unitSphere.center.set(x, y, z);
-            const inView = true;
+            // Fix #1: real frustum culling — skip CPU+GPU work for off-screen units.
+            // ponytail: sphere radius 1.5 covers all unit types. Ceiling: per-class bounding sphere if giant boss units added.
+            const inView = _frustum.intersectsSphere(_unitSphere);
             unit.root.visible = inView;
 
             const showMesh = true; // always show mesh, Three.js handles its own culling
@@ -863,7 +867,7 @@ export function updateFrame(data: Float32Array, delta: number) {
             }
 
             if (hp <= 0 && unit.deathTime) {
-                const elapsed = performance.now() - unit.deathTime;
+                const elapsed = _nowMs - unit.deathTime;
 
                 // Trigger comic explosion at 800ms post-death (Disabled)
                 if (elapsed >= 800 && !(unit as any).hasExploded) {
@@ -1012,26 +1016,23 @@ export function updateFrame(data: Float32Array, delta: number) {
                 let targetAngle = 0;
                 let hasAngle = false;
 
-                if (state === 1) { // Running
+                if (state === 1) {
+                    // Running
                     const moveX = x - unit.root.position.x;
                     const moveZ = z - unit.root.position.z;
                     const moveDistSq = moveX * moveX + moveZ * moveZ;
-                    // Only update angle if movement is significant (ignores microscopic separation jitter)
-                    if (moveDistSq > 0.0002) {
+                    // ponytail: tingkatkan threshold ke 0.001 untuk mengabaikan separation micro-jitter
+                    if (moveDistSq > 0.001) {
                         targetAngle = Math.atan2(moveX, moveZ);
                         hasAngle = true;
-                    } else {
-                        // Fallback to previous rotation if movement is too small
-                        hasAngle = false;
                     }
-                } else if (state === 2 || state === 0) { // Attack or Idle
+                } else if (state === 2) {
+                    // Attack: Selalu hadap ke target
                     if (targetIdx !== -1) {
                         let tx = 0;
                         let tz = 0;
                         if (targetIdx === TARGET_TURRET) {
-                            const turretX =
-                                unit.team === TEAM_A ? TURRET_B_X : TURRET_A_X;
-                            tx = turretX;
+                            tx = unit.team === TEAM_A ? TURRET_B_X : TURRET_A_X;
                             tz = TURRET_Z;
                         } else {
                             const tBase = targetIdx * STRIDE;
@@ -1046,7 +1047,30 @@ export function updateFrame(data: Float32Array, delta: number) {
                             hasAngle = true;
                         }
                     }
-                } else if (targetIdx !== -1) { // Death or other facing target
+                } else if (state === 0) {
+                    // Idle: Hanya berputar menghadap target jika ada target aktif
+                    if (targetIdx !== -1 && targetIdx !== 999) {
+                        let tx = 0;
+                        let tz = 0;
+                        if (targetIdx === TARGET_TURRET) {
+                            tx = unit.team === TEAM_A ? TURRET_B_X : TURRET_A_X;
+                            tz = TURRET_Z;
+                        } else {
+                            const tBase = targetIdx * STRIDE;
+                            tx = data[tBase + IDX_X];
+                            tz = data[tBase + IDX_Z];
+                        }
+                        const tDx = tx - x;
+                        const tDz = tz - z;
+                        const tDistSq = tDx * tDx + tDz * tDz;
+                        if (tDistSq > 0.01) {
+                            targetAngle = Math.atan2(tDx, tDz);
+                            hasAngle = true;
+                        }
+                    }
+                    // Jika target -1, kunci rotasi saat ini (hasAngle = false)
+                } else if (targetIdx !== -1) {
+                    // Death or other facing target
                     let tx = 0;
                     let tz = 0;
                     if (targetIdx === TARGET_TURRET) {
@@ -1088,42 +1112,28 @@ export function updateFrame(data: Float32Array, delta: number) {
                 hp <= 0 &&
                 hp >= -10 &&
                 unit.deathTime &&
-                performance.now() - unit.deathTime < 2000;
+                _nowMs - unit.deathTime < 2000;
 
-            // ★ ANIMATION LOD — stagger by unit index to avoid sync spikes
-            const t0Anim = performance.now();
-            let skipFrames = 1;
-            if (distSq > 8000) {
-                skipFrames = 4;
-            } else if (distSq > 4000) {
-                skipFrames = 2;
-            }
-            const frameCount = animFrameCount;
-
-            const assassinTooFar = baseType === 5 && distSq > 16000;
+            // ★ ANIMATION — update mixer only for visible, alive units
+            // ponytail: no per-unit timing. Ceiling: DevTools flame chart for per-unit breakdown.
             const shouldUpdateMixer =
                 inView &&
                 showMesh &&
-                (isDying || (hp > 0 && !(effect > 0 && effect < 1000))) &&
-                !assassinTooFar;
+                (isDying || (hp > 0 && !(effect > 0 && effect < 1000)));
 
             if (shouldUpdateMixer) {
                 unit.accumulatedDelta += delta;
-                if ((frameCount + i) % skipFrames === 0) {
-                    unit.mixer.update(unit.accumulatedDelta);
-                    unit.accumulatedDelta = 0;
-                }
+                unit.mixer.update(unit.accumulatedDelta);
+                unit.accumulatedDelta = 0;
             } else {
                 unit.accumulatedDelta = 0;
             }
-            animTimeTotal += performance.now() - t0Anim;
 
             // Billboard positions
             const billY = unit.root.position.y + scale * 1.9 + 0.3;
             const meshX = unit.root.position.x;
             const meshZ = unit.root.position.z;
 
-            const t0Bill = performance.now();
             const tooFar = distSq > 90000;
             const showBillboard = hp > 0 && !tooFar && inView;
             const maxHp = data[base + IDX_MAX_HP];
@@ -1234,12 +1244,13 @@ export function updateFrame(data: Float32Array, delta: number) {
                     }
                 }
             }
-            billTimeTotal += performance.now() - t0Bill;
         }
     }
 
-    perfProfiler.trackSystemTime("animations", animTimeTotal);
-    perfProfiler.trackSystemTime("billboards", billTimeTotal);
+    // Fix #2: single performance.now() measurement for the whole frame, not per-unit.
+    const _frameEnd = performance.now();
+    perfProfiler.trackSystemTime("animations", _frameEnd - _frameStart);
+    perfProfiler.trackSystemTime("billboards", 0); // ponytail: merged into animations total
 
     // ponytail: flush ice matrix once after loop, not per-unit
     if (_iceNeedsUpdate) {
@@ -1260,6 +1271,8 @@ export function updateFrame(data: Float32Array, delta: number) {
             nameBarsB.instanceMatrix.needsUpdate = true;
         }
     }
+
+
 }
 
 export function resetUnitsVisual() {

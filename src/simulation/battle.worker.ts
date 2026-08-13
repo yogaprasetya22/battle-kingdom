@@ -62,6 +62,7 @@ import {
     findNearestEnemyDistributed,
     findLowestHpAlly,
     findLowestHpEnemy,
+    findBestKnightTarget,
 } from "./systems/TargetingSystem";
 
 import {
@@ -579,6 +580,8 @@ function tick(d: Float32Array) {
                         rangedClaimCounts,
                         true,
                     );
+                } else if (uType === TYPE_KNIGHT) {
+                    target = findBestKnightTarget(d, i);
                 } else {
                     target = findNearestEnemy(d, i);
                 }

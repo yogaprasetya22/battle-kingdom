@@ -307,7 +307,6 @@ export class OptimizationManager {
     }
 }
 
-// Export singleton
-export const optimizationManager = new OptimizationManager(
-    new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight),
-);
+// ponytail: tidak ada singleton — kamera aktual hanya tersedia di scene.ts.
+// Ceiling: jika unit count melebihi 200, instantiate OptimizationManager(camera) di renderer.ts
+// dan panggil updateOptimizations() tiap frame.

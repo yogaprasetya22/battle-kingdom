@@ -78,26 +78,32 @@ export function computeSeparation(d: Float32Array, i: number, mySpeed: number, o
                             const uTypeJ = d[jBase + IDX_TYPE];
                             const isMeleeJ = !(uTypeJ === 1 || uTypeJ === 7 || uTypeJ === 2 || uTypeJ === 8 || uTypeJ === 3 || uTypeJ === 9 || uTypeJ === 4 || uTypeJ === 10);
 
-                            // Melee vs Ranged: ignore entirely
-                            if (isMeleeI !== isMeleeJ) {
-                                curr = gridNext[curr];
-                                continue;
-                            }
+                            let forceFactor = 0;
+                            let strength = 0;
 
-                            checkCount++;
-                            let forceFactor = (MIN_DIST_SQ - distSq) / (distSq + 0.01);
-                            let strength = SEPARATION_STRENGTH;
-
-                            if (!isMeleeI && !isMeleeJ) {
-                                // Ranged vs Ranged: radius 0.15 (distSq < 0.15) and strength * 0.1
-                                if (distSq >= 0.15) {
+                            if (isMeleeI && isMeleeJ) {
+                                // 1. Melee vs Melee: radius 1.2
+                                forceFactor = (MIN_DIST_SQ - distSq) / (distSq + 0.01);
+                                strength = SEPARATION_STRENGTH;
+                            } else if (!isMeleeI && !isMeleeJ) {
+                                // 2. Ranged vs Ranged: radius 0.8 (distSq < 0.64)
+                                if (distSq >= 0.64) {
                                     curr = gridNext[curr];
                                     continue;
                                 }
-                                forceFactor = (0.15 - distSq) / (distSq + 0.01);
-                                strength = SEPARATION_STRENGTH * 0.1;
+                                forceFactor = (0.64 - distSq) / (distSq + 0.01);
+                                strength = SEPARATION_STRENGTH * 0.45;
+                            } else {
+                                // 3. Melee vs Ranged: radius 0.9 (distSq < 0.81)
+                                if (distSq >= 0.81) {
+                                    curr = gridNext[curr];
+                                    continue;
+                                }
+                                forceFactor = (0.81 - distSq) / (distSq + 0.01);
+                                strength = SEPARATION_STRENGTH * 0.35;
                             }
 
+                            checkCount++;
                             sepX += dxj * forceFactor * strength;
                             sepZ += dzj * forceFactor * strength;
                         }
@@ -128,66 +134,96 @@ export function clampAndHeighten(d: Float32Array, i: number) {
     d[base + IDX_Y] = getTerrainHeight(d[base + IDX_X], d[base + IDX_Z]);
 }
 
-// ponytail: per-unit stable orbit direction persisted across ticks to prevent oscillation.
-// ceiling: only one Int8Array per worker, 100 units max — fine.
-const _orbitDir = new Int8Array(512); // +1 or -1 per unit index
-const _stuckCount = new Uint8Array(512); // consecutive blocked ticks
+// ponytail: 3 persistent arrays, total ~3.5KB di worker heap — zero GC per tick.
+// _stuckCount: frame berturut-turut tidak progress (0..200)
+// _orbitDir:   arah flank yang dipilih (+1 kiri / -1 kanan), dipilih sekali dan stabil
+// _lastDistSq: jarak ke slot frame sebelumnya, untuk deteksi "tidak maju"
+// ceiling: expand ke Uint16Array jika UNIT_COUNT > 256.
+const _stuckCount   = new Uint8Array(512);
+const _orbitDir     = new Int8Array(512);
+const _lastDistSq   = new Float32Array(512);
 
 export function applySteering(
     d: Float32Array,
     i: number,
-    dx: number,
+    dx: number,   // arah ke target SLOT (sudah dihitung getMeleeTargetOffset), bukan raw enemy pos
     dz: number,
     dist: number,
     mySpeed: number,
     tempSep: Float32Array
 ) {
     const base = i * STRIDE;
-    const nx = dx / dist;
+    const nx = dx / dist;  // unit vector menuju slot
     const nz = dz / dist;
 
-    let sx = nx;
-    let sz = nz;
+    // ── 1. DETEKSI MACET: dua sinyal digabung ──────────────────────────────
+    // Signal A: separation berlawanan arah slot + cukup kuat (ada tekanan fisik dari depan)
+    const sepMag = Math.sqrt(tempSep[0] * tempSep[0] + tempSep[1] * tempSep[1]);
+    const sepDot = sepMag > 0.001
+        ? nx * (tempSep[0] / sepMag) + nz * (tempSep[1] / sepMag)
+        : 0;
+    const hasPressure = sepDot < -0.2 && sepMag > mySpeed * 0.25;
 
-    const sepDot = (nx * tempSep[0]) + (nz * tempSep[1]);
-    const isBlocked = sepDot < -0.1;
+    // Signal B: jarak ke slot tidak berkurang frame ini (tidak ada progress nyata)
+    const distSq = dx * dx + dz * dz;
+    const noProgress = _lastDistSq[i] > 0 && distSq >= _lastDistSq[i] - 0.002;
+    _lastDistSq[i] = distSq;
 
+    const isBlocked = hasPressure && noProgress;
+
+    // ── 2. UPDATE STUCK COUNTER — tidak pernah di-reset penuh ─────────────
     if (isBlocked) {
-        // Accumulate stuck ticks; flip orbit direction when deeply stuck (>20 ticks same side = wall)
-        _stuckCount[i] = Math.min(255, _stuckCount[i] + 1);
-        if (_stuckCount[i] === 1 && _orbitDir[i] === 0) {
-            // First time blocked: assign deterministic direction from index
-            _orbitDir[i] = (i % 2 === 0) ? 1 : -1;
+        if (_stuckCount[i] < 200) _stuckCount[i]++;
+
+        // Pilih orbit direction sekali saja — deterministik dari posisi unit
+        // (lebih stabil dari i%2 yang bisa clash jika tetangga punya index berurutan)
+        if (_stuckCount[i] === 2 && _orbitDir[i] === 0) {
+            _orbitDir[i] = (Math.round(d[base + IDX_X] * 7 + d[base + IDX_Z] * 3) % 2 === 0) ? 1 : -1;
         }
-        if (_stuckCount[i] > 20) {
-            // Deeply stuck — flip direction to try the other side
+        // Flip hanya di frame 120 (~2 detik di 60fps) — tunggu lama sebelum flip berikutnya
+        // ponytail: tidak perlu reset _stuckCount setelah flip, severity tetap tinggi = tetap flank agresif
+        if (_stuckCount[i] === 120) {
             _orbitDir[i] = -_orbitDir[i] as (1 | -1);
-            _stuckCount[i] = 0;
         }
-        const orbitSign = _orbitDir[i] || 1;
-
-        // Tangential steering: orbit around the obstacle to find an open side
-        sx = -nz * orbitSign;
-        sz = nx * orbitSign;
-
-        const sMag = Math.sqrt(sx * sx + sz * sz);
-        if (sMag > 0.001) { sx /= sMag; sz /= sMag; }
-
-        // Reduce separation dampening so the push still helps slide past neighbours
-        tempSep[0] *= 0.5;
-        tempSep[1] *= 0.5;
     } else {
-        // Clear stuck state when freely moving
-        _stuckCount[i] = 0;
+        // Cooldown lambat: -1/frame memberi "momentum" melewati ujung celah
+        if (_stuckCount[i] > 0) _stuckCount[i]--;
     }
 
+    // ── 3. BLEND VEKTOR: lerp(ke slot, flank, severity) ───────────────────
+    // severity 0 = jalan ke slot normal, severity 1 = full sideways flanking
+    const severity = Math.min(_stuckCount[i] / 30.0, 1.0); // ramp-up dalam 30 frame (~0.5 detik)
+    const orbitSign = _orbitDir[i] || 1;
+
+    // Flank direction = perpendicular 90° dari arah slot — zero trig cost
+    // ponytail: rotasi 90° hanya butuh swap + negasi, tidak ada sin/cos
+    const flankX = -nz * orbitSign;
+    const flankZ =  nx * orbitSign;
+
+    // Lerp dari "ke slot" ke "ke samping" berdasarkan severity
+    // Tidak ada retreat (mundur) — retreat memperparah clash dengan unit di belakang
+    let sx = nx + (flankX - nx) * severity;
+    let sz = nz + (flankZ - nz) * severity;
+
+    // Normalisasi
+    const sMag = Math.sqrt(sx * sx + sz * sz);
+    if (sMag > 0.001) { sx /= sMag; sz /= sMag; }
+
+    // ── 4. SEPARATION TIDAK DILEMAHKAN saat flanking ──────────────────────
+    // Separation melindungi dari resolveCollisions() hard push — jangan dikurangi
+    // ponytail: hilangkan tempSep *= 0.8 dari versi lama
     let vx = sx * mySpeed + tempSep[0];
     let vz = sz * mySpeed + tempSep[1];
+
+    // Beri sedikit boost kecepatan saat flanking (max 1.15×) agar bisa menyusuri punggung teman
+    // tanpa tersangkut, tapi tetap batas atas agar tidak hyper-speed
+    const speedCap = severity > 0.3 ? mySpeed * 1.15 : mySpeed;
     const vMag = Math.sqrt(vx * vx + vz * vz);
-    if (vMag > mySpeed) {
-        vx = (vx / vMag) * mySpeed;
-        vz = (vz / vMag) * mySpeed;
+    if (vMag > speedCap) {
+        vx = (vx / vMag) * speedCap;
+        vz = (vz / vMag) * speedCap;
     }
+
     d[base + IDX_X] += vx;
     d[base + IDX_Z] += vz;
 }
@@ -260,16 +296,20 @@ export function getMeleeTargetOffset(
         }
     }
 
-    // ponytail: fallback 1.2× keeps unit at the edge of the scrum, not sent far behind — ceiling: ring 3 slots already covered.
-    const r_fallback = attackRange * 1.2;
-    outOffset[0] = Math.cos(myNormAngle) * r_fallback;
-    outOffset[1] = Math.sin(myNormAngle) * r_fallback;
+    // ponytail: fallback 1.2× keeps unit at the edge of the scrum with jitter to prevent stacking singularity.
+    const randomJitter = (Math.random() - 0.5) * 1.5;
+    const r_fallback = attackRange * (1.2 + Math.random() * 0.5);
+    outOffset[0] = Math.cos(myNormAngle + randomJitter) * r_fallback;
+    outOffset[1] = Math.sin(myNormAngle + randomJitter) * r_fallback;
     return 3;
 }
 
 export function resolveCollisions(d: Float32Array) {
-    const MIN_DIST = 0.8; // combined body radius threshold
-    const MIN_DIST_SQ = 0.64; // 0.8 * 0.8
+    // KUNCI PERBAIKAN: Core Hitbox HARUS lebih kecil dari Separation (1.2)
+    // 0.85 memberikan "ruang napas" bagi Separation velocity untuk bekerja melicinkan posisi
+    // sebelum tabrakan keras (Collision) benar-benar mengambil alih.
+    const MIN_DIST = 0.85; 
+    const MIN_DIST_SQ = 0.7225; // 0.85 * 0.85
 
     for (let i = 0; i < UNIT_COUNT; i++) {
         const base = i * STRIDE;
@@ -281,12 +321,10 @@ export function resolveCollisions(d: Float32Array) {
         const myCol = Math.floor((myX - BOUND_X_MIN) / cellSize);
         const myRow = Math.floor((myZ - BOUND_Z_MIN) / cellSize);
 
-        // ponytail: hoist type for i — constant across all j pairs, skip grid walk entirely if not melee
         const uTypeI = d[base + IDX_TYPE];
         const isMeleeI = !(uTypeI === 1 || uTypeI === 7 || uTypeI === 2 || uTypeI === 8 || uTypeI === 3 || uTypeI === 9 || uTypeI === 4 || uTypeI === 10);
-        if (!isMeleeI) { continue; } // ranged units skip collision resolution
+        if (!isMeleeI) { continue; } 
 
-        // Check 3x3 grid around us
         for (let r = myRow - 1; r <= myRow + 1; r++) {
             if (r < 0 || r >= gridRows) continue;
             for (let c = myCol - 1; c <= myCol + 1; c++) {
@@ -294,20 +332,13 @@ export function resolveCollisions(d: Float32Array) {
                 const cellIdx = r * gridCols + c;
                 let curr = gridHead[cellIdx];
                 while (curr !== -1) {
-                    if (curr > i) { // Only process each pair once
+                    if (curr > i) { // Hanya proses satu arah per pasangan
                         const jBase = curr * STRIDE;
                         if (d[jBase + IDX_HP] > 0) {
-                            // Collision filtering: only resolve hard collision for melee vs melee
+                            
                             const uTypeJ = d[jBase + IDX_TYPE];
                             const isMeleeJ = !(uTypeJ === 1 || uTypeJ === 7 || uTypeJ === 2 || uTypeJ === 8 || uTypeJ === 3 || uTypeJ === 9 || uTypeJ === 4 || uTypeJ === 10);
                             if (!isMeleeJ) {
-                                curr = gridNext[curr];
-                                continue;
-                            }
-
-                            // ponytail: stuck unit ghosts through allies — skip collision so it can pass through the frontline.
-                            // ceiling: both skip so stuck units don't drag stationary ones.
-                            if (_stuckCount[i] > 8 || _stuckCount[curr] > 8) {
                                 curr = gridNext[curr];
                                 continue;
                             }
@@ -318,17 +349,20 @@ export function resolveCollisions(d: Float32Array) {
                             const dz = myZ - jz;
                             const distSq = dx * dx + dz * dz;
 
+                            // Jika masuk ke Zona Darurat (< 0.85)
                             if (distSq < MIN_DIST_SQ && distSq > 0.0001) {
                                 const dist = Math.sqrt(distSq);
-                                const overlap = MIN_DIST - dist;
+                                
+                                // DAMPENING MUTLAK: Kalikan overlap dengan 0.5 (Soft Push)
+                                // Jangan memisahkan mereka 100% dalam 1 frame karena memicu osilasi!
+                                const overlap = (MIN_DIST - dist) * 0.5;
 
                                 const animI = d[base + IDX_ANIM];
                                 const animJ = d[jBase + IDX_ANIM];
 
-                                // ponytail: only idle (0) units are treated as immovable.
-                                // Attack (2) units still share the push so they don't form a solid wall.
-                                const isIStationary = animI === 0;
-                                const isJStationary = animJ === 0;
+                                // Unit idle (0) atau menyerang (2) jauh lebih berbobot layaknya jangkar
+                                const isIStationary = animI === 0 || animI === 2;
+                                const isJStationary = animJ === 0 || animJ === 2;
 
                                 let pushRatioI = 0.5;
                                 let pushRatioJ = 0.5;
@@ -344,6 +378,7 @@ export function resolveCollisions(d: Float32Array) {
                                 const pushX = (dx / dist) * overlap;
                                 const pushZ = (dz / dist) * overlap;
 
+                                // Modifikasi langsung koordinat (teleportasi perlahan)
                                 d[base + IDX_X] += pushX * pushRatioI;
                                 d[base + IDX_Z] += pushZ * pushRatioI;
                                 d[jBase + IDX_X] -= pushX * pushRatioJ;

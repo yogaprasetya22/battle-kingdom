@@ -558,3 +558,122 @@ export function findNearestEnemyDistributed(
 
     return target;
 }
+
+export function findBestKnightTarget(d: Float32Array, i: number): number {
+    const base = i * STRIDE;
+    const myTeam = d[base + IDX_TEAM];
+    const myX = d[base + IDX_X];
+    const myZ = d[base + IDX_Z];
+
+    const myCol = Math.floor((myX - BOUND_X_MIN) / cellSize);
+    const myRow = Math.floor((myZ - BOUND_Z_MIN) / cellSize);
+
+    let bestScore = -Infinity;
+    let target = -1;
+
+    // ponytail: inline evaluator to avoid function call overhead in loop
+    const evaluate = (curr: number): number => {
+        const jBase = curr * STRIDE;
+        const dx = d[jBase + IDX_X] - myX;
+        const dz = d[jBase + IDX_Z] - myZ;
+        const distSq = dx * dx + dz * dz;
+        const dist = Math.sqrt(distSq) || 0.001;
+
+        const hp = d[jBase + IDX_HP];
+        const maxHp = d[jBase + IDX_MAX_HP];
+        const hpPercent = hp / maxHp;
+
+        // Formula: lower HP targets (60% weight) + closer targets (40% weight)
+        const distFactor = Math.max(0, 1 - dist / 30);
+        const hpFactor = 1 - hpPercent;
+
+        return hpFactor * 0.6 + distFactor * 0.4;
+    };
+
+    // 1. Search in 3x3 cells
+    for (let r = myRow - 1; r <= myRow + 1; r++) {
+        if (r < 0 || r >= gridRows) continue;
+        for (let c = myCol - 1; c <= myCol + 1; c++) {
+            if (c < 0 || c >= gridCols) continue;
+            const cellIdx = r * gridCols + c;
+            let curr = gridHead[cellIdx];
+            while (curr !== -1) {
+                const jBase = curr * STRIDE;
+                const isStealthed =
+                    d[jBase + IDX_EFFECT_STATE] >= 1000 &&
+                    d[jBase + IDX_EFFECT_STATE] < 2000;
+                if (
+                    d[jBase + IDX_HP] > 0 &&
+                    d[jBase + IDX_TEAM] !== myTeam &&
+                    !isStealthed
+                ) {
+                    const score = evaluate(curr);
+                    if (score > bestScore) {
+                        bestScore = score;
+                        target = curr;
+                    }
+                }
+                curr = gridNext[curr];
+            }
+        }
+    }
+
+    if (target !== -1) return target;
+
+    // 2. Search in 5x5 cells
+    for (let r = myRow - 2; r <= myRow + 2; r++) {
+        if (r < 0 || r >= gridRows) continue;
+        for (let c = myCol - 2; c <= myCol + 2; c++) {
+            if (c < 0 || c >= gridCols) continue;
+            if (
+                r >= myRow - 1 &&
+                r <= myRow + 1 &&
+                c >= myCol - 1 &&
+                c <= myCol + 1
+            )
+                continue;
+
+            const cellIdx = r * gridCols + c;
+            let curr = gridHead[cellIdx];
+            while (curr !== -1) {
+                const jBase = curr * STRIDE;
+                const isStealthed =
+                    d[jBase + IDX_EFFECT_STATE] >= 1000 &&
+                    d[jBase + IDX_EFFECT_STATE] < 2000;
+                if (
+                    d[jBase + IDX_HP] > 0 &&
+                    d[jBase + IDX_TEAM] !== myTeam &&
+                    !isStealthed
+                ) {
+                    const score = evaluate(curr);
+                    if (score > bestScore) {
+                        bestScore = score;
+                        target = curr;
+                    }
+                }
+                curr = gridNext[curr];
+            }
+        }
+    }
+
+    if (target !== -1) return target;
+
+    // 3. Fallback: Scan full slice
+    const jStart = myTeam === TEAM_A ? TEAM_SIZE : 0;
+    const jEnd = myTeam === TEAM_A ? UNIT_COUNT : TEAM_SIZE;
+
+    for (let j = jStart; j < jEnd; j++) {
+        const jBase = j * STRIDE;
+        if (d[jBase + IDX_HP] <= 0) continue;
+        const isStealthed = d[jBase + IDX_EFFECT_STATE] >= 1000 &&
+            d[jBase + IDX_EFFECT_STATE] < 2000;
+        if (isStealthed) continue;
+        const score = evaluate(j);
+        if (score > bestScore) {
+            bestScore = score;
+            target = j;
+        }
+    }
+    return target;
+}
+
