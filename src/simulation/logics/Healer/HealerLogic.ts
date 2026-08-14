@@ -192,8 +192,6 @@ export function updateHealer(
         if (animLockTicks[i] === 0) {
             d[base + IDX_ANIM] = 0;
         }
-        d[base + IDX_X] += tempSep[0];
-        d[base + IDX_Z] += tempSep[1];
         clampAndHeighten(d, i);
         return;
     }
@@ -205,7 +203,8 @@ export function updateHealer(
         const dtx = turretX - d[base + IDX_X];
         const dtz = TURRET_Z - d[base + IDX_Z];
         const dtDistSq = dtx * dtx + dtz * dtz;
-        const attackRangeSq = attr.attackRange * attr.attackRange;
+        const personalRange = attr.attackRange - (i % 4) * 0.5;
+        const attackRangeSq = personalRange * personalRange;
 
         if (dtDistSq > attackRangeSq) {
             if (animLockTicks[i] === 0) d[base + IDX_ANIM] = 1; // move
@@ -224,8 +223,6 @@ export function updateHealer(
             } else if (animLockTicks[i] === 0) {
                 d[base + IDX_ANIM] = 0;
             }
-            d[base + IDX_X] += tempSep[0];
-            d[base + IDX_Z] += tempSep[1];
         }
         clampAndHeighten(d, i);
         return;
@@ -330,8 +327,12 @@ export function updateHealer(
                     const tAnim = d[tBase + IDX_ANIM];
                     if (distSq < 4.0 || enemyTooClose) {
                         d[base + IDX_ANIM] = (tAnim === 1 && !enemyTooClose) ? 1 : 0;
-                        d[base + IDX_X] += tempSep[0];
-                        d[base + IDX_Z] += tempSep[1];
+                        const sepX = tempSep[0] * 0.15;
+                        const sepZ = tempSep[1] * 0.15;
+                        if (sepX * sepX + sepZ * sepZ > 0.000025) {
+                            d[base + IDX_X] += sepX;
+                            d[base + IDX_Z] += sepZ;
+                        }
                     } else {
                         d[base + IDX_ANIM] = 1;
                         const dist = Math.sqrt(distSq) || 0.001;
@@ -341,8 +342,12 @@ export function updateHealer(
             } else {
                 if (enemyTooClose) {
                     if (animLockTicks[i] === 0) d[base + IDX_ANIM] = 0;
-                    d[base + IDX_X] += tempSep[0];
-                    d[base + IDX_Z] += tempSep[1];
+                    const sepX = tempSep[0] * 0.15;
+                    const sepZ = tempSep[1] * 0.15;
+                    if (sepX * sepX + sepZ * sepZ > 0.000025) {
+                        d[base + IDX_X] += sepX;
+                        d[base + IDX_Z] += sepZ;
+                    }
                 } else {
                     if (animLockTicks[i] === 0) d[base + IDX_ANIM] = 1;
                     const dist = Math.sqrt(distSq) || 0.001;
@@ -351,7 +356,9 @@ export function updateHealer(
             }
         } else {
             // Target is enemy/turret (no ally needs healing)
-            if (distSq <= myRange * myRange) {
+            const personalRange = myRange - (i % 4) * 0.5;
+            const myRangeSq = personalRange * personalRange;
+            if (distSq <= myRangeSq) {
                 if (d[base + IDX_ATTACK_CD] === 0) {
                     d[base + IDX_ANIM] = 2;
                     animLockTicks[i] = 20;
@@ -371,13 +378,15 @@ export function updateHealer(
                 } else if (animLockTicks[i] === 0) {
                     d[base + IDX_ANIM] = 0;
                 }
-                d[base + IDX_X] += tempSep[0];
-                d[base + IDX_Z] += tempSep[1];
             } else {
                 if (enemyTooClose) {
                     if (animLockTicks[i] === 0) d[base + IDX_ANIM] = 0;
-                    d[base + IDX_X] += tempSep[0];
-                    d[base + IDX_Z] += tempSep[1];
+                    const sepX = tempSep[0] * 0.15;
+                    const sepZ = tempSep[1] * 0.15;
+                    if (sepX * sepX + sepZ * sepZ > 0.000025) {
+                        d[base + IDX_X] += sepX;
+                        d[base + IDX_Z] += sepZ;
+                    }
                 } else {
                     if (animLockTicks[i] === 0) d[base + IDX_ANIM] = 1;
                     const dist = Math.sqrt(distSq) || 0.001;

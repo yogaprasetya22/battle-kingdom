@@ -16,8 +16,15 @@
 
 import * as THREE from "three";
 import { animationClockManager } from "./AnimationClockManager";
-import { optimizationManager } from "./OptimizationManager";
+import { OptimizationManager } from "./OptimizationManager";
 import type { UnitOptimizationConfig } from "./OptimizationManager";
+
+// ponytail: file ini adalah panduan dokumentasi, bukan production code.
+// optimizationManager dibuat lokal di sini sebagai contoh integrasi.
+// Di production, instantiate dengan kamera aktual di renderer.ts.
+const optimizationManager = new OptimizationManager(
+    new THREE.PerspectiveCamera(75, 1)
+);
 
 /**
  * ═══════════════════════════════════════════════════════════════

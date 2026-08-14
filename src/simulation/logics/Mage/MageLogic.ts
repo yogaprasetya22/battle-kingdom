@@ -73,8 +73,6 @@ export function updateMage(
         if (animLockTicks[i] === 0) {
             d[base + IDX_ANIM] = 0; // idle
         }
-        d[base + IDX_X] += tempSep[0];
-        d[base + IDX_Z] += tempSep[1];
         clampAndHeighten(d, i);
         return;
     }
@@ -86,7 +84,8 @@ export function updateMage(
         const dtx = turretX - d[base + IDX_X];
         const dtz = TURRET_Z - d[base + IDX_Z];
         const dtDistSq = dtx * dtx + dtz * dtz;
-        const attackRangeSq = attr.attackRange * attr.attackRange;
+        const personalRange = attr.attackRange - (i % 4) * 0.5;
+        const attackRangeSq = personalRange * personalRange;
 
         if (dtDistSq > attackRangeSq) {
             if (animLockTicks[i] === 0) d[base + IDX_ANIM] = 1; // move
@@ -105,8 +104,6 @@ export function updateMage(
             } else if (animLockTicks[i] === 0) {
                 d[base + IDX_ANIM] = 0;
             }
-            d[base + IDX_X] += tempSep[0];
-            d[base + IDX_Z] += tempSep[1];
         }
         clampAndHeighten(d, i);
         return;
@@ -374,7 +371,14 @@ export function updateMage(
 
     // --- MOVE & NORMAL ATTACK SYSTEM ---
     if (!skillActivated) {
-        const myRangeSq = myRange * myRange;
+        const personalRange = myRange - (i % 4) * 0.5;
+        
+        // HYSTERESIS: Berikan ekstra range 10% jika unit SEDANG MENYERANG. 
+        // Ini mencegah stutter-step ketika target bergerak menjauh dengan lambat.
+        const isAttacking = (d[base + IDX_ANIM] === 2);
+        const effectiveRange = isAttacking ? (personalRange * 1.1) : personalRange;
+        const myRangeSq = effectiveRange * effectiveRange;
+
         if (distSq <= myRangeSq) {
             if (d[base + IDX_ATTACK_CD] === 0) {
                 d[base + IDX_ANIM] = 2;
@@ -395,14 +399,23 @@ export function updateMage(
             } else if (animLockTicks[i] === 0) {
                 d[base + IDX_ANIM] = 0;
             }
-            d[base + IDX_X] += tempSep[0];
-            d[base + IDX_Z] += tempSep[1];
         } else {
             if (animLockTicks[i] === 0) {
                 d[base + IDX_ANIM] = 1;
+                const dist = Math.sqrt(distSq) || 0.001;
+                applySteering(d, i, dx, dz, dist, mySpeed, tempSep);
             }
-            const dist = Math.sqrt(distSq) || 0.001;
-            applySteering(d, i, dx, dz, dist, mySpeed, tempSep);
+        }
+    }
+
+    // IDLE SEPARATION: 
+    // Terapkan gaya tolak-menolak dengan redaman (damping) untuk mencegah jitter visual.
+    if (d[base + IDX_ANIM] !== 1 && animLockTicks[i] === 0) {
+        const sepX = tempSep[0] * 0.15;
+        const sepZ = tempSep[1] * 0.15;
+        if (sepX * sepX + sepZ * sepZ > 0.000025) {
+            d[base + IDX_X] += sepX;
+            d[base + IDX_Z] += sepZ;
         }
     }
 

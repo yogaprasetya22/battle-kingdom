@@ -357,13 +357,14 @@ export class DamageHUDBatcher {
     }
 
     public spawn(event: { skill: string; value?: number; position: number[]; isCrit?: boolean; isMagic?: boolean; isTurret?: boolean }) {
+        // return
         if (!event || !Array.isArray(event.position) || !Number.isFinite(event.position[0])) return;
 
         const isMiss   = event.skill === "miss";
         const isCrit   = !isMiss && !!event.isCrit;
         const isMagic  = !isMiss && !!event.isMagic;
         const isHeal   = event.skill === "heal";
-        const isDebuff = !isMiss && !isHeal && (event.value !== undefined && event.value < 0);
+        const isDebuff = !isMiss && !isHeal && (event.value ?? 0) < 0;
         const isTurret = !isMiss && !!event.isTurret;
 
         let totalChars = 0;

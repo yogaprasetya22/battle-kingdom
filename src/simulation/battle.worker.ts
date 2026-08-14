@@ -62,6 +62,7 @@ import {
     findNearestEnemyDistributed,
     findLowestHpAlly,
     findLowestHpEnemy,
+    findBestKnightTarget,
 } from "./systems/TargetingSystem";
 
 import {
@@ -85,6 +86,7 @@ import { updateHealer } from "./logics/Healer/HealerLogic";
 import { updateGunslinger } from "./logics/Gunslinger/GunslingerLogic";
 import { updateAssassin } from "./logics/Assassin/AssassinLogic";
 import { updateKnight } from "./logics/Knight/KnightLogic";
+import { resolveCollisions, clampAndHeighten } from "./logics/MovementHelper";
 
 let buf: SharedArrayBuffer | ArrayBuffer | null = null;
 let data: Float32Array | null = null;
@@ -449,6 +451,16 @@ function tick(d: Float32Array) {
         }
     }
 
+    // ponytail: pre-compute alive status once per tick — avoids O(50) scan per unit (was O(5000)/tick)
+    let anyEnemyAliveA = false; // is there any team-B enemy alive (relevant for team-A units)
+    let anyEnemyAliveB = false; // is there any team-A enemy alive (relevant for team-B units)
+    for (let j = 0; j < TEAM_SIZE; j++) {
+        if (d[j * STRIDE + IDX_HP] > 0) { anyEnemyAliveB = true; break; }
+    }
+    for (let j = TEAM_SIZE; j < UNIT_COUNT; j++) {
+        if (d[j * STRIDE + IDX_HP] > 0) { anyEnemyAliveA = true; break; }
+    }
+
     for (let i = startIndex; i < endIndex; i++) {
         const base = i * STRIDE;
 
@@ -500,16 +512,8 @@ function tick(d: Float32Array) {
         const cachedTarget = Math.round(d[base + IDX_TARGET]);
         let target = cachedTarget;
 
-        // Check if there are any active enemies on the field
-        const enemyStart = myTeam === TEAM_A ? TEAM_SIZE : 0;
-        const enemyEnd = myTeam === TEAM_A ? UNIT_COUNT : TEAM_SIZE;
-        let anyEnemyAlive = false;
-        for (let j = enemyStart; j < enemyEnd; j++) {
-            if (d[j * STRIDE + IDX_HP] > 0) {
-                anyEnemyAlive = true;
-                break;
-            }
-        }
+        // ponytail: use pre-computed per-tick value — no per-unit O(50) scan
+        const anyEnemyAlive = myTeam === TEAM_A ? anyEnemyAliveA : anyEnemyAliveB;
 
         let isTargetInvalid = false;
         if (!anyEnemyAlive) {
@@ -545,7 +549,10 @@ function tick(d: Float32Array) {
                 }
             }
 
-            const searchInterval = uType === TYPE_HEALER ? 30 : 4;
+            // ponytail: ranged units search every 16 frames, healers every 30, melee every 6.
+            // Reduksi spikes komputasi secara signifikan.
+            const isRanged = uType === TYPE_ARCHER || uType === TYPE_MAGE || uType === TYPE_GUNSLINGER;
+            const searchInterval = uType === TYPE_HEALER ? 30 : (isRanged ? 16 : 6);
             const shouldSearch = (battleTicks + i) % searchInterval === 0;
 
             if (isTargetInvalid || shouldSearch) {
@@ -576,6 +583,8 @@ function tick(d: Float32Array) {
                         rangedClaimCounts,
                         true,
                     );
+                } else if (uType === TYPE_KNIGHT) {
+                    target = findBestKnightTarget(d, i);
                 } else {
                     target = findNearestEnemy(d, i);
                 }
@@ -601,6 +610,17 @@ function tick(d: Float32Array) {
             updateGunslinger(d, i, target, animLockTicks);
         } else if (uType === TYPE_ASSASSIN) {
             updateAssassin(d, i, target, animLockTicks, battleTicks);
+        }
+    }
+
+    // Resolve physical overlaps/collisions for all active units
+    resolveCollisions(d);
+
+    // Re-clamp bounds and update heights for corrected units
+    for (let i = startIndex; i < endIndex; i++) {
+        const base = i * STRIDE;
+        if (d[base + IDX_HP] > 0) {
+            clampAndHeighten(d, i);
         }
     }
 

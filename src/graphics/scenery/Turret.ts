@@ -14,6 +14,51 @@ function formatHp(hp: number): string {
   return hp.toString();
 }
 
+function createTerrainFollowingRingGeometry(
+  centerX: number,
+  centerZ: number,
+  innerRadius: number,
+  outerRadius: number,
+  segments: number
+): THREE.BufferGeometry {
+  const geometry = new THREE.BufferGeometry();
+  const vertices: number[] = [];
+  const indices: number[] = [];
+
+  for (let j = 0; j <= segments; j++) {
+    const theta = (j / segments) * Math.PI * 2;
+    const cos = Math.cos(theta);
+    const sin = Math.sin(theta);
+
+    const ix = centerX + cos * innerRadius;
+    const iz = centerZ + sin * innerRadius;
+    const iy = getTerrainHeight(ix, iz) + 0.05;
+
+    const ox = centerX + cos * outerRadius;
+    const oz = centerZ + sin * outerRadius;
+    const oy = getTerrainHeight(ox, oz) + 0.05;
+
+    // Relative to the mesh position (centerX, 0, centerZ)
+    vertices.push(ix - centerX, iy, iz - centerZ);
+    vertices.push(ox - centerX, oy, oz - centerZ);
+  }
+
+  for (let j = 0; j < segments; j++) {
+    const curr = j * 2;
+    const next = (j + 1) * 2;
+
+    // Triangle 1: inner_curr, outer_curr, inner_next
+    indices.push(curr, curr + 1, next);
+    // Triangle 2: outer_curr, outer_next, inner_next
+    indices.push(curr + 1, next + 1, next);
+  }
+
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+  geometry.setIndex(indices);
+  geometry.computeVertexNormals();
+  return geometry;
+}
+
 export class Turrets {
   turretA: THREE.Group | null = null;
   turretB: THREE.Group | null = null;
@@ -135,7 +180,7 @@ export class Turrets {
 
   private createRangeRings() {
     // Range Ring A (Tim A - Neon Green)
-    const rangeGeoA = new THREE.RingGeometry(TURRET_ATTACK_RANGE - 0.2, TURRET_ATTACK_RANGE, 64);
+    const rangeGeoA = createTerrainFollowingRingGeometry(TURRET_A_X, TURRET_Z, TURRET_ATTACK_RANGE - 0.2, TURRET_ATTACK_RANGE, 64);
     const rangeMatA = new THREE.MeshBasicMaterial({
       color: 0x33ff66,
       transparent: true,
@@ -144,12 +189,11 @@ export class Turrets {
       depthWrite: false
     });
     this.rangeRingA = new THREE.Mesh(rangeGeoA, rangeMatA);
-    this.rangeRingA.rotation.x = -Math.PI / 2;
-    this.rangeRingA.position.set(TURRET_A_X, getTerrainHeight(TURRET_A_X, TURRET_Z) + 0.05, TURRET_Z);
+    this.rangeRingA.position.set(TURRET_A_X, 0, TURRET_Z);
     this.scene.add(this.rangeRingA);
 
     // Range Ring B (Tim B - Neon Pink)
-    const rangeGeoB = new THREE.RingGeometry(TURRET_ATTACK_RANGE - 0.2, TURRET_ATTACK_RANGE, 64);
+    const rangeGeoB = createTerrainFollowingRingGeometry(TURRET_B_X, TURRET_Z, TURRET_ATTACK_RANGE - 0.2, TURRET_ATTACK_RANGE, 64);
     const rangeMatB = new THREE.MeshBasicMaterial({
       color: 0xff11bb,
       transparent: true,
@@ -158,8 +202,7 @@ export class Turrets {
       depthWrite: false
     });
     this.rangeRingB = new THREE.Mesh(rangeGeoB, rangeMatB);
-    this.rangeRingB.rotation.x = -Math.PI / 2;
-    this.rangeRingB.position.set(TURRET_B_X, getTerrainHeight(TURRET_B_X, TURRET_Z) + 0.05, TURRET_Z);
+    this.rangeRingB.position.set(TURRET_B_X, 0, TURRET_Z);
     this.scene.add(this.rangeRingB);
   }
 
@@ -224,7 +267,7 @@ export class Turrets {
         const dir = new THREE.Vector3().subVectors(this.targetPosA, this.turretA.position);
         dir.y = 0;
         if (dir.lengthSq() > 0.01) {
-          this.turretA.rotation.y = Math.atan2(dir.x, dir.z) + Math.PI;
+          this.turretA.rotation.y = Math.atan2(dir.x, dir.z);
         }
       }
     } else {
@@ -234,7 +277,7 @@ export class Turrets {
         const dir = new THREE.Vector3().subVectors(this.targetPosB, this.turretB.position);
         dir.y = 0;
         if (dir.lengthSq() > 0.01) {
-          this.turretB.rotation.y = Math.atan2(dir.x, dir.z) + Math.PI;
+          this.turretB.rotation.y = Math.atan2(dir.x, dir.z);
         }
       }
     }
@@ -349,7 +392,7 @@ export class Turrets {
       dir.subVectors(this.targetPosA, this.turretA.position);
       dir.y = 0; // rotate only on horizontal plane
       if (dir.lengthSq() > 0.01) {
-        const targetAngle = Math.atan2(dir.x, dir.z) + Math.PI;
+        const targetAngle = Math.atan2(dir.x, dir.z);
         let diff = targetAngle - this.turretA.rotation.y;
         diff = Math.atan2(Math.sin(diff), Math.cos(diff));
         this.turretA.rotation.y += diff * Math.min(1, delta * 3.0); // reduced speed for smoother rotation
@@ -365,7 +408,7 @@ export class Turrets {
       dir.subVectors(this.targetPosB, this.turretB.position);
       dir.y = 0;
       if (dir.lengthSq() > 0.01) {
-        const targetAngle = Math.atan2(dir.x, dir.z) + Math.PI;
+        const targetAngle = Math.atan2(dir.x, dir.z);
         let diff = targetAngle - this.turretB.rotation.y;
         diff = Math.atan2(Math.sin(diff), Math.cos(diff));
         this.turretB.rotation.y += diff * Math.min(1, delta * 3.0); // reduced speed for smoother rotation
