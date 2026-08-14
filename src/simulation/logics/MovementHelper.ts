@@ -305,9 +305,6 @@ export function getMeleeTargetOffset(
 }
 
 export function resolveCollisions(d: Float32Array) {
-    // KUNCI PERBAIKAN: Core Hitbox HARUS lebih kecil dari Separation (1.2)
-    // 0.85 memberikan "ruang napas" bagi Separation velocity untuk bekerja melicinkan posisi
-    // sebelum tabrakan keras (Collision) benar-benar mengambil alih.
     const MIN_DIST = 0.85; 
     const MIN_DIST_SQ = 0.7225; // 0.85 * 0.85
 
@@ -315,15 +312,16 @@ export function resolveCollisions(d: Float32Array) {
         const base = i * STRIDE;
         if (d[base + IDX_HP] <= 0) continue;
 
+        // ponytail: inline type checks to avoid dynamic resolution overhead
+        const uTypeI = d[base + IDX_TYPE];
+        const isMeleeI = !(uTypeI === 1 || uTypeI === 7 || uTypeI === 2 || uTypeI === 8 || uTypeI === 3 || uTypeI === 9 || uTypeI === 4 || uTypeI === 10);
+        if (!isMeleeI) continue;
+
         const myX = d[base + IDX_X];
         const myZ = d[base + IDX_Z];
 
         const myCol = Math.floor((myX - BOUND_X_MIN) / cellSize);
         const myRow = Math.floor((myZ - BOUND_Z_MIN) / cellSize);
-
-        const uTypeI = d[base + IDX_TYPE];
-        const isMeleeI = !(uTypeI === 1 || uTypeI === 7 || uTypeI === 2 || uTypeI === 8 || uTypeI === 3 || uTypeI === 9 || uTypeI === 4 || uTypeI === 10);
-        if (!isMeleeI) { continue; } 
 
         for (let r = myRow - 1; r <= myRow + 1; r++) {
             if (r < 0 || r >= gridRows) continue;
@@ -332,57 +330,52 @@ export function resolveCollisions(d: Float32Array) {
                 const cellIdx = r * gridCols + c;
                 let curr = gridHead[cellIdx];
                 while (curr !== -1) {
-                    if (curr > i) { // Hanya proses satu arah per pasangan
+                    if (curr > i) { 
                         const jBase = curr * STRIDE;
                         if (d[jBase + IDX_HP] > 0) {
-                            
                             const uTypeJ = d[jBase + IDX_TYPE];
                             const isMeleeJ = !(uTypeJ === 1 || uTypeJ === 7 || uTypeJ === 2 || uTypeJ === 8 || uTypeJ === 3 || uTypeJ === 9 || uTypeJ === 4 || uTypeJ === 10);
-                            if (!isMeleeJ) {
-                                curr = gridNext[curr];
-                                continue;
-                            }
+                            if (isMeleeJ) {
+                                const jx = d[jBase + IDX_X];
+                                const jz = d[jBase + IDX_Z];
+                                const dx = myX - jx;
+                                const dz = myZ - jz;
+                                const distSq = dx * dx + dz * dz;
 
-                            const jx = d[jBase + IDX_X];
-                            const jz = d[jBase + IDX_Z];
-                            const dx = myX - jx;
-                            const dz = myZ - jz;
-                            const distSq = dx * dx + dz * dz;
+                                // Zona Darurat (< 0.85)
+                                if (distSq < MIN_DIST_SQ && distSq > 0.0001) {
+                                    const dist = Math.sqrt(distSq);
+                                    
+                                    // ponytail: ganti pembagian dengan perkalian inverse distance (lebih hemat CPU cycle)
+                                    const invDist = 1.0 / dist;
+                                    const overlap = (MIN_DIST - dist) * 0.5;
 
-                            // Jika masuk ke Zona Darurat (< 0.85)
-                            if (distSq < MIN_DIST_SQ && distSq > 0.0001) {
-                                const dist = Math.sqrt(distSq);
-                                
-                                // DAMPENING MUTLAK: Kalikan overlap dengan 0.5 (Soft Push)
-                                // Jangan memisahkan mereka 100% dalam 1 frame karena memicu osilasi!
-                                const overlap = (MIN_DIST - dist) * 0.5;
+                                    const animI = d[base + IDX_ANIM];
+                                    const animJ = d[jBase + IDX_ANIM];
 
-                                const animI = d[base + IDX_ANIM];
-                                const animJ = d[jBase + IDX_ANIM];
+                                    const isIStationary = animI === 0 || animI === 2;
+                                    const isJStationary = animJ === 0 || animJ === 2;
 
-                                // Unit idle (0) atau menyerang (2) jauh lebih berbobot layaknya jangkar
-                                const isIStationary = animI === 0 || animI === 2;
-                                const isJStationary = animJ === 0 || animJ === 2;
+                                    let pushRatioI = 0.5;
+                                    let pushRatioJ = 0.5;
 
-                                let pushRatioI = 0.5;
-                                let pushRatioJ = 0.5;
+                                    if (isIStationary && !isJStationary) {
+                                        pushRatioI = 0.1;
+                                        pushRatioJ = 0.9;
+                                    } else if (!isIStationary && isJStationary) {
+                                        pushRatioI = 0.9;
+                                        pushRatioJ = 0.1;
+                                    }
 
-                                if (isIStationary && !isJStationary) {
-                                    pushRatioI = 0.1;
-                                    pushRatioJ = 0.9;
-                                } else if (!isIStationary && isJStationary) {
-                                    pushRatioI = 0.9;
-                                    pushRatioJ = 0.1;
+                                    // Gunakan invDist untuk menghilangkan 2 operasi pembagian
+                                    const pushX = dx * invDist * overlap;
+                                    const pushZ = dz * invDist * overlap;
+
+                                    d[base + IDX_X] += pushX * pushRatioI;
+                                    d[base + IDX_Z] += pushZ * pushRatioI;
+                                    d[jBase + IDX_X] -= pushX * pushRatioJ;
+                                    d[jBase + IDX_Z] -= pushZ * pushRatioJ;
                                 }
-
-                                const pushX = (dx / dist) * overlap;
-                                const pushZ = (dz / dist) * overlap;
-
-                                // Modifikasi langsung koordinat (teleportasi perlahan)
-                                d[base + IDX_X] += pushX * pushRatioI;
-                                d[base + IDX_Z] += pushZ * pushRatioI;
-                                d[jBase + IDX_X] -= pushX * pushRatioJ;
-                                d[jBase + IDX_Z] -= pushZ * pushRatioJ;
                             }
                         }
                     }

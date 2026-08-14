@@ -357,7 +357,7 @@ export class DamageHUDBatcher {
     }
 
     public spawn(event: { skill: string; value?: number; position: number[]; isCrit?: boolean; isMagic?: boolean; isTurret?: boolean }) {
-        return
+        // return
         if (!event || !Array.isArray(event.position) || !Number.isFinite(event.position[0])) return;
 
         const isMiss   = event.skill === "miss";

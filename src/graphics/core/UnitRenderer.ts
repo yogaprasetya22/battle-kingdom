@@ -702,8 +702,12 @@ export function isModelLoaded(): boolean {
     return modelLoaded;
 }
 
+let animFrameCount = 0;
+
 export function updateFrame(data: Float32Array, delta: number) {
     if (!modelLoaded) return;
+
+    animFrameCount++;
 
     const cameraMoved = !_lastCameraMatrix.equals(camera.matrixWorld);
     if (cameraMoved) {
@@ -1114,8 +1118,8 @@ export function updateFrame(data: Float32Array, delta: number) {
                 unit.deathTime &&
                 _nowMs - unit.deathTime < 2000;
 
-            // ★ ANIMATION — update mixer only for visible, alive units
-            // ponytail: no per-unit timing. Ceiling: DevTools flame chart for per-unit breakdown.
+            // ★ ANIMATION — update mixer only for visible, alive units with distance-based throttling
+            // ponytail: distance-based tick skipping reduces main thread CPU frame times significantly.
             const shouldUpdateMixer =
                 inView &&
                 showMesh &&
@@ -1123,14 +1127,25 @@ export function updateFrame(data: Float32Array, delta: number) {
 
             if (shouldUpdateMixer) {
                 unit.accumulatedDelta += delta;
-                unit.mixer.update(unit.accumulatedDelta);
-                unit.accumulatedDelta = 0;
+                
+                // Jarak ke kamera menentukan frame-skip untuk update skeletal anim
+                let isMyFrame = true;
+                if (distSq > 2025) { // Jauh (> 45 unit): update tiap 4 frame (~15fps anim)
+                    isMyFrame = (animFrameCount + i) % 4 === 0;
+                } else if (distSq > 625) { // Sedang (25-45 unit): update tiap 2 frame (~30fps anim)
+                    isMyFrame = (animFrameCount + i) % 2 === 0;
+                }
+
+                if (isMyFrame) {
+                    unit.mixer.update(unit.accumulatedDelta);
+                    unit.accumulatedDelta = 0;
+                }
             } else {
                 unit.accumulatedDelta = 0;
             }
 
             // Billboard positions
-            const billY = unit.root.position.y + scale * 1.9 + 0.3;
+            const billY = unit.root.position.y + scale * 2.2 + 0.55;
             const meshX = unit.root.position.x;
             const meshZ = unit.root.position.z;
 
@@ -1193,7 +1208,7 @@ export function updateFrame(data: Float32Array, delta: number) {
                     _tempColor.setRGB(hpRatio, teamId, maxHp);
                     hpBarsFg.setColorAt(i, _tempColor);
 
-                    _billboardMatrix.elements[13] = billY + 0.18;
+                    _billboardMatrix.elements[13] = billY + 0.22;
                     if (nameBarsA && nameBarsB) {
                         if (i < TEAM_SIZE) {
                             nameBarsA.setMatrixAt(i, _billboardMatrix);

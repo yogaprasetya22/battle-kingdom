@@ -327,8 +327,12 @@ export function updateHealer(
                     const tAnim = d[tBase + IDX_ANIM];
                     if (distSq < 4.0 || enemyTooClose) {
                         d[base + IDX_ANIM] = (tAnim === 1 && !enemyTooClose) ? 1 : 0;
-                        d[base + IDX_X] += tempSep[0];
-                        d[base + IDX_Z] += tempSep[1];
+                        const sepX = tempSep[0] * 0.15;
+                        const sepZ = tempSep[1] * 0.15;
+                        if (sepX * sepX + sepZ * sepZ > 0.000025) {
+                            d[base + IDX_X] += sepX;
+                            d[base + IDX_Z] += sepZ;
+                        }
                     } else {
                         d[base + IDX_ANIM] = 1;
                         const dist = Math.sqrt(distSq) || 0.001;
@@ -338,8 +342,12 @@ export function updateHealer(
             } else {
                 if (enemyTooClose) {
                     if (animLockTicks[i] === 0) d[base + IDX_ANIM] = 0;
-                    d[base + IDX_X] += tempSep[0];
-                    d[base + IDX_Z] += tempSep[1];
+                    const sepX = tempSep[0] * 0.15;
+                    const sepZ = tempSep[1] * 0.15;
+                    if (sepX * sepX + sepZ * sepZ > 0.000025) {
+                        d[base + IDX_X] += sepX;
+                        d[base + IDX_Z] += sepZ;
+                    }
                 } else {
                     if (animLockTicks[i] === 0) d[base + IDX_ANIM] = 1;
                     const dist = Math.sqrt(distSq) || 0.001;
@@ -373,8 +381,12 @@ export function updateHealer(
             } else {
                 if (enemyTooClose) {
                     if (animLockTicks[i] === 0) d[base + IDX_ANIM] = 0;
-                    d[base + IDX_X] += tempSep[0];
-                    d[base + IDX_Z] += tempSep[1];
+                    const sepX = tempSep[0] * 0.15;
+                    const sepZ = tempSep[1] * 0.15;
+                    if (sepX * sepX + sepZ * sepZ > 0.000025) {
+                        d[base + IDX_X] += sepX;
+                        d[base + IDX_Z] += sepZ;
+                    }
                 } else {
                     if (animLockTicks[i] === 0) d[base + IDX_ANIM] = 1;
                     const dist = Math.sqrt(distSq) || 0.001;

@@ -999,7 +999,7 @@ presetMagic.addEventListener("click", () =>
     applyPreset([0, 0, 0, 40, 10, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 40, 10, 0, 0, 0, 0, 0, 0, 0, 0]),
 );
 presetDefense.addEventListener("click", () =>
-    applyPreset([15, 15, 15, 0, 5, 0, 0, 0, 0, 0, 0, 0, 0], [15, 15, 15, 0, 5, 0, 0, 0, 0, 0, 0, 0, 0]),
+    applyPreset([15, 15, 5, 5, 5, 5, 0, 0, 0, 0, 0, 0, 0], [15, 15, 5, 5, 5, 5, 0, 0, 0, 0, 0, 0, 0]),
 );
 presetStealth.addEventListener("click", () =>
     applyPreset([0, 0, 10, 0, 0, 15, 25, 0, 0, 0, 0, 0, 0], [0, 0, 10, 0, 0, 15, 25, 0, 0, 0, 0, 0, 0]),

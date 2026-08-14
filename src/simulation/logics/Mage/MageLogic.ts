@@ -409,11 +409,14 @@ export function updateMage(
     }
 
     // IDLE SEPARATION: 
-    // Terapkan sisa gaya tolak-menolak meskipun unit sedang berhenti/menembak.
-    // Mencegah unit meledak berhamburan saat tiba-tiba harus berjalan kembali.
+    // Terapkan gaya tolak-menolak dengan redaman (damping) untuk mencegah jitter visual.
     if (d[base + IDX_ANIM] !== 1 && animLockTicks[i] === 0) {
-        d[base + IDX_X] += tempSep[0] * 0.4;
-        d[base + IDX_Z] += tempSep[1] * 0.4;
+        const sepX = tempSep[0] * 0.15;
+        const sepZ = tempSep[1] * 0.15;
+        if (sepX * sepX + sepZ * sepZ > 0.000025) {
+            d[base + IDX_X] += sepX;
+            d[base + IDX_Z] += sepZ;
+        }
     }
 
     clampAndHeighten(d, i);

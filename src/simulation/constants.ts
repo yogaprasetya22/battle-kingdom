@@ -69,14 +69,21 @@ export const BUFFER_BYTES =
 // Quantize coordinates to 0.5-unit grid cells. Terrain varies smoothly
 // (sin/cos with periods >8 units), so sub-grid error < 0.25 units — invisible.
 const GRID = 0.5;
-const CACHE_MAX = 1024;
-const _hCache = new Map<number, number>();
+// Direct-mapped cache size (must be power of 2 for fast bitwise modulo)
+const CACHE_SIZE = 4096;
+const _hCacheKeys = new Int32Array(CACHE_SIZE).fill(-1);
+const _hCacheVals = new Float32Array(CACHE_SIZE);
 
-function cacheKey(x: number, z: number): number {
+function getCacheIndex(x: number, z: number, keyOut: { key: number }): number {
     const ix = Math.round(x / GRID);
     const iz = Math.round(z / GRID);
-    return (ix << 16) | (iz & 0xffff);
+    // Unique key generator
+    const key = (ix << 16) | (iz & 0xffff);
+    keyOut.key = key;
+    // Fast bitwise index mapping
+    return Math.abs(key) & (CACHE_SIZE - 1);
 }
+
 
 function smoothstep(edge0: number, edge1: number, x: number): number {
     const t = Math.max(0, Math.min(1, (x - edge0) / (edge1 - edge0)));
@@ -123,11 +130,16 @@ export const BF_HALF_X = 42;
 export const BF_HALF_Z = 38;
 export const BF_BLEND = 8; // transition width from flat → forest
 
+// ponytail: temporary object to return multiple values from getCacheIndex without allocation
+const _keyRef = { key: 0 };
+
 // Terrain height: flat battlefield center, forest hills + lake bowls on sides
 export function getTerrainHeight(x: number, z: number): number {
-    const key = cacheKey(x, z);
-    const cached = _hCache.get(key);
-    if (cached !== undefined) return cached;
+    const idx = getCacheIndex(x, z, _keyRef);
+    const key = _keyRef.key;
+    if (_hCacheKeys[idx] === key) {
+        return _hCacheVals[idx];
+    }
 
     // Distance from battlefield edge
     const dxEdge = Math.max(0, Math.abs(x) - BF_HALF_X);
@@ -169,15 +181,13 @@ export function getTerrainHeight(x: number, z: number): number {
     // Blend: flat (0) on battlefield → full terrain in forest
     const result = forestTerrain * forestFactor;
 
-    if (_hCache.size >= CACHE_MAX) {
-        const firstKey = _hCache.keys().next().value;
-        if (firstKey !== undefined) _hCache.delete(firstKey);
-    }
-    _hCache.set(key, result);
+    _hCacheKeys[idx] = key;
+    _hCacheVals[idx] = result;
     return result;
 }
 
 // ponytail: invalidate cache when terrain params change
 export function invalidateTerrainCache(): void {
-    _hCache.clear();
+    _hCacheKeys.fill(-1);
+    _hCacheVals.fill(0);
 }

@@ -3,8 +3,8 @@ import { UNIT_COUNT, TEAM_SIZE } from "../../simulation/constants";
 import { scene } from "../core/scene";
 
 // ---- 1. HP Bars (Redesigned: thinner, highly visible neon colors, transparent to prevent blocking the battle) ----
-const hpBgGeo = new THREE.PlaneGeometry(0.84, 0.12);
-const hpFgGeo = new THREE.PlaneGeometry(0.80, 0.08);
+const hpBgGeo = new THREE.PlaneGeometry(1.1, 0.16);
+const hpFgGeo = new THREE.PlaneGeometry(1.05, 0.12);
 
 const hpBgMat = new THREE.ShaderMaterial({
     uniforms: {},
@@ -174,7 +174,7 @@ export const _deadNameMatrix = new THREE.Matrix4().makeTranslation(0, -999, 0);
 
 export let nameBarsA: THREE.InstancedMesh | null = null;
 export let nameBarsB: THREE.InstancedMesh | null = null;
-const nameGeo = new THREE.PlaneGeometry(1.0, 0.25); // Aspect ratio 4:1 (tidak peyang)
+const nameGeo = new THREE.PlaneGeometry(1.3, 0.325); // Aspect ratio 4:1 (scale up by 30%)
 
 // Greek mythology names for Team A (Allies)
 const GREEK_NAMES = [

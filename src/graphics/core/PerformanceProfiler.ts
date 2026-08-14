@@ -47,9 +47,10 @@ class PerformanceProfiler {
     private isProfiling = false;
     private isSkeletonMode = false;
 
-    // rAF-to-rAF ring buffer — the only accurate way to measure FPS
-    // (CPU work time alone excludes vSync wait, giving falsely high numbers)
-    private frameTimes: number[] = [];
+    // rAF-to-rAF circular ring buffer — zero allocation
+    private frameTimes: Float32Array = new Float32Array(FPS_WINDOW);
+    private frameTimesIdx = 0;
+    private frameTimesCount = 0;
     private prevRafTs = 0;
 
     // Wall-clock start of CPU work (for renderTimeMs only, NOT for fps)
@@ -106,9 +107,12 @@ class PerformanceProfiler {
             const dt = now - this.prevRafTs;
             // Ignore tab-wake spikes (>5s gap) which would collapse the average
             if (dt > 0 && dt < 5000) {
-                this.frameTimes.push(dt);
-                if (this.frameTimes.length > FPS_WINDOW)
-                    this.frameTimes.shift();
+                // ponytail: circular buffer write — zero dynamic array shift/push overhead.
+                this.frameTimes[this.frameTimesIdx] = dt;
+                this.frameTimesIdx = (this.frameTimesIdx + 1) % FPS_WINDOW;
+                if (this.frameTimesCount < FPS_WINDOW) {
+                    this.frameTimesCount++;
+                }
             }
         }
         this.prevRafTs = now;
@@ -169,15 +173,17 @@ class PerformanceProfiler {
 
     /** Live Frame Time reading for HUD (Latency) */
     public getLastFrameTime(): number {
-        if (this.frameTimes.length > 0) {
-            return this.frameTimes[this.frameTimes.length - 1];
+        if (this.frameTimesCount > 0) {
+            // Get the last written element: (index - 1 + length) % length
+            const lastIdx = (this.frameTimesIdx - 1 + FPS_WINDOW) % FPS_WINDOW;
+            return this.frameTimes[lastIdx];
         }
         return 16.67; // Default 60Hz fallback
     }
 
     /** 1000 / mean(frameTimes) — harmonic mean of FPS, matches browser/overlay display */
     private _smoothedFps(): number {
-        const n = this.frameTimes.length;
+        const n = this.frameTimesCount;
         if (n === 0) return 0;
         let sum = 0;
         for (let i = 0; i < n; i++) sum += this.frameTimes[i];
