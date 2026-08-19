@@ -44,6 +44,7 @@ import {
     TURRET_DAMAGE,
     TURRET_ATTACK_INTERVAL,
     TARGET_TURRET,
+    HERO_UNIT_INDEX,
 } from "./constants";
 
 import {
@@ -176,6 +177,19 @@ function initUnits(d: Float32Array, matchup: string = "mix") {
     fillTypes(typesB, teamBConfig);
 
     for (let i = startIndex; i < endIndex; i++) {
+        // Worker-Bypass: hero slot sepenuhnya dikelola main thread.
+        // Set HP ke -999 (sentinel unspawned) agar UnitRenderer menyembunyikannya.
+        if (i === HERO_UNIT_INDEX) {
+            const base = i * STRIDE;
+            d[base + IDX_HP]     = -999;
+            d[base + IDX_MAX_HP] = 1000;
+            d[base + IDX_TEAM]   = TEAM_A;
+            d[base + IDX_X]      = -9999;
+            d[base + IDX_Y]      = -9999;
+            d[base + IDX_Z]      = -9999;
+            continue;
+        }
+
         const base = i * STRIDE;
         const team = i < TEAM_SIZE ? TEAM_A : TEAM_B;
         const localIdx = i < TEAM_SIZE ? i : i - TEAM_SIZE;
@@ -384,6 +398,7 @@ function tick(d: Float32Array) {
     // Spawn Team A
     const maxSpawnA = Math.min(activeCountA, unitsToSpawn);
     for (let i = startIndex; i < Math.min(endIndex, maxSpawnA); i++) {
+        if (i === HERO_UNIT_INDEX) continue; // Worker-Bypass: jangan respawn hero slot
         const base = i * STRIDE;
         if (d[base + IDX_HP] === -999) {
             d[base + IDX_HP] = d[base + IDX_MAX_HP];
@@ -463,6 +478,10 @@ function tick(d: Float32Array) {
 
     for (let i = startIndex; i < endIndex; i++) {
         const base = i * STRIDE;
+
+        // Worker-Bypass: posisi & gerak hero dikontrol main thread.
+        // Worker tetap bisa mengurangi HP-nya (AI musuh menyerang).
+        if (i === HERO_UNIT_INDEX) continue;
 
         if (d[base + IDX_HP] === -999) {
             continue;
@@ -706,5 +725,26 @@ self.onmessage = (e: MessageEvent) => {
         resetCombatStats();
         if (data) initUnits(data, e.data.matchup || "mix");
         self.postMessage({ type: "ready" });
+    }
+
+    // Worker-Bypass: terima skill damage dari main thread, eksekusi AoE di sini.
+    // HP dikurangi di worker agar tidak ada race condition dengan logik combat existing.
+    if (type === "PLAYER_SKILL_CAST" && data) {
+        const { originX, originZ, radius, damage, targetTeam } = e.data;
+        const r2 = (radius ?? 5) * (radius ?? 5);
+        const dmg = damage ?? 0;
+        // ponytail: targetTeam default TEAM_B (musuh). Kirim explicit jika ingin AoE ke sesama.
+        const enemyTeam = targetTeam ?? TEAM_B;
+        for (let i = 0; i < UNIT_COUNT; i++) {
+            if (i === HERO_UNIT_INDEX) continue;
+            const base = i * STRIDE;
+            if (data[base + IDX_HP] <= 0) continue;
+            if (data[base + IDX_TEAM] !== enemyTeam) continue;
+            const dx = data[base + IDX_X] - originX;
+            const dz = data[base + IDX_Z] - originZ;
+            if (dx * dx + dz * dz <= r2) {
+                applyDamage(data, i, dmg, HERO_UNIT_INDEX);
+            }
+        }
     }
 };

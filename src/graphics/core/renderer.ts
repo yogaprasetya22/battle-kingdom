@@ -26,11 +26,18 @@ import { perfProfiler } from "./PerformanceProfiler";
 
 import { damageHUDBatcher } from "../effects/DamageHUDBatcher";
 
-export { changeModel, resetUnitsVisual } from "./UnitRenderer";
+export { changeModel, resetUnitsVisual, getUnits } from "./UnitRenderer";
 import { updateFX, effectUniforms } from "../effects/FXCore";
 import { dispatchSkillFX } from "../effects/FXRouter";
 
 let sharedData: Float32Array | null = null;
+
+// Worker-Bypass: saat hero aktif, updateFlyCamera dinonaktifkan agar
+// tidak rebutan kontrol kamera dengan CharacterController.
+let _heroActive = false;
+export function setHeroActive(active: boolean): void {
+    _heroActive = active;
+}
 
 export function setSharedData(data: Float32Array) {
     sharedData = data;
@@ -167,8 +174,8 @@ export function startRenderLoop() {
         const delta = clock.getDelta();
         if (_onBeforeRender) _onBeforeRender(timestamp, delta);
 
-        // Update kamera free-fly (gerak + look)
-        updateFlyCamera(camera, delta);
+        // Update kamera free-fly (gerak + look) — dinonaktifkan saat Hero aktif
+        if (!_heroActive) updateFlyCamera(camera, delta);
         world.update(delta, camera.position, camera);
         effectUniforms.uTime.value += delta;
 

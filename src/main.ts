@@ -5,7 +5,7 @@
  * ponytail: no framework, no DI, no event bus. Direct function calls.
  */
 
-import { BUFFER_BYTES, UNIT_COUNT, TEAM_SIZE } from "./simulation/constants";
+import { BUFFER_BYTES, UNIT_COUNT, TEAM_SIZE, HERO_UNIT_INDEX } from "./simulation/constants";
 import {
     setSharedData,
     startRenderLoop,
@@ -14,11 +14,15 @@ import {
     spawnSkillFX,
     resetUnitsVisual,
     world,
+    setHeroActive,
+    getUnits,
 } from "./graphics/core/renderer";
 import { soundFX } from "./graphics/core/SoundFX";
 import { CharacterViewer } from "./graphics/viewer/CharacterViewer";
 import { WorkerDiagnostics } from "./simulation/WorkerDiagnostics";
 import { perfProfiler } from "./graphics/core/PerformanceProfiler";
+import { createHero, syncHeroToBuffer } from "./graphics/units/Hero/HeroController";
+import { scene, camera } from "./graphics/core/scene";
 
 // ---- Shared Buffer (bridge antara main thread & worker) ----
 // Fallback to ArrayBuffer if SharedArrayBuffer is blocked by security extensions (e.g. Cyber Protect)
@@ -781,12 +785,54 @@ document.addEventListener("click", (e) => {
 // ---- Init sequence ----
 setSharedData(sharedData);
 
+// ── Worker-Bypass: Hero Controller ──
+// createHero wires CharacterController + VFX + SkillsSystem + keyboard input.
+// Camera dikontrol CharacterController langsung (spring arm + mouse look).
+const { ctrl: heroCtrl, skills } = createHero(scene, camera, workers);
+setHeroActive(true);
+
+// Tangani event hit proyektil (panah mengenai unit musuh)
+window.addEventListener('projectile_hit', (e: any) => {
+    const { targetIdx, damage } = e.detail;
+    // Tentukan worker mana yang mengurus unit target ini
+    const targetWorkerIdx = Math.floor(targetIdx / Math.ceil(UNIT_COUNT / NUM_WORKERS));
+    const targetWorker = workers[targetWorkerIdx];
+    if (targetWorker) {
+        targetWorker.postMessage({
+            type: 'PLAYER_SKILL_CAST',
+            skillId: 'basic_attack',
+            originX: heroCtrl.position.x, // not used but standard structure
+            originZ: heroCtrl.position.z,
+            radius: 0.8, // small range so only hits the exact target
+            damage: damage,
+            targetTeam: targetIdx < TEAM_SIZE ? 0 : 1 // target team
+        });
+    }
+});
+
 // Set initial HUD score from TEAM_SIZE — no hardcoded values in HTML
 scoreA.textContent = TEAM_SIZE.toString();
 scoreB.textContent = TEAM_SIZE.toString();
 
 // Inject worker tick dispatch into render loop (eliminates separate rAF)
-setBeforeRenderCb((_timestamp: number, _delta: number) => {
+setBeforeRenderCb((_timestamp: number, delta: number) => {
+    // ── Worker-Bypass: update hero tiap frame (zero input lag) ──
+    // Mapping target unit THREE.Object3D ke character-controller untuk auto-aim
+    const activeUnits = getUnits();
+    const targets: any[] = [];
+    for (let i = 0; i < activeUnits.length; i++) {
+        const u = activeUnits[i];
+        // Tim A (teman) atau Tim B (musuh), skip hero index 0 sendiri
+        if (u && i !== HERO_UNIT_INDEX && u.root) {
+            targets.push(u.root);
+        }
+    }
+    heroCtrl.setTargets(targets);
+
+    heroCtrl.update(delta);                                      // fisika + input + kamera
+    syncHeroToBuffer(heroCtrl, sharedData, HERO_UNIT_INDEX);     // tulis x,y,z ke SAB
+    skills.update(delta);                                        // tick cooldown VFX partikel
+
     if (!isRunning) return;
     const now = performance.now();
     const deltaTime = now - lastTime;
