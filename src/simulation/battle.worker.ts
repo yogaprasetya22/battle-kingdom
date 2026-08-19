@@ -100,6 +100,17 @@ let endIndex = UNIT_COUNT;
 let workerId = -1;
 let customClasses: number[] = [0, 1, 2, 3, 4, 5];
 
+interface AoeEffect {
+    originX: number;
+    originZ: number;
+    radius: number;
+    damagePerTick: number;
+    ticksLeft: number;
+    intervalTicks: number;
+    targetTeam: number;
+}
+let activeAoes: AoeEffect[] = [];
+
 interface TeamComposition {
     tank: number;
     archer: number;
@@ -643,6 +654,36 @@ function tick(d: Float32Array) {
         }
     }
 
+    // Process active AoE effects (Tornado DoT)
+    if (activeAoes.length > 0) {
+        for (let a = activeAoes.length - 1; a >= 0; a--) {
+            const aoe = activeAoes[a];
+            aoe.ticksLeft--;
+            
+            // Lakukan hit jika berada pada interval yang pas
+            if (aoe.ticksLeft % aoe.intervalTicks === 0) {
+                const r2 = aoe.radius * aoe.radius;
+                for (let i = startIndex; i < endIndex; i++) {
+                    if (i === HERO_UNIT_INDEX) continue;
+                    const base = i * STRIDE;
+                    if (d[base + IDX_HP] <= 0) continue;
+                    if (d[base + IDX_TEAM] !== aoe.targetTeam) continue;
+                    
+                    const dx = d[base + IDX_X] - aoe.originX;
+                    const dz = d[base + IDX_Z] - aoe.originZ;
+                    if (dx * dx + dz * dz <= r2) {
+                        applyDamage(d, i, aoe.damagePerTick, HERO_UNIT_INDEX);
+                    }
+                }
+            }
+            
+            // Hapus AoE yang durasinya sudah habis
+            if (aoe.ticksLeft <= 0) {
+                activeAoes.splice(a, 1);
+            }
+        }
+    }
+
     // Send batched skill FX events
     if (skillFXBatch.length > 0) {
         self.postMessage({ type: "skillFXBatch", events: skillFXBatch });
@@ -723,6 +764,7 @@ self.onmessage = (e: MessageEvent) => {
         battleTicks = 0;
         animLockTicks.fill(0);
         resetCombatStats();
+        activeAoes = []; // Reset active AoEs
         if (data) initUnits(data, e.data.matchup || "mix");
         self.postMessage({ type: "ready" });
     }
@@ -730,20 +772,52 @@ self.onmessage = (e: MessageEvent) => {
     // Worker-Bypass: terima skill damage dari main thread, eksekusi AoE di sini.
     // HP dikurangi di worker agar tidak ada race condition dengan logik combat existing.
     if (type === "PLAYER_SKILL_CAST" && data) {
-        const { originX, originZ, radius, damage, targetTeam } = e.data;
+        const { skillId, originX, originZ, radius, damage, targetTeam } = e.data;
         const r2 = (radius ?? 5) * (radius ?? 5);
         const dmg = damage ?? 0;
-        // ponytail: targetTeam default TEAM_B (musuh). Kirim explicit jika ingin AoE ke sesama.
         const enemyTeam = targetTeam ?? TEAM_B;
-        for (let i = 0; i < UNIT_COUNT; i++) {
-            if (i === HERO_UNIT_INDEX) continue;
-            const base = i * STRIDE;
-            if (data[base + IDX_HP] <= 0) continue;
-            if (data[base + IDX_TEAM] !== enemyTeam) continue;
-            const dx = data[base + IDX_X] - originX;
-            const dz = data[base + IDX_Z] - originZ;
-            if (dx * dx + dz * dz <= r2) {
-                applyDamage(data, i, dmg, HERO_UNIT_INDEX);
+
+        // Tornado (Digit3): Register AoE DoT selama 3.5 detik (210 ticks)
+        if (skillId === 'Digit3' || skillId === 'tornado') {
+            const totalDurationTicks = 210; // 3.5s * 60 FPS
+            const tickInterval = 15; // Damage terpicu setiap 15 ticks (~0.25s)
+            const hitCount = Math.floor(totalDurationTicks / tickInterval);
+            
+            activeAoes.push({
+                originX,
+                originZ,
+                radius: radius ?? 6.0,
+                damagePerTick: Math.round(dmg / hitCount),
+                ticksLeft: totalDurationTicks,
+                intervalTicks: tickInterval,
+                targetTeam: enemyTeam
+            });
+        } else {
+            // Skill Instant Lainnya (Gas Explosion, Flamethrower, dll.)
+            clearSkillFXBatch();
+            let hitAny = false;
+            
+            // Hanya proses index unit yang berada di slice/rentang worker ini
+            for (let i = startIndex; i < endIndex; i++) {
+                if (i === HERO_UNIT_INDEX) continue;
+                const base = i * STRIDE;
+                if (data[base + IDX_HP] <= 0) continue;
+                if (data[base + IDX_TEAM] !== enemyTeam) continue;
+                const dx = data[base + IDX_X] - originX;
+                const dz = data[base + IDX_Z] - originZ;
+                if (dx * dx + dz * dz <= r2) {
+                    applyDamage(data, i, dmg, HERO_UNIT_INDEX);
+                    hitAny = true;
+                }
+            }
+            
+            // Kirim event visual damage (seperti damage HUD text) ke main thread secara instan
+            if (hitAny && skillFXBatch.length > 0) {
+                self.postMessage({
+                    type: "skillFXBatch",
+                    events: [...skillFXBatch]
+                });
+                clearSkillFXBatch();
             }
         }
     }

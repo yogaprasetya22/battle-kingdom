@@ -15,6 +15,7 @@ export const CHARACTER_CONFIG = {
     autoAimRange: 30.0,          // Auto-aim dummy search range limit (meters)
     attackAnimScale: 6.0,        // Speed multiplier for basic attack animation clip
     attackLockDuration: 0.12,    // Animation lock duration for basic attacks (seconds)
+    damage: 18000,                 // Damage for basic attack arrow
   },
 
   // Projectile system parameters
@@ -29,23 +30,29 @@ export const CHARACTER_CONFIG = {
   // Skills configs
   skills: {
     tornado: {
-      cooldown: 8.0,             // Cooldown in seconds
+      cooldown: 12.0,             // Cooldown in seconds (disesuaikan)
       key: 'Digit3',
       hudColor: '#00d2ff',       // Cyan/Blue border color for tornado
+      damage: 120000,              // AoE damage
+      radius: 6.0,               // AoE radius
     },
     gasExplosion: {
-      cooldown: 4.0,             // Cooldown in seconds
+      cooldown: 6.0,             // Cooldown in seconds (disesuaikan)
       key: 'Digit1',
       forwardOffset: 4.0,        // Distance in front of character to spawn explosion
       hudColor: '#00ffaa',       // Bright Teal/Green for gas explosion
+      damage: 35000,              // AoE damage
+      radius: 5.0,               // AoE radius
     },
     flamethrower: {
-      cooldown: 6.0,             // Cooldown in seconds
+      cooldown: 18.0,             // Cooldown in seconds (disesuaikan)
       key: 'Digit2',
       forwardOffset: 1.5,        // Distance offset
       activeDuration: 12.0,      // Duration of the flamethrower spray (seconds)
       speedMultiplier: 1.5,      // Speed multiplier when casting
       hudColor: '#ffaa00',       // Orange/Yellow for flamethrower
+      damage: 8000,               // AoE damage
+      radius: 3.0,               // AoE radius
     }
   }
 };

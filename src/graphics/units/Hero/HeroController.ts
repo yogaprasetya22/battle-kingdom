@@ -22,6 +22,7 @@ import { CartoonTornadoNativeVFX } from '../../../vfx/tornado/Native';
 import { IDX_X, IDX_Y, IDX_Z, STRIDE } from '../../../simulation/constants';
 
 import { ProjectileSystem } from '../../../character/projectile-system';
+import { CHARACTER_CONFIG } from '../../../character/character-config';
 
 export { CharacterController, SkillsSystem };
 
@@ -92,27 +93,62 @@ export function createHero(
         });
     };
 
-    // Skill + damage dispatch keyboard handler
-    // ponytail: map keyCodes ke damage config — upgrade ke config file jika skill bertambah
-    const SKILL_DAMAGE: Record<string, { radius: number; damage: number }> = {
-        'Digit1': { radius: 5,  damage: 1500 },
-        'Digit2': { radius: 3,  damage:  800 },
-        'Digit3': { radius: 6,  damage: 2000 },
-    };
+
 
     window.addEventListener('keydown', (e) => {
         if (!ctrl.enabled) return;
         skills.handleInput(e.code, ctrl.position, ctrl.getForwardVector(), ctrl);
 
-        const dmg = SKILL_DAMAGE[e.code];
-        if (dmg) {
+        // Ambil konfigurasi skill secara dinamis dari CHARACTER_CONFIG
+        let skillConf: { damage: number; radius: number } | null = null;
+        if (e.code === CHARACTER_CONFIG.skills.gasExplosion.key) {
+            skillConf = CHARACTER_CONFIG.skills.gasExplosion;
+        } else if (e.code === CHARACTER_CONFIG.skills.flamethrower.key) {
+            skillConf = CHARACTER_CONFIG.skills.flamethrower;
+        } else if (e.code === CHARACTER_CONFIG.skills.tornado.key) {
+            skillConf = CHARACTER_CONFIG.skills.tornado;
+        }
+
+        if (skillConf) {
+            // Tentukan pusat AoE berdasarkan tipe skill:
+            // - gas/tornado: di posisi musuh terdekat (sama dengan VFX spawn)
+            // - flamethrower: di depan hero sesuai forwardOffset
+            let originX = ctrl.position.x;
+            let originZ = ctrl.position.z;
+            let targetTeam: number | undefined = undefined;
+
+            const nearestTarget = ctrl.getNearestTarget();
+            if (nearestTarget && e.code !== CHARACTER_CONFIG.skills.flamethrower.key) {
+                // Gas explosion & Tornado: pusat AoE = posisi target musuh
+                const targetPos = new THREE.Vector3();
+                nearestTarget.getWorldPosition(targetPos);
+                originX = targetPos.x;
+                originZ = targetPos.z;
+                
+                // Ambil tim target secara dinamis dari userData target
+                const targetIndexAttr = nearestTarget.userData.unitIndex ?? nearestTarget.name;
+                const targetIdx = parseInt(targetIndexAttr);
+                if (!isNaN(targetIdx)) {
+                    // 0 = TEAM_A, 1 = TEAM_B (asumsi targetIdx < 50 adalah TEAM_A)
+                    targetTeam = targetIdx < 50 ? 0 : 1; 
+                }
+            } else if (e.code === CHARACTER_CONFIG.skills.flamethrower.key) {
+                // Flamethrower: AoE di depan hero sesuai forwardOffset config
+                const flameConf = CHARACTER_CONFIG.skills.flamethrower;
+                const forward = ctrl.getForwardVector();
+                originX = ctrl.position.x + forward.x * flameConf.forwardOffset;
+                originZ = ctrl.position.z + forward.z * flameConf.forwardOffset;
+            }
+
             for (const w of workers) {
                 w.postMessage({
                     type: 'PLAYER_SKILL_CAST',
                     skillId: e.code,
-                    originX: ctrl.position.x,
-                    originZ: ctrl.position.z,
-                    ...dmg,
+                    originX,
+                    originZ,
+                    radius: skillConf.radius,
+                    damage: skillConf.damage,
+                    targetTeam: targetTeam, // Kirim target tim secara dinamis
                 });
             }
         }

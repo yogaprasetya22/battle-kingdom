@@ -193,23 +193,26 @@ export function spawnFrostNovaBurstFX(
     team?: number,
 ) {
     const isBlue = team === 1;
-    const colorRing = isBlue ? 0x55ccff : 0xff7744;
+    const colorRing = isBlue ? 0x00dfff : 0xffaa44;
     const colorInner = isBlue ? 0xaae8ff : 0xffccaa;
     const colorSpike = isBlue ? 0x88e0ff : 0xffaa66;
     const colorMist = isBlue ? 0x88ccff : 0xff9977;
 
+    // Ring visual
     const ringGeo = pooledRing(0.15, 0.25, 32);
     const ringMat = getPooledMaterial({
         color: colorRing,
         side: THREE.DoubleSide,
         transparent: true,
         opacity: 0.95,
+        blending: THREE.AdditiveBlending,
     });
     const ring = new THREE.Mesh(ringGeo, ringMat);
     ring.rotation.x = -Math.PI / 2;
     ring.position.set(x, y + 0.04, z);
     scene.add(ring);
 
+    // Inner glow
     const innerGeo = pooledRing(0.05, 0.12, 24);
     const innerMat = getPooledMaterial({
         color: colorInner,
@@ -224,63 +227,79 @@ export function spawnFrostNovaBurstFX(
     inner.position.set(x, y + 0.05, z);
     scene.add(inner);
 
-    const SPIKE = 10;
-    // Shared cone geometry — tiny 4-sided cone, reused across all 10 spikes
-    const spikeGeo = new THREE.ConeGeometry(0.1, 1.0, 4);
-    const spikeMat = getPooledMaterial({
-        color: colorSpike,
+    // High-end instanced shards
+    const shardCount = 20;
+    const shardGeo = new THREE.DodecahedronGeometry(0.2, 0);
+    const shardMat = new THREE.ShaderMaterial({
+        uniforms: {
+            uColor: { value: new THREE.Color(colorSpike) },
+        },
+        vertexShader: `
+            attribute float aOpacity;
+            varying float vOpacity;
+            void main() {
+                vOpacity = aOpacity;
+                gl_Position = projectionMatrix * modelViewMatrix * instanceMatrix * vec4(position, 1.0);
+            }
+        `,
+        fragmentShader: `
+            uniform vec3 uColor;
+            varying float vOpacity;
+            void main() {
+                gl_FragColor = vec4(uColor * 1.5, vOpacity);
+            }
+        `,
         transparent: true,
-        opacity: 0.85,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
     });
-    const spikes: THREE.Mesh[] = [];
-    const spikeAngles: number[] = [];
-    for (let i = 0; i < SPIKE; i++) {
-        const sp = new THREE.Mesh(spikeGeo, spikeMat);
-        const angle = (i / SPIKE) * Math.PI * 2;
-        sp.position.set(
-            x + Math.cos(angle) * 0.8,
-            y - 0.5,
-            z + Math.sin(angle) * 0.8,
-        );
-        sp.rotation.x = Math.PI + (Math.random() - 0.5) * 0.35;
-        sp.rotation.y = angle;
-        scene.add(sp);
-        spikes.push(sp);
-        spikeAngles.push(angle);
+    const shardMesh = new THREE.InstancedMesh(shardGeo, shardMat, shardCount);
+    shardMesh.frustumCulled = false;
+    scene.add(shardMesh);
+
+    const aShardOpacity = new Float32Array(shardCount);
+    shardMesh.geometry.setAttribute("aOpacity", new THREE.InstancedBufferAttribute(aShardOpacity, 1));
+
+    const shardOffsets: THREE.Vector3[] = [];
+    const shardVels: THREE.Vector3[] = [];
+    const shardScales: number[] = [];
+    for (let i = 0; i < shardCount; i++) {
+        const angle = (i / shardCount) * Math.PI * 2 + (Math.random() - 0.5) * 0.2;
+        const dist = 0.5 + Math.random() * 1.5;
+        shardOffsets.push(new THREE.Vector3(x + Math.cos(angle) * dist, y - 0.2, z + Math.sin(angle) * dist));
+        shardVels.push(new THREE.Vector3((Math.random() - 0.5) * 0.4, 2.0 + Math.random() * 2.0, (Math.random() - 0.5) * 0.4));
+        shardScales.push(0.5 + Math.random() * 0.8);
     }
 
-    const mistGeo = pooledPlane(0.6, 0.6);
-    const mistMat = getPooledMaterial({
+    // Swirling mist using instanced texture loader (reusing smokeTex)
+    const mistCount = 12;
+    const mistGeo = pooledPlane(0.8, 0.8);
+    const mistMat = new THREE.MeshBasicMaterial({
         map: smokeTex,
         color: colorMist,
         transparent: true,
-        opacity: 0.4,
+        opacity: 0.5,
+        blending: THREE.AdditiveBlending,
         depthWrite: false,
+        side: THREE.DoubleSide,
     });
-    const mists: THREE.Mesh[] = [];
+    const mistMesh = new THREE.InstancedMesh(mistGeo, mistMat, mistCount);
+    mistMesh.frustumCulled = false;
+    scene.add(mistMesh);
+
+    const mistPositions: THREE.Vector3[] = [];
     const mistVels: THREE.Vector3[] = [];
-    const MISTS = Math.round(8 * fxQualityScale());
-    for (let i = 0; i < MISTS; i++) {
-        const m = new THREE.Mesh(mistGeo, mistMat);
-        m.position.set(
-            x + (Math.random() - 0.5) * 0.6,
-            y + 0.1,
-            z + (Math.random() - 0.5) * 0.6,
-        );
-        m.quaternion.copy(getCamQuad());
-        scene.add(m);
-        mists.push(m);
-        mistVels.push(
-            new THREE.Vector3(
-                (Math.random() - 0.5) * 0.6,
-                0.3 + Math.random() * 0.6,
-                (Math.random() - 0.5) * 0.6,
-            ),
-        );
+    const mistScales: number[] = [];
+    for (let i = 0; i < mistCount; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const dist = Math.random() * 2.0;
+        mistPositions.push(new THREE.Vector3(x + Math.cos(angle) * dist, y + 0.1, z + Math.sin(angle) * dist));
+        mistVels.push(new THREE.Vector3((Math.random() - 0.5) * 0.5, 0.4 + Math.random() * 0.6, (Math.random() - 0.5) * 0.5));
+        mistScales.push(1.0 + Math.random() * 1.0);
     }
 
     let age = 0;
-    const duration = 0.9;
+    const duration = 0.85;
     activeFX.push({
         update(delta) {
             age += delta;
@@ -288,48 +307,62 @@ export function spawnFrostNovaBurstFX(
             if (t >= 1) {
                 scene.remove(ring);
                 scene.remove(inner);
-                spikes.forEach((s) => scene.remove(s));
-                mists.forEach((m) => scene.remove(m));
-                // Release pooled materials (don't dispose — they're reused)
+                scene.remove(shardMesh);
+                scene.remove(mistMesh);
                 releasePooledMaterial(ringMat);
                 releasePooledMaterial(innerMat);
-                releasePooledMaterial(spikeMat);
-                releasePooledMaterial(mistMat);
-                // spikeGeo is tiny shared cone, not worth pooling infrastructure
-                spikeGeo.dispose();
+                shardGeo.dispose();
+                shardMat.dispose();
+                mistMesh.dispose();
                 return false;
             }
-            const s = 1 + t * 18;
+
+            const s = 1 + t * 15;
             ring.scale.set(s, s, 1);
             ringMat.opacity = 0.95 * (1 - t);
 
-            const si = 1 + t * 10;
+            const si = 1 + t * 8;
             inner.scale.set(si, si, 1);
             inner.rotation.z += 0.04;
             innerMat.opacity = 0.8 * (1 - t);
 
-            const rise = Math.sin(t * Math.PI) * 1.1;
-            for (let i = 0; i < SPIKE; i++) {
-                const a = spikeAngles[i];
-                const r = 0.8 + t * 1.2;
-                spikes[i].position.x = x + Math.cos(a) * r;
-                spikes[i].position.z = z + Math.sin(a) * r;
-                spikes[i].position.y = y - 0.5 + rise;
-                spikes[i].scale.setScalar(0.7 + rise * 0.5);
-            }
-            spikeMat.opacity = 0.85 * (1 - t);
+            // Update shard positions and matrices
+            const cq = camera.quaternion;
+            for (let i = 0; i < shardCount; i++) {
+                const p = shardOffsets[i];
+                const vel = shardVels[i];
+                vel.y -= 9.8 * delta; // gravity drop
+                p.addScaledVector(vel, delta);
 
-            for (let i = 0; i < mists.length; i++) {
-                mists[i].position.addScaledVector(mistVels[i], delta);
-                mists[i].scale.addScalar(delta * 1.5);
-                mists[i].quaternion.copy(camera.quaternion);
-                (mists[i].material as THREE.MeshBasicMaterial).opacity =
-                    0.4 * (1 - t);
+                _tempObj.position.copy(p);
+                _tempObj.quaternion.copy(cq);
+                _tempObj.scale.setScalar(shardScales[i] * Math.sin(t * Math.PI));
+                _tempObj.updateMatrix();
+                shardMesh.setMatrixAt(i, _tempObj.matrix);
+                aShardOpacity[i] = (1 - t);
             }
+            shardMesh.instanceMatrix.needsUpdate = true;
+            (shardMesh.geometry.getAttribute("aOpacity") as THREE.InstancedBufferAttribute).needsUpdate = true;
+
+            // Update mist positions and matrices
+            for (let i = 0; i < mistCount; i++) {
+                const p = mistPositions[i];
+                p.addScaledVector(mistVels[i], delta);
+
+                _tempObj.position.copy(p);
+                _tempObj.quaternion.copy(cq);
+                _tempObj.scale.setScalar(mistScales[i] * (1.0 + t * 1.5));
+                _tempObj.updateMatrix();
+                mistMesh.setMatrixAt(i, _tempObj.matrix);
+            }
+            mistMesh.instanceMatrix.needsUpdate = true;
+            mistMat.opacity = 0.5 * (1 - t) * (1 - t);
+
             return true;
         },
     });
 }
+
 
 export function spawnDivineShieldFX(
     scene: THREE.Scene,
@@ -368,23 +401,21 @@ export function spawnDivineShieldFX(
     pillar.position.set(targetPos.x, targetPos.y + 1.75, targetPos.z);
     scene.add(pillar);
 
-    const runeCount = 10;
-    const runeGeo = new THREE.DodecahedronGeometry(0.05);
-    const runeMat = new THREE.MeshBasicMaterial({
+    // Instanced glowing shield shield particles (reusing star2Tex for luxury look)
+    const particleCount = 12;
+    const particleGeo = pooledPlane(0.4, 0.4);
+    const particleMat = new THREE.MeshBasicMaterial({
+        map: star2Tex,
         color: colorRune,
         transparent: true,
-        opacity: 0.85,
+        opacity: 0.9,
         blending: THREE.AdditiveBlending,
         depthWrite: false,
+        side: THREE.DoubleSide
     });
-    const runes: THREE.Mesh[] = [];
-
-    for (let i = 0; i < runeCount; i++) {
-        const r = new THREE.Mesh(runeGeo, runeMat);
-        r.position.copy(targetPos).add(new THREE.Vector3(0, 0.5, 0));
-        scene.add(r);
-        runes.push(r);
-    }
+    const particleMesh = new THREE.InstancedMesh(particleGeo, particleMat, particleCount);
+    particleMesh.frustumCulled = false;
+    scene.add(particleMesh);
 
     let age = 0;
     const duration = 0.7;
@@ -396,13 +427,13 @@ export function spawnDivineShieldFX(
             if (t >= 1) {
                 scene.remove(ring);
                 scene.remove(pillar);
-                runes.forEach((r) => scene.remove(r));
+                scene.remove(particleMesh);
                 ringGeo.dispose();
                 ringMat.dispose();
                 pillarGeo.dispose();
                 pillarMat.dispose();
-                runeGeo.dispose();
-                runeMat.dispose();
+                particleGeo.dispose();
+                particleMat.dispose();
                 return false;
             }
 
@@ -413,17 +444,26 @@ export function spawnDivineShieldFX(
             pillar.scale.setScalar(1 + t * 0.5);
             pillarMat.opacity = 0.6 * (1 - t);
 
-            for (let i = 0; i < runeCount; i++) {
-                const angle = (i / runeCount) * Math.PI * 2 + age * 2;
-                const radius = 0.4 + Math.sin(age * 3 + i) * 0.2;
-                const height = 0.5 + Math.cos(age * 2.5 + i) * 0.3;
-                runes[i].position.set(
+            // Update orbit particles using billboard rotation
+            const cq = camera.quaternion;
+            const tempObj = new THREE.Object3D();
+            for (let i = 0; i < particleCount; i++) {
+                const angle = (i / particleCount) * Math.PI * 2 + age * 4.5;
+                const radius = 0.5 + Math.sin(age * 4.0 + i) * 0.15;
+                const height = 0.8 + Math.cos(age * 3.5 + i) * 0.3;
+                
+                tempObj.position.set(
                     targetPos.x + Math.cos(angle) * radius,
                     targetPos.y + height,
-                    targetPos.z + Math.sin(angle) * radius,
+                    targetPos.z + Math.sin(angle) * radius
                 );
-                runes[i].scale.setScalar((1 - t) * 0.8);
+                tempObj.quaternion.copy(cq);
+                tempObj.scale.setScalar((1 - t) * (0.8 + Math.sin(age * 10 + i) * 0.2));
+                tempObj.updateMatrix();
+                particleMesh.setMatrixAt(i, tempObj.matrix);
             }
+            particleMesh.instanceMatrix.needsUpdate = true;
+            particleMat.opacity = 0.9 * (1 - t);
 
             return true;
         },

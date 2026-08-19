@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { CHARACTER_CONFIG } from './character-config';
+import { getTerrainHeight } from '../simulation/constants';
 
 export interface VFXInterface {
   spawn: (x: number, y: number, z: number, anchor?: THREE.Object3D, duration?: number) => void;
@@ -36,10 +37,13 @@ export class SkillsSystem {
         if (target) {
           const targetPos = new THREE.Vector3();
           target.getWorldPosition(targetPos);
-          gasVFX.spawn(targetPos.x, targetPos.y + 0.1, targetPos.z);
+          // Clamp Y to terrain surface so explosion never spawns underground
+          const floorY = getTerrainHeight(targetPos.x, targetPos.z);
+          gasVFX.spawn(targetPos.x, Math.max(targetPos.y, floorY) + 0.1, targetPos.z);
         } else {
           const spawnPos = playerPos.clone().addScaledVector(forward, gasConf.forwardOffset);
-          gasVFX.spawn(spawnPos.x, spawnPos.y + 0.5, spawnPos.z);
+          const floorY = getTerrainHeight(spawnPos.x, spawnPos.z);
+          gasVFX.spawn(spawnPos.x, Math.max(spawnPos.y, floorY) + 0.1, spawnPos.z);
         }
       }
     };
@@ -82,9 +86,12 @@ export class SkillsSystem {
         if (target) {
           const targetPos = new THREE.Vector3();
           target.getWorldPosition(targetPos);
-          tornadoVFX.spawn(targetPos.x, targetPos.y + 0.1, targetPos.z);
+          // Clamp Y to terrain surface
+          const floorY = getTerrainHeight(targetPos.x, targetPos.z);
+          tornadoVFX.spawn(targetPos.x, Math.max(targetPos.y, floorY) + 0.1, targetPos.z, target);
         } else {
-          tornadoVFX.spawn(playerPos.x, playerPos.y, playerPos.z);
+          const floorY = getTerrainHeight(playerPos.x, playerPos.z);
+          tornadoVFX.spawn(playerPos.x, Math.max(playerPos.y, floorY), playerPos.z);
         }
       }
     };

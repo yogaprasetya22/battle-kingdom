@@ -798,14 +798,18 @@ window.addEventListener('projectile_hit', (e: any) => {
     const targetWorkerIdx = Math.floor(targetIdx / Math.ceil(UNIT_COUNT / NUM_WORKERS));
     const targetWorker = workers[targetWorkerIdx];
     if (targetWorker) {
+        // Baca posisi unit target dari SAB (bukan posisi hero) agar radius 0.8m tepat sasaran
+        const base = targetIdx * 15; // STRIDE = 15
+        const unitX = sharedData[base + 0]; // IDX_X = 0
+        const unitZ = sharedData[base + 2]; // IDX_Z = 2
         targetWorker.postMessage({
             type: 'PLAYER_SKILL_CAST',
             skillId: 'basic_attack',
-            originX: heroCtrl.position.x, // not used but standard structure
-            originZ: heroCtrl.position.z,
-            radius: 0.8, // small range so only hits the exact target
+            originX: unitX,   // pusat AoE = posisi unit target
+            originZ: unitZ,
+            radius: 1.5,      // radius cukup besar untuk tangkap unit tepat
             damage: damage,
-            targetTeam: targetIdx < TEAM_SIZE ? 0 : 1 // target team
+            targetTeam: targetIdx < TEAM_SIZE ? 0 : 1
         });
     }
 });
@@ -820,11 +824,20 @@ setBeforeRenderCb((_timestamp: number, delta: number) => {
     // Mapping target unit THREE.Object3D ke character-controller untuk auto-aim
     const activeUnits = getUnits();
     const targets: any[] = [];
+    const STRIDE = 15; // Sesuai dengan layout STRIDE di main simulation/worker
+    const IDX_TEAM = 4;
+    
+    // Dapatkan tim dari hero (index 0)
+    const heroTeam = sharedData[HERO_UNIT_INDEX * STRIDE + IDX_TEAM];
+
     for (let i = 0; i < activeUnits.length; i++) {
         const u = activeUnits[i];
-        // Tim A (teman) atau Tim B (musuh), skip hero index 0 sendiri
         if (u && i !== HERO_UNIT_INDEX && u.root) {
-            targets.push(u.root);
+            // Hanya targetkan unit yang memiliki tim BERBEDA dengan hero
+            const unitTeam = sharedData[i * STRIDE + IDX_TEAM];
+            if (unitTeam !== heroTeam) {
+                targets.push(u.root);
+            }
         }
     }
     heroCtrl.setTargets(targets);

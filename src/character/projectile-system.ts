@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { CHARACTER_CONFIG } from './character-config';
+import { getTerrainHeight } from '../simulation/constants';
 
 interface Projectile {
   mesh: THREE.Mesh;
@@ -125,9 +126,9 @@ export class ProjectileSystem {
           const targetIndexAttr = p.target.userData.unitIndex ?? p.target.name;
           const targetIdx = parseInt(targetIndexAttr);
           if (!isNaN(targetIdx)) {
-             // Kirim message damage ke worker
+             // Kirim message damage ke worker secara dinamis dari config
              window.dispatchEvent(new CustomEvent('projectile_hit', {
-                detail: { targetIdx: targetIdx, damage: 800 }
+                detail: { targetIdx: targetIdx, damage: CHARACTER_CONFIG.combat.damage }
              }));
           }
         }
@@ -156,10 +157,11 @@ export class ProjectileSystem {
         }
       }
 
-      // Falls below floor fallback
-      if (p.mesh.position.y < 0.1) {
+      // Falls below terrain floor fallback — use dynamic terrain height (not hardcoded 0)
+      const floorY = getTerrainHeight(p.mesh.position.x, p.mesh.position.z);
+      if (p.mesh.position.y < floorY + 0.05) {
         collided = true;
-        p.mesh.position.y = 0.1;
+        p.mesh.position.y = floorY + 0.05;
         if (spawnVFXCallback) {
           spawnVFXCallback(p.mesh.position);
         }

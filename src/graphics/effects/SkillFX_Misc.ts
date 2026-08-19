@@ -8,6 +8,7 @@ import {
     easeOutCubic,
     easeOutQuad,
     pooledPlane,
+    starTex,
     sparkTex,
     smokeTex,
     activeFX,
@@ -630,6 +631,7 @@ export function spawnHolySanctuaryFX(
     const isBlue = team === 1;
     const colorRing = isBlue ? 0x00dfff : 0xffff00;
     const colorPillar = isBlue ? 0xaae8ff : 0xffffcc;
+    const colorSpark = isBlue ? 0x88ddff : 0xffdd66;
 
     const ringGeo = new THREE.RingGeometry(0.4, 1.5, 32);
     const ringMat = new THREE.MeshBasicMaterial({
@@ -675,6 +677,41 @@ export function spawnHolySanctuaryFX(
         pillars.push(pillar);
     }
 
+    // Instanced rising holy star particles (reusing starTex)
+    const starCount = 15;
+    const starGeo = pooledPlane(0.35, 0.35);
+    const starMat = new THREE.MeshBasicMaterial({
+        map: starTex,
+        color: colorSpark,
+        transparent: true,
+        opacity: 0.9,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        side: THREE.DoubleSide
+    });
+    const starMesh = new THREE.InstancedMesh(starGeo, starMat, starCount);
+    starMesh.frustumCulled = false;
+    scene.add(starMesh);
+
+    const starPositions: THREE.Vector3[] = [];
+    const starVels: THREE.Vector3[] = [];
+    const starScales: number[] = [];
+    for (let i = 0; i < starCount; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const dist = Math.random() * 1.4;
+        starPositions.push(new THREE.Vector3(
+            centerPos.x + Math.cos(angle) * dist,
+            centerPos.y + 0.1 + Math.random() * 0.5,
+            centerPos.z + Math.sin(angle) * dist
+        ));
+        starVels.push(new THREE.Vector3(
+            (Math.random() - 0.5) * 0.2,
+            1.2 + Math.random() * 1.5,
+            (Math.random() - 0.5) * 0.2
+        ));
+        starScales.push(0.6 + Math.random() * 0.6);
+    }
+
     let age = 0;
     const duration = 1.0;
 
@@ -686,12 +723,15 @@ export function spawnHolySanctuaryFX(
             if (t >= 1) {
                 scene.remove(ring);
                 pillars.forEach((p) => scene.remove(p));
+                scene.remove(starMesh);
                 ringGeo.dispose();
                 ringMat.dispose();
                 pillars.forEach((p) => {
                     (p.material as THREE.MeshBasicMaterial).dispose();
                     p.geometry.dispose();
                 });
+                starGeo.dispose();
+                starMat.dispose();
                 return false;
             }
 
@@ -704,6 +744,22 @@ export function spawnHolySanctuaryFX(
                 (pillars[i].material as THREE.MeshBasicMaterial).opacity =
                     0.7 * (1 - t);
             }
+
+            // Update rising star positions & matrices
+            const cq = camera.quaternion;
+            const tempObj = new THREE.Object3D();
+            for (let i = 0; i < starCount; i++) {
+                const p = starPositions[i];
+                p.addScaledVector(starVels[i], delta);
+
+                tempObj.position.copy(p);
+                tempObj.quaternion.copy(cq);
+                tempObj.scale.setScalar(starScales[i] * Math.sin(t * Math.PI));
+                tempObj.updateMatrix();
+                starMesh.setMatrixAt(i, tempObj.matrix);
+            }
+            starMesh.instanceMatrix.needsUpdate = true;
+            starMat.opacity = 0.9 * (1 - t);
 
             return true;
         },

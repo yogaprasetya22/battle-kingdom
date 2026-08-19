@@ -35,6 +35,7 @@ export class CartoonTornadoNativeVFX {
     age: number;
     maxLife: number;
     spawnPos: THREE.Vector3;
+    anchor?: THREE.Object3D;
   }> = [];
 
   private tex0!: THREE.Texture;
@@ -87,11 +88,12 @@ export class CartoonTornadoNativeVFX {
     this.smokeGeometry = new THREE.PlaneGeometry(1.0, 1.0);
   }
 
-  public spawn(x: number, y: number, z: number) {
+  public spawn(x: number, y: number, z: number, anchor?: THREE.Object3D) {
     const maxParticles = 100;
 
     // Shader Factory for the layered wind/flame meshes
     const createWindShader = (twistSpeed: number, twistTension: number, stepThreshold: number, colorShift: number, textureFlowSpeed: number, colorVal: THREE.Color, map0Tex: THREE.Texture) => {
+      const uSpawnYVal = anchor ? anchor.position.y : y;
       return new THREE.ShaderMaterial({
         uniforms: {
           uMap0: { value: map0Tex },
@@ -99,7 +101,7 @@ export class CartoonTornadoNativeVFX {
           uTime: { value: 0 },
           uColor: { value: colorVal },
           uOpacity: { value: 1.0 },
-          uSpawnY: { value: y }, // Ground spawn level uniform
+          uSpawnY: { value: uSpawnYVal }, // Ground spawn level uniform
         },
         vertexShader: `
           uniform float uTime;
@@ -259,7 +261,7 @@ export class CartoonTornadoNativeVFX {
       uniforms: {
         uMap: { value: this.tex0 },
         uOpacity: { value: 1.0 },
-        uSpawnY: { value: y }, // Ground spawn level uniform
+        uSpawnY: { value: anchor ? anchor.position.y : y }, // Ground spawn level uniform
       },
       vertexShader: `
         attribute vec4 aColorAlpha;
@@ -353,6 +355,7 @@ export class CartoonTornadoNativeVFX {
       age: 0,
       maxLife: 3.5,
       spawnPos: new THREE.Vector3(x, y, z),
+      anchor,
     });
   }
 
@@ -406,6 +409,26 @@ export class CartoonTornadoNativeVFX {
         this.activeFX.splice(i, 1);
         continue;
       }
+
+      // Update positions to track anchor target dynamically if it exists
+      if (fx.anchor) {
+        const targetWorldPos = new THREE.Vector3();
+        fx.anchor.getWorldPosition(targetWorldPos);
+        fx.spawnPos.copy(targetWorldPos);
+        
+        // Update shader uSpawnY values dynamically
+        fx.outerMat1.uniforms.uSpawnY.value = targetWorldPos.y;
+        fx.outerMat2.uniforms.uSpawnY.value = targetWorldPos.y;
+        fx.flameMat.uniforms.uSpawnY.value = targetWorldPos.y;
+        fx.smokeMat.uniforms.uSpawnY.value = targetWorldPos.y;
+      }
+
+      // Update Mesh positions to follow tracking target
+      fx.outerMesh1.position.set(fx.spawnPos.x, fx.spawnPos.y + 2.0, fx.spawnPos.z);
+      fx.outerMesh2.position.set(fx.spawnPos.x, fx.spawnPos.y + 2.0, fx.spawnPos.z);
+      fx.flameMesh.position.set(fx.spawnPos.x, fx.spawnPos.y + 2.0, fx.spawnPos.z);
+      fx.ringMesh.position.set(fx.spawnPos.x, fx.spawnPos.y + 0.03, fx.spawnPos.z);
+      fx.smokeMesh.position.set(fx.spawnPos.x, fx.spawnPos.y, fx.spawnPos.z);
 
       // Update shader uniforms
       fx.outerMat1.uniforms.uTime.value = fx.age;

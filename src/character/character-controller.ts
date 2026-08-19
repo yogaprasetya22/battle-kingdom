@@ -5,6 +5,7 @@ import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import { CHARACTER_CONFIG } from './character-config';
 import { ProjectileSystem } from './projectile-system';
+import { getTerrainHeight } from '../simulation/constants';
 
 export class CharacterController {
   // THREE.js elements
@@ -39,6 +40,7 @@ export class CharacterController {
 
   // Camera Settings (Spring arm / Orbit style)
   public cameraOffset = new THREE.Vector3(0, 2.5, 5);
+  public cameraDistance = 8.0; // Comfort follow range (zoom default)
   private cameraTargetRotation = new THREE.Euler(0, 0, 0, 'YXZ');
   private mouseSensitivity = 0.002;
   private smoothedLookAt = new THREE.Vector3();
@@ -60,6 +62,10 @@ export class CharacterController {
   private tempBox = new THREE.Box3();
   private tempTriPoint = new THREE.Vector3();
   private capsulePoint = new THREE.Vector3();
+
+  // Smooth terrain-Y tracking: lerped toward getTerrainHeight each frame
+  // Eliminates 0.5-unit grid quantization micro-jitter from height cache
+  private _smoothTerrainY = 0;
 
   // Placeholder mesh (shown while loading GLTF assets)
   private placeholderMesh: THREE.Mesh;
@@ -146,6 +152,15 @@ export class CharacterController {
         this.cameraTargetRotation.x = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, this.cameraTargetRotation.x));
       }
     });
+
+    window.addEventListener('wheel', (e) => {
+      if (this.enabled) {
+        // Zoom in/out based on scroll delta
+        this.cameraDistance += e.deltaY * 0.007;
+        // Apply boundaries (min 3.0m, max 20.0m)
+        this.cameraDistance = Math.max(3.0, Math.min(20.0, this.cameraDistance));
+      }
+    }, { passive: true });
   }
 
   private async loadAssets() {
@@ -437,45 +452,41 @@ export class CharacterController {
   public update(delta: number) {
     if (delta > 0.1) delta = 0.1;
 
-    // 1. Apply Gravity
-    if (!this.isGrounded) {
-      this.velocity.y += this.gravity * delta;
-      this.airTime += delta;
-    } else {
-      this.airTime = 0;
-      this.jumpCount = 0; // Reset jumps when touching ground
-      if (this.velocity.y < 0) {
-        this.velocity.y = -1;
-      }
-    }
-
-    // 2. Handle Jumping (handled by keydown listener in onSpacePressed)
-
     // Tick down speed buff duration
     if (this.speedBuffDuration > 0) {
       this.speedBuffDuration -= delta;
-      if (this.speedBuffDuration <= 0) {
-        this.speedBuff = 1.0;
-      }
+      if (this.speedBuffDuration <= 0) this.speedBuff = 1.0;
     }
 
-    // 3. Calculate Movement direction relative to Camera Horizontal angle
+    // 1. Horizontal input — always applied
     const camRotationY = this.cameraTargetRotation.y;
     const moveX = (this.keys.KeyD ? 1 : 0) - (this.keys.KeyA ? 1 : 0);
     const moveZ = (this.keys.KeyS ? 1 : 0) - (this.keys.KeyW ? 1 : 0);
-
     const inputDirection = this.tempVector.set(moveX, 0, moveZ).normalize();
     inputDirection.applyAxisAngle(new THREE.Vector3(0, 1, 0), camRotationY);
-
     const currentSpeed = this.speed * (this.keys.ShiftLeft ? this.sprintMultiplier : 1) * this.speedBuff;
     this.velocity.x = inputDirection.x * currentSpeed;
     this.velocity.z = inputDirection.z * currentSpeed;
 
-    // 4. Move player position by velocity
-    this.position.addScaledVector(this.velocity, delta);
+    // 2. Vertical — only integrate when airborne to avoid ping-pong jitter
+    if (this.isGrounded) {
+      // Grounded: reset air state, do NOT touch position.y here (terrain snap handles it)
+      this.airTime = 0;
+      this.jumpCount = 0;
+      this.velocity.y = 0;
+    } else {
+      // Airborne: gravity accumulates, integrate Y
+      this.velocity.y += this.gravity * delta;
+      this.airTime += delta;
+      this.position.y += this.velocity.y * delta;
+    }
+
+    // 3. Integrate horizontal position
+    this.position.x += this.velocity.x * delta;
+    this.position.z += this.velocity.z * delta;
     this.playerGroup.position.copy(this.position);
 
-    // 5. Rotate Character Mesh towards movement direction
+    // 4. Rotate Character Mesh towards movement direction
     if (this.playerMesh && inputDirection.lengthSq() > 0.01) {
       const targetAngle = Math.atan2(inputDirection.x, inputDirection.z);
       const currentAngle = this.playerMesh.rotation.y;
@@ -488,8 +499,8 @@ export class CharacterController {
     const wasGrounded = this.isGrounded;
     const wasInAir = !wasGrounded && this.airTime > 0.15;
 
-    // 6. Resolve Collisions using three-mesh-bvh
-    this.resolveCollisions();
+    // 5. Resolve Collisions (terrain snap + BVH)
+    this.resolveCollisions(delta);
 
     // Trigger land animation if player just hit the ground from mid-air
     if (this.isGrounded && wasInAir) {
@@ -634,13 +645,23 @@ export class CharacterController {
     return pos;
   }
 
-  private resolveCollisions() {
+  private resolveCollisions(delta = 0.016) {
     if (!this.environmentMesh || !this.environmentMesh.geometry.boundsTree) {
-      if (this.position.y < 0) {
-        this.position.y = 0;
+      const rawTerrainY = getTerrainHeight(this.position.x, this.position.z);
+
+      // Lerp smoothTerrainY toward actual terrain height — removes 0.5m grid step artifacts
+      // Factor 20 = tracks terrain in ~50ms (imperceptible lag, zero jitter)
+      const t = Math.min(1, delta * 20);
+      this._smoothTerrainY = this._smoothTerrainY + (rawTerrainY - this._smoothTerrainY) * t;
+
+      if (this.position.y <= this._smoothTerrainY + 0.01) {
+        this.position.y = this._smoothTerrainY;
         this.velocity.y = 0;
         this.isGrounded = true;
+      } else {
+        this.isGrounded = false;
       }
+      this.playerGroup.position.copy(this.position);
       return;
     }
 
@@ -737,7 +758,7 @@ export class CharacterController {
     // Calculate spherical coordinates based on cameraTargetRotation angles (Yaw/Pitch)
     const theta = this.cameraTargetRotation.y;
     const phi = Math.PI / 2 - this.cameraTargetRotation.x;
-    const distance = 8.0; // Comfort follow range (same as spirit vale)
+    const distance = this.cameraDistance;
 
     const relativeOffset = new THREE.Vector3(
       distance * Math.sin(phi) * Math.sin(theta),
