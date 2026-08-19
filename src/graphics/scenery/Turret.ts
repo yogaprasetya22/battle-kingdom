@@ -287,8 +287,8 @@ export class Turrets {
     const turret = team === 0 ? this.turretA : this.turretB;
     if (!turret) return null;
     turret.updateMatrixWorld(true);
-    // Local muzzle position: X=0 (center), Y=1.44 (height of barrel), Z=-2.2 (forward along the barrel)
-    const localMuzzle = new THREE.Vector3(0, 1.44, -2.2);
+    // Local muzzle position: X=0 (center), Y=1.44 (height of barrel), Z=2.6 (forward along the barrel)
+    const localMuzzle = new THREE.Vector3(0, 1.44, 1.2);
     return localMuzzle.applyMatrix4(turret.matrixWorld);
   }
 

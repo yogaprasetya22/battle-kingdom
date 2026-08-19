@@ -191,3 +191,10 @@ export function invalidateTerrainCache(): void {
     _hCacheKeys.fill(-1);
     _hCacheVals.fill(0);
 }
+
+// ── Worker-Bypass: Hero unit index ──
+// Unit index ini dikontrol sepenuhnya oleh main thread (CharacterController).
+// Worker AI tidak boleh menimpa posisi (x,y,z) unit ini.
+// HP tetap dikelola Worker — AI musuh boleh menyerang hero.
+// ponytail: upgrade ke Set<number> jika co-op multiplayer
+export const HERO_UNIT_INDEX = 0;

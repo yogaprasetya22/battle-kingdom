@@ -383,3 +383,9 @@ export const DRUID_SKILLS = {
         cooldown: 650,
     },
 };
+
+// ============ HERO STATS ============
+export const HERO_STATS = {
+    critChance: 0.60,
+    critDamage: 2.0,
+};

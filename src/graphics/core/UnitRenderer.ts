@@ -25,6 +25,7 @@ import {
     TURRET_Z,
     TARGET_TURRET,
     IDX_TEAM,
+    HERO_UNIT_INDEX,
 } from "../../simulation/constants";
 
 import type { UnitVisual } from "./types";
@@ -45,7 +46,6 @@ import {
 } from "../ui/ui_billboards";
 import {
     spawnIceShatterFX,
-    spawnComicExplosion,
 } from "../effects/SkillFX_Misc";
 import { weaponCache } from "../units/UnitVisualHelpers";
 import {
@@ -608,6 +608,8 @@ export function changeModel(
                             }
                         });
 
+                        unitVis.root.userData.unitIndex = i;
+
                         units.push({
                             root: unitVis.root,
                             mixer: unitVis.mixer,
@@ -731,6 +733,23 @@ export function updateFrame(data: Float32Array, delta: number) {
     const _nowMs = _frameStart;
 
     for (let i = 0; i < UNIT_COUNT; i++) {
+        // Worker-Bypass: hero (index 0) punya mesh terpisah — skip slot ini.
+        // Explicitly hide unit[0].root sekali jika masih visible (mencegah ghost tank).
+        if (i === HERO_UNIT_INDEX) {
+            const u0 = units[0];
+            if (u0 && u0.root.visible) {
+                u0.root.visible = false;
+                u0.root.scale.setScalar(0.0001);
+                u0.root.position.set(-9999, -9999, -9999);
+                // Sembunyikan billboard bars juga
+                hpBarsBg.setMatrixAt(0, _deadNameMatrix);
+                hpBarsFg.setMatrixAt(0, _deadNameMatrix);
+                cdRings.setMatrixAt(0, _deadNameMatrix);
+                immuneRings.setMatrixAt(0, _deadNameMatrix);
+            }
+            continue;
+        }
+
         const base = i * STRIDE;
         const hp = data[base + IDX_HP];
         const x = data[base + IDX_X];
@@ -877,7 +896,7 @@ export function updateFrame(data: Float32Array, delta: number) {
                 if (elapsed >= 800 && !(unit as any).hasExploded) {
                     (unit as any).hasExploded = true;
                     // unit.root.visible = false; // Keep model visible during death sinking
-                    // spawnComicExplosion(scene, unit.root.position.x, unit.root.position.y + 0.8, unit.root.position.z);
+
                 }
 
                 if (elapsed > 2000) {
@@ -1130,9 +1149,9 @@ export function updateFrame(data: Float32Array, delta: number) {
                 
                 // Jarak ke kamera menentukan frame-skip untuk update skeletal anim
                 let isMyFrame = true;
-                if (distSq > 2025) { // Jauh (> 45 unit): update tiap 4 frame (~15fps anim)
+                if (distSq > 4900) { // Jauh (> 70 unit): update tiap 4 frame (~15fps anim)
                     isMyFrame = (animFrameCount + i) % 4 === 0;
-                } else if (distSq > 625) { // Sedang (25-45 unit): update tiap 2 frame (~30fps anim)
+                } else if (distSq > 1600) { // Sedang (40-70 unit): update tiap 2 frame (~30fps anim)
                     isMyFrame = (animFrameCount + i) % 2 === 0;
                 }
 

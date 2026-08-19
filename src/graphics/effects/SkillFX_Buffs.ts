@@ -1,7 +1,3 @@
-/**
- * SkillFX_Buffs.ts — Buff/Aura effects: Iron Fortitude, Frost Nova, Divine Shield, Holy Sanctuary
- */
-
 import * as THREE from "three";
 import { camera } from "../core/scene";
 import {
@@ -15,9 +11,9 @@ import {
     activeFX,
     fxQualityScale,
     _tempObj,
-    getCamQuad,
 } from "./FXCore";
 
+// ─── Upgrade: Iron Fortitude Aura (Dual Concentric Rotating Runes + Light Pillars) ───
 export function spawnIronFortitudeAuraFX(
     scene: THREE.Scene,
     x: number,
@@ -28,67 +24,106 @@ export function spawnIronFortitudeAuraFX(
     const isBlue = team === 1;
     const colorRing1 = isBlue ? 0x00dfff : 0xffd700;
     const colorRing2 = isBlue ? 0x3366ff : 0xffaa00;
-    const colorRing3 = isBlue ? 0xaaddff : 0xffeebb;
-    const colorGlyph = isBlue ? 0xeef9ff : 0xffffee;
-    const colorSparks = isBlue ? 0x33c0ff : 0xffd700;
+    const colorSparks = isBlue ? 0x88f0ff : 0xffeebb;
 
-    const ringGeo = pooledRing(1.0, 1.25, 16);
-    const ringMat = getPooledMaterial({
-        color: colorRing1,
-        side: THREE.DoubleSide,
+    // Custom shader for rotating concentric runic-like grid circle
+    const runeGeo = new THREE.PlaneGeometry(3.0, 3.0);
+    const runeMat = new THREE.ShaderMaterial({
+        uniforms: {
+            uTime: { value: 0 },
+            uColor: { value: new THREE.Color(colorRing1) },
+            uColor2: { value: new THREE.Color(colorRing2) },
+            uOpacity: { value: 1.0 },
+        },
+        vertexShader: `
+            varying vec2 vUv;
+            void main() {
+                vUv = uv;
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            }
+        `,
+        fragmentShader: `
+            uniform vec3 uColor;
+            uniform vec3 uColor2;
+            uniform float uTime;
+            uniform float uOpacity;
+            varying vec2 vUv;
+
+            void main() {
+                vec2 uv = vUv - vec2(0.5);
+                float dist = length(uv);
+                if (dist > 0.5) discard;
+
+                // Runic rings pattern
+                float ring1 = smoothstep(0.01, 0.0, abs(dist - 0.45));
+                float ring2 = smoothstep(0.01, 0.0, abs(dist - 0.35));
+                float ring3 = smoothstep(0.01, 0.0, abs(dist - 0.20));
+
+                // Rotating spokes (runic ticks)
+                float angle = atan(uv.y, uv.x);
+                float spoke1 = step(0.98, sin(angle * 12.0 + uTime * 3.0));
+                float spoke2 = step(0.98, sin(angle * 8.0 - uTime * 2.0));
+
+                float pattern = ring1 + ring2 + ring3 + spoke1 * ring1 + spoke2 * ring2;
+                vec3 finalCol = mix(uColor, uColor2, dist * 2.0);
+                
+                gl_FragColor = vec4(finalCol * 2.0, pattern * uOpacity * (1.0 - dist * 2.0));
+            }
+        `,
         transparent: true,
-        opacity: 1.0,
-        blending: THREE.AdditiveBlending,
         depthWrite: false,
-    });
-    const ring = new THREE.Mesh(ringGeo, ringMat);
-    ring.rotation.x = -Math.PI / 2;
-    ring.position.set(x, y + 0.05, z);
-    scene.add(ring);
-
-    const ring2Geo = pooledRing(0.55, 0.7, 12);
-    const ring2Mat = getPooledMaterial({
-        color: colorRing2,
+        blending: THREE.AdditiveBlending,
         side: THREE.DoubleSide,
-        transparent: true,
-        opacity: 0.85,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false,
     });
-    const ring2 = new THREE.Mesh(ring2Geo, ring2Mat);
-    ring2.rotation.x = -Math.PI / 2;
-    ring2.position.set(x, y + 0.07, z);
-    scene.add(ring2);
+    const runeMesh = new THREE.Mesh(runeGeo, runeMat);
+    runeMesh.rotation.x = -Math.PI / 2;
+    runeMesh.position.set(x, y + 0.02, z);
+    scene.add(runeMesh);
 
-    const ring3Geo = pooledRing(0.3, 0.4, 12);
-    const ring3Mat = getPooledMaterial({
-        color: colorRing3,
+    // Glowing rising column mesh
+    const pillarGeo = new THREE.CylinderGeometry(0.8, 1.0, 4.0, 24, 1, true);
+    const pillarMat = new THREE.ShaderMaterial({
+        uniforms: {
+            uTime: { value: 0 },
+            uColor: { value: new THREE.Color(colorRing2) },
+            uOpacity: { value: 1.0 },
+        },
+        vertexShader: `
+            varying vec2 vUv;
+            varying float vPosY;
+            void main() {
+                vUv = uv;
+                vPosY = position.y;
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            }
+        `,
+        fragmentShader: `
+            uniform vec3 uColor;
+            uniform float uTime;
+            uniform float uOpacity;
+            varying vec2 vUv;
+            varying float vPosY;
+
+            void main() {
+                // Rising energy waves
+                float wave = sin(vUv.y * 15.0 - uTime * 6.0) * 0.5 + 0.5;
+                float edgeGlow = sin(vUv.x * 3.14159);
+                float verticalFade = (2.0 - vPosY) / 4.0; // fade out as it goes up
+
+                gl_FragColor = vec4(uColor * 1.5, wave * edgeGlow * verticalFade * uOpacity * 0.4);
+            }
+        `,
+        transparent: true,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
         side: THREE.DoubleSide,
-        transparent: true,
-        opacity: 0.9,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false,
     });
-    const ring3 = new THREE.Mesh(ring3Geo, ring3Mat);
-    ring3.rotation.x = -Math.PI / 2;
-    ring3.position.set(x, y + 0.08, z);
-    scene.add(ring3);
+    const pillar = new THREE.Mesh(pillarGeo, pillarMat);
+    pillar.position.set(x, y + 2.0, z);
+    scene.add(pillar);
 
-    const glyphGeo = pooledRing(0.15, 0.55, 4);
-    const glyphMat = getPooledMaterial({
-        color: colorGlyph,
-        side: THREE.DoubleSide,
-        transparent: true,
-        opacity: 0.8,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false,
-    });
-    const glyph = new THREE.Mesh(glyphGeo, glyphMat);
-    glyph.rotation.x = -Math.PI / 2;
-    glyph.position.set(x, y + 0.09, z);
-    scene.add(glyph);
-
-    const spGeo = pooledPlane(0.22, 0.22);
+    // Instanced rising stars
+    const spGeo = pooledPlane(0.25, 0.25);
     const spMat = getPooledMaterial({
         map: star2Tex,
         color: colorSparks,
@@ -97,7 +132,7 @@ export function spawnIronFortitudeAuraFX(
         depthWrite: false,
         side: THREE.DoubleSide,
     });
-    const SPS = Math.round(10 * fxQualityScale());
+    const SPS = Math.round(18 * fxQualityScale());
     const instMesh = new THREE.InstancedMesh(spGeo, spMat, SPS);
     instMesh.frustumCulled = false;
     scene.add(instMesh);
@@ -106,85 +141,55 @@ export function spawnIronFortitudeAuraFX(
     const spOffsets: THREE.Vector3[] = [];
     for (let i = 0; i < SPS; i++) {
         const a = Math.random() * Math.PI * 2;
-        const r = 0.2 + Math.random() * 1.2;
-        spOffsets.push(
-            new THREE.Vector3(
-                x + Math.cos(a) * r,
-                y + 0.1,
-                z + Math.sin(a) * r,
-            ),
-        );
-        spVels.push(
-            new THREE.Vector3(
-                (Math.random() - 0.5) * 0.6,
-                1.8 + Math.random() * 3.5,
-                (Math.random() - 0.5) * 0.6,
-            ),
-        );
+        const r = 0.1 + Math.random() * 0.8;
+        spOffsets.push(new THREE.Vector3(x + Math.cos(a) * r, y + 0.1, z + Math.sin(a) * r));
+        spVels.push(new THREE.Vector3((Math.random() - 0.5) * 0.3, 2.0 + Math.random() * 2.5, (Math.random() - 0.5) * 0.3));
     }
 
     let age = 0;
-    const duration = 0.85;
+    const duration = 1.2;
     activeFX.push({
         update(delta) {
             age += delta;
             const t = Math.min(1, age / duration);
             if (t >= 1) {
-                scene.remove(ring);
-                scene.remove(ring2);
-                scene.remove(ring3);
-                scene.remove(glyph);
+                scene.remove(runeMesh);
+                scene.remove(pillar);
                 scene.remove(instMesh);
-
-                releasePooledMaterial(ringMat);
-                releasePooledMaterial(ring2Mat);
-                releasePooledMaterial(ring3Mat);
-                releasePooledMaterial(glyphMat);
+                runeGeo.dispose();
+                runeMat.dispose();
+                pillarGeo.dispose();
+                pillarMat.dispose();
                 releasePooledMaterial(spMat);
                 instMesh.dispose();
                 return false;
             }
             const et = easeOutCubic(t);
 
-            ring.position.y = y + 0.05 + et * 3.0;
-            ring.scale.setScalar(1 + et * 1.5);
-            ring.rotation.z += 0.02;
-            ringMat.opacity = 1.0 * (1 - et) * (1 - et);
+            runeMat.uniforms.uTime.value = age;
+            runeMat.uniforms.uOpacity.value = 1.0 - et;
+            runeMesh.scale.setScalar(1.0 + et * 0.3);
 
-            ring2.position.y = y + 0.07 + et * 4.5;
-            ring2.scale.setScalar(1 + et * 1.2);
-            ring2.rotation.z -= 0.06;
-            ring2Mat.opacity = 0.85 * (1 - et) * (1 - et);
-
-            ring3.position.y = y + 0.08 + et * 5.5;
-            ring3.scale.setScalar(1 + et * 0.8);
-            ring3.rotation.z += 0.1;
-            ring3Mat.opacity = 0.9 * (1 - et) * (1 - et);
-
-            glyph.position.y = y + 0.09 + et * 2.0;
-            glyph.rotation.z += 0.04;
-            glyph.scale.setScalar(1 + Math.sin(t * Math.PI) * 1.0);
-            glyphMat.opacity = 0.8 * Math.sin(t * Math.PI);
+            pillarMat.uniforms.uTime.value = age;
+            pillarMat.uniforms.uOpacity.value = (1.0 - et) * (1.0 - et);
+            pillar.scale.set(1.0 + et * 0.5, 1.0, 1.0 + et * 0.5);
 
             const cq = camera.quaternion;
             for (let i = 0; i < SPS; i++) {
                 spOffsets[i].addScaledVector(spVels[i], delta);
-                spVels[i].y += Math.sin(age * 8 + i) * 0.3 * delta;
-
                 _tempObj.position.copy(spOffsets[i]);
                 _tempObj.quaternion.copy(cq);
-                _tempObj.scale.setScalar(1 - et);
+                _tempObj.scale.setScalar((1.0 - t) * (0.6 + Math.sin(age * 12 + i) * 0.4));
                 _tempObj.updateMatrix();
                 instMesh.setMatrixAt(i, _tempObj.matrix);
             }
             instMesh.instanceMatrix.needsUpdate = true;
-            spMat.opacity = 1 - et;
-
             return true;
         },
     });
 }
 
+// ─── Upgrade: Frost Nova (Expanding Cryo Shockwave + Rotating Ice Shards) ───
 export function spawnFrostNovaBurstFX(
     scene: THREE.Scene,
     x: number,
@@ -193,90 +198,129 @@ export function spawnFrostNovaBurstFX(
     team?: number,
 ) {
     const isBlue = team === 1;
-    const colorRing = isBlue ? 0x55ccff : 0xff7744;
-    const colorInner = isBlue ? 0xaae8ff : 0xffccaa;
-    const colorSpike = isBlue ? 0x88e0ff : 0xffaa66;
-    const colorMist = isBlue ? 0x88ccff : 0xff9977;
+    const colorRing = isBlue ? 0x00eaff : 0xffaa44;
+    const colorSpike = isBlue ? 0x88f5ff : 0xffcda0;
 
-    const ringGeo = pooledRing(0.15, 0.25, 32);
-    const ringMat = getPooledMaterial({
-        color: colorRing,
-        side: THREE.DoubleSide,
+    // Ground icy shockwave expansion using custom shader
+    const waveGeo = new THREE.PlaneGeometry(1.0, 1.0);
+    const waveMat = new THREE.ShaderMaterial({
+        uniforms: {
+            uTime: { value: 0 },
+            uColor: { value: new THREE.Color(colorRing) },
+            uScale: { value: 1.0 },
+        },
+        vertexShader: `
+            varying vec2 vUv;
+            void main() {
+                vUv = uv;
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            }
+        `,
+        fragmentShader: `
+            uniform vec3 uColor;
+            uniform float uScale;
+            varying vec2 vUv;
+            void main() {
+                vec2 uv = vUv - vec2(0.5);
+                float dist = length(uv);
+                if (dist > 0.5) discard;
+                
+                // Double ring shockwave
+                float ring1 = smoothstep(0.02, 0.0, abs(dist - 0.45));
+                float ring2 = smoothstep(0.04, 0.0, abs(dist - 0.35));
+                
+                float alpha = (ring1 * 0.8 + ring2 * 0.4) * (1.0 - dist * 2.0);
+                gl_FragColor = vec4(uColor * 2.0, alpha);
+            }
+        `,
         transparent: true,
-        opacity: 0.95,
-    });
-    const ring = new THREE.Mesh(ringGeo, ringMat);
-    ring.rotation.x = -Math.PI / 2;
-    ring.position.set(x, y + 0.04, z);
-    scene.add(ring);
-
-    const innerGeo = pooledRing(0.05, 0.12, 24);
-    const innerMat = getPooledMaterial({
-        color: colorInner,
-        side: THREE.DoubleSide,
-        transparent: true,
-        opacity: 0.8,
-        blending: THREE.AdditiveBlending,
         depthWrite: false,
+        blending: THREE.AdditiveBlending,
+        side: THREE.DoubleSide,
     });
-    const inner = new THREE.Mesh(innerGeo, innerMat);
-    inner.rotation.x = -Math.PI / 2;
-    inner.position.set(x, y + 0.05, z);
-    scene.add(inner);
+    const waveMesh = new THREE.Mesh(waveGeo, waveMat);
+    waveMesh.rotation.x = -Math.PI / 2;
+    waveMesh.position.set(x, y + 0.04, z);
+    scene.add(waveMesh);
 
-    const SPIKE = 10;
-    // Shared cone geometry — tiny 4-sided cone, reused across all 10 spikes
-    const spikeGeo = new THREE.ConeGeometry(0.1, 1.0, 4);
-    const spikeMat = getPooledMaterial({
-        color: colorSpike,
+    // High-density sharp ice shards (Instanced mesh, Dodecahedrons)
+    const shardCount = 32;
+    const shardGeo = new THREE.DodecahedronGeometry(0.24, 0);
+    const shardMat = new THREE.ShaderMaterial({
+        uniforms: {
+            uColor: { value: new THREE.Color(colorSpike) },
+            uOpacity: { value: 1.0 },
+        },
+        vertexShader: `
+            varying float vNormalDot;
+            varying vec3 vViewPos;
+            void main() {
+                vec3 norm = normalize(normalMatrix * normal);
+                vec4 mvPosition = modelViewMatrix * instanceMatrix * vec4(position, 1.0);
+                vViewPos = -mvPosition.xyz;
+                vNormalDot = abs(dot(norm, normalize(vViewPos)));
+                gl_Position = projectionMatrix * mvPosition;
+            }
+        `,
+        fragmentShader: `
+            uniform vec3 uColor;
+            uniform float uOpacity;
+            varying float vNormalDot;
+            void main() {
+                // Fresnel ice highlight
+                float highlight = pow(1.0 - vNormalDot, 3.0);
+                gl_FragColor = vec4(mix(uColor, vec3(1.0), highlight * 0.8) * 1.5, uOpacity);
+            }
+        `,
         transparent: true,
-        opacity: 0.85,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
     });
-    const spikes: THREE.Mesh[] = [];
-    const spikeAngles: number[] = [];
-    for (let i = 0; i < SPIKE; i++) {
-        const sp = new THREE.Mesh(spikeGeo, spikeMat);
-        const angle = (i / SPIKE) * Math.PI * 2;
-        sp.position.set(
-            x + Math.cos(angle) * 0.8,
-            y - 0.5,
-            z + Math.sin(angle) * 0.8,
-        );
-        sp.rotation.x = Math.PI + (Math.random() - 0.5) * 0.35;
-        sp.rotation.y = angle;
-        scene.add(sp);
-        spikes.push(sp);
-        spikeAngles.push(angle);
+    const shardMesh = new THREE.InstancedMesh(shardGeo, shardMat, shardCount);
+    shardMesh.frustumCulled = false;
+    scene.add(shardMesh);
+
+    const shardOffsets: THREE.Vector3[] = [];
+    const shardVels: THREE.Vector3[] = [];
+    const shardScales: number[] = [];
+    const shardRots: THREE.Vector3[] = [];
+    const shardRotVels: THREE.Vector3[] = [];
+
+    for (let i = 0; i < shardCount; i++) {
+        shardOffsets.push(new THREE.Vector3(x, y + 0.1, z));
+        const angle = (i / shardCount) * Math.PI * 2 + Math.random() * 0.2;
+        const spd = 6.0 + Math.random() * 8.0;
+        shardVels.push(new THREE.Vector3(Math.cos(angle) * spd, 3.0 + Math.random() * 5.0, Math.sin(angle) * spd));
+        shardScales.push(0.6 + Math.random() * 0.6);
+        shardRots.push(new THREE.Vector3(Math.random(), Math.random(), Math.random()));
+        shardRotVels.push(new THREE.Vector3(Math.random() * 10, Math.random() * 10, Math.random() * 10));
     }
 
-    const mistGeo = pooledPlane(0.6, 0.6);
+    // Instanced icy mist/vapor
+    const mistGeo = pooledPlane(1.0, 1.0);
     const mistMat = getPooledMaterial({
         map: smokeTex,
-        color: colorMist,
+        color: colorRing,
         transparent: true,
-        opacity: 0.4,
+        opacity: 0.35,
+        blending: THREE.AdditiveBlending,
         depthWrite: false,
+        side: THREE.DoubleSide,
     });
-    const mists: THREE.Mesh[] = [];
+    const mistCount = 20;
+    const mistMesh = new THREE.InstancedMesh(mistGeo, mistMat, mistCount);
+    mistMesh.frustumCulled = false;
+    scene.add(mistMesh);
+
+    const mistPositions: THREE.Vector3[] = [];
     const mistVels: THREE.Vector3[] = [];
-    const MISTS = Math.round(8 * fxQualityScale());
-    for (let i = 0; i < MISTS; i++) {
-        const m = new THREE.Mesh(mistGeo, mistMat);
-        m.position.set(
-            x + (Math.random() - 0.5) * 0.6,
-            y + 0.1,
-            z + (Math.random() - 0.5) * 0.6,
-        );
-        m.quaternion.copy(getCamQuad());
-        scene.add(m);
-        mists.push(m);
-        mistVels.push(
-            new THREE.Vector3(
-                (Math.random() - 0.5) * 0.6,
-                0.3 + Math.random() * 0.6,
-                (Math.random() - 0.5) * 0.6,
-            ),
-        );
+    const mistScales: number[] = [];
+    for (let i = 0; i < mistCount; i++) {
+        mistPositions.push(new THREE.Vector3(x, y + 0.1, z));
+        const angle = Math.random() * Math.PI * 2;
+        const spd = 2.0 + Math.random() * 4.0;
+        mistVels.push(new THREE.Vector3(Math.cos(angle) * spd, 0.2 + Math.random() * 0.8, Math.sin(angle) * spd));
+        mistScales.push(1.0 + Math.random() * 1.5);
     }
 
     let age = 0;
@@ -286,144 +330,166 @@ export function spawnFrostNovaBurstFX(
             age += delta;
             const t = Math.min(1, age / duration);
             if (t >= 1) {
-                scene.remove(ring);
-                scene.remove(inner);
-                spikes.forEach((s) => scene.remove(s));
-                mists.forEach((m) => scene.remove(m));
-                // Release pooled materials (don't dispose — they're reused)
-                releasePooledMaterial(ringMat);
-                releasePooledMaterial(innerMat);
-                releasePooledMaterial(spikeMat);
+                scene.remove(waveMesh);
+                scene.remove(shardMesh);
+                scene.remove(mistMesh);
+                waveGeo.dispose();
+                waveMat.dispose();
+                shardGeo.dispose();
+                shardMat.dispose();
                 releasePooledMaterial(mistMat);
-                // spikeGeo is tiny shared cone, not worth pooling infrastructure
-                spikeGeo.dispose();
+                mistMesh.dispose();
                 return false;
             }
-            const s = 1 + t * 18;
-            ring.scale.set(s, s, 1);
-            ringMat.opacity = 0.95 * (1 - t);
 
-            const si = 1 + t * 10;
-            inner.scale.set(si, si, 1);
-            inner.rotation.z += 0.04;
-            innerMat.opacity = 0.8 * (1 - t);
+            const scaleVal = 1.0 + t * 18.0;
+            waveMesh.scale.set(scaleVal, scaleVal, 1.0);
+            waveMat.uniforms.uScale.value = scaleVal;
 
-            const rise = Math.sin(t * Math.PI) * 1.1;
-            for (let i = 0; i < SPIKE; i++) {
-                const a = spikeAngles[i];
-                const r = 0.8 + t * 1.2;
-                spikes[i].position.x = x + Math.cos(a) * r;
-                spikes[i].position.z = z + Math.sin(a) * r;
-                spikes[i].position.y = y - 0.5 + rise;
-                spikes[i].scale.setScalar(0.7 + rise * 0.5);
+            shardMat.uniforms.uOpacity.value = 1.0 - t;
+
+            const cq = camera.quaternion;
+            for (let i = 0; i < shardCount; i++) {
+                const p = shardOffsets[i];
+                shardVels[i].y -= 9.8 * delta; // drop down
+                p.addScaledVector(shardVels[i], delta);
+
+                shardRots[i].addScaledVector(shardRotVels[i], delta);
+
+                _tempObj.position.copy(p);
+                _tempObj.rotation.set(shardRots[i].x, shardRots[i].y, shardRots[i].z);
+                _tempObj.scale.setScalar(shardScales[i] * Math.sin(t * Math.PI));
+                _tempObj.updateMatrix();
+                shardMesh.setMatrixAt(i, _tempObj.matrix);
             }
-            spikeMat.opacity = 0.85 * (1 - t);
+            shardMesh.instanceMatrix.needsUpdate = true;
 
-            for (let i = 0; i < mists.length; i++) {
-                mists[i].position.addScaledVector(mistVels[i], delta);
-                mists[i].scale.addScalar(delta * 1.5);
-                mists[i].quaternion.copy(camera.quaternion);
-                (mists[i].material as THREE.MeshBasicMaterial).opacity =
-                    0.4 * (1 - t);
+            for (let i = 0; i < mistCount; i++) {
+                mistPositions[i].addScaledVector(mistVels[i], delta);
+                _tempObj.position.copy(mistPositions[i]);
+                _tempObj.quaternion.copy(cq);
+                _tempObj.scale.setScalar(mistScales[i] * (1.0 + t * 2.0));
+                _tempObj.updateMatrix();
+                mistMesh.setMatrixAt(i, _tempObj.matrix);
             }
+            mistMesh.instanceMatrix.needsUpdate = true;
+            mistMat.opacity = 0.45 * (1.0 - t) * (1.0 - t);
+
             return true;
         },
     });
 }
 
+// ─── Upgrade: Divine Shield (Holographic energy dome with Fresnel edge-glow) ───
 export function spawnDivineShieldFX(
     scene: THREE.Scene,
     targetPos: THREE.Vector3,
     team?: number,
 ) {
     const isBlue = team === 1;
-    const colorRing = isBlue ? 0x00dfff : 0xffd700;
-    const colorPillar = isBlue ? 0xaae8ff : 0xffdf80;
-    const colorRune = isBlue ? 0xeef9ff : 0xffe066;
+    const colorShield = isBlue ? 0x00f0ff : 0xffc300;
+    const colorCore = isBlue ? 0xaae8ff : 0xffeebb;
 
-    const ringGeo = new THREE.RingGeometry(0.3, 1.1, 48, 1, 0, Math.PI * 2);
-    const ringMat = new THREE.MeshBasicMaterial({
-        color: colorRing,
+    // Glowing energy sphere geometry using a custom edge-glow shader
+    const shieldGeo = new THREE.SphereGeometry(1.25, 32, 32);
+    const shieldMat = new THREE.ShaderMaterial({
+        uniforms: {
+            uTime: { value: 0 },
+            uColor: { value: new THREE.Color(colorShield) },
+            uCoreColor: { value: new THREE.Color(colorCore) },
+            uOpacity: { value: 1.0 },
+        },
+        vertexShader: `
+            varying vec3 vNormal;
+            varying vec3 vViewPosition;
+            varying vec2 vUv;
+            void main() {
+                vUv = uv;
+                vNormal = normalize(normalMatrix * normal);
+                vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+                vViewPosition = -mvPosition.xyz;
+                gl_Position = projectionMatrix * mvPosition;
+            }
+        `,
+        fragmentShader: `
+            uniform vec3 uColor;
+            uniform vec3 uCoreColor;
+            uniform float uTime;
+            uniform float uOpacity;
+            varying vec3 vNormal;
+            varying vec3 vViewPosition;
+            varying vec2 vUv;
+
+            void main() {
+                vec3 normal = normalize(vNormal);
+                vec3 viewDir = normalize(vViewPosition);
+
+                // Fresnel Edge-Glow
+                float edge = pow(1.0 - max(0.0, dot(normal, viewDir)), 2.5);
+
+                // Scrolling holographic grid grid lines
+                float grid = sin(vUv.x * 60.0 + uTime * 2.0) * sin(vUv.y * 60.0 - uTime * 2.0);
+                grid = smoothstep(0.7, 0.9, grid) * 0.3;
+
+                // Pulsing energy waves
+                float pulse = sin(vUv.y * 12.0 - uTime * 8.0) * 0.15 + 0.85;
+
+                vec3 color = mix(uColor, uCoreColor, edge * 0.5);
+                gl_FragColor = vec4(color * 1.8, (edge * 0.9 + grid * pulse) * uOpacity);
+            }
+        `,
+        transparent: true,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
         side: THREE.DoubleSide,
+    });
+    const shieldMesh = new THREE.Mesh(shieldGeo, shieldMat);
+    shieldMesh.position.copy(targetPos);
+    shieldMesh.position.y += 0.8; // center around character body
+    scene.add(shieldMesh);
+
+    // Dynamic ground runic aura ring
+    const groundGeo = new THREE.RingGeometry(0.2, 1.3, 32);
+    const groundMat = new THREE.MeshBasicMaterial({
+        color: colorShield,
         transparent: true,
         opacity: 0.9,
         blending: THREE.AdditiveBlending,
         depthWrite: false,
-    });
-    const ring = new THREE.Mesh(ringGeo, ringMat);
-    ring.rotation.x = -Math.PI / 2;
-    ring.position.set(targetPos.x, targetPos.y + 0.05, targetPos.z);
-    scene.add(ring);
-
-    const pillarGeo = new THREE.CylinderGeometry(0.15, 0.5, 3.5, 16, 1, true);
-    const pillarMat = new THREE.MeshBasicMaterial({
-        color: colorPillar,
-        transparent: true,
-        opacity: 0.6,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false,
         side: THREE.DoubleSide,
     });
-    const pillar = new THREE.Mesh(pillarGeo, pillarMat);
-    pillar.position.set(targetPos.x, targetPos.y + 1.75, targetPos.z);
-    scene.add(pillar);
-
-    const runeCount = 10;
-    const runeGeo = new THREE.DodecahedronGeometry(0.05);
-    const runeMat = new THREE.MeshBasicMaterial({
-        color: colorRune,
-        transparent: true,
-        opacity: 0.85,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false,
-    });
-    const runes: THREE.Mesh[] = [];
-
-    for (let i = 0; i < runeCount; i++) {
-        const r = new THREE.Mesh(runeGeo, runeMat);
-        r.position.copy(targetPos).add(new THREE.Vector3(0, 0.5, 0));
-        scene.add(r);
-        runes.push(r);
-    }
+    const groundRing = new THREE.Mesh(groundGeo, groundMat);
+    groundRing.rotation.x = -Math.PI / 2;
+    groundRing.position.set(targetPos.x, targetPos.y + 0.04, targetPos.z);
+    scene.add(groundRing);
 
     let age = 0;
-    const duration = 0.7;
+    const duration = 2.0; // shield stays for 2 seconds
     activeFX.push({
         update(delta) {
             age += delta;
             const t = Math.min(1, age / duration);
-
             if (t >= 1) {
-                scene.remove(ring);
-                scene.remove(pillar);
-                runes.forEach((r) => scene.remove(r));
-                ringGeo.dispose();
-                ringMat.dispose();
-                pillarGeo.dispose();
-                pillarMat.dispose();
-                runeGeo.dispose();
-                runeMat.dispose();
+                scene.remove(shieldMesh);
+                scene.remove(groundRing);
+                shieldGeo.dispose();
+                shieldMat.dispose();
+                groundGeo.dispose();
+                groundMat.dispose();
                 return false;
             }
 
-            ring.scale.setScalar(1 + t * 1.5);
-            ring.rotation.z += 0.03;
-            ringMat.opacity = 0.9 * (1 - t);
+            shieldMat.uniforms.uTime.value = age;
+            
+            // Pulse scale slightly
+            const scale = 1.0 + Math.sin(age * 5.0) * 0.03;
+            shieldMesh.scale.setScalar(scale);
 
-            pillar.scale.setScalar(1 + t * 0.5);
-            pillarMat.opacity = 0.6 * (1 - t);
-
-            for (let i = 0; i < runeCount; i++) {
-                const angle = (i / runeCount) * Math.PI * 2 + age * 2;
-                const radius = 0.4 + Math.sin(age * 3 + i) * 0.2;
-                const height = 0.5 + Math.cos(age * 2.5 + i) * 0.3;
-                runes[i].position.set(
-                    targetPos.x + Math.cos(angle) * radius,
-                    targetPos.y + height,
-                    targetPos.z + Math.sin(angle) * radius,
-                );
-                runes[i].scale.setScalar((1 - t) * 0.8);
-            }
+            // Fade out near end of duration
+            const fade = t > 0.8 ? (1.0 - (t - 0.8) / 0.2) : 1.0;
+            shieldMat.uniforms.uOpacity.value = fade;
+            groundMat.opacity = 0.9 * fade;
+            groundRing.rotation.z += 0.02;
 
             return true;
         },
