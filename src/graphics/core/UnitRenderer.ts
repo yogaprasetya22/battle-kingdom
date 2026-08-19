@@ -46,7 +46,6 @@ import {
 } from "../ui/ui_billboards";
 import {
     spawnIceShatterFX,
-    spawnComicExplosion,
 } from "../effects/SkillFX_Misc";
 import { weaponCache } from "../units/UnitVisualHelpers";
 import {
@@ -897,7 +896,7 @@ export function updateFrame(data: Float32Array, delta: number) {
                 if (elapsed >= 800 && !(unit as any).hasExploded) {
                     (unit as any).hasExploded = true;
                     // unit.root.visible = false; // Keep model visible during death sinking
-                    // spawnComicExplosion(scene, unit.root.position.x, unit.root.position.y + 0.8, unit.root.position.z);
+
                 }
 
                 if (elapsed > 2000) {
@@ -1150,9 +1149,9 @@ export function updateFrame(data: Float32Array, delta: number) {
                 
                 // Jarak ke kamera menentukan frame-skip untuk update skeletal anim
                 let isMyFrame = true;
-                if (distSq > 2025) { // Jauh (> 45 unit): update tiap 4 frame (~15fps anim)
+                if (distSq > 4900) { // Jauh (> 70 unit): update tiap 4 frame (~15fps anim)
                     isMyFrame = (animFrameCount + i) % 4 === 0;
-                } else if (distSq > 625) { // Sedang (25-45 unit): update tiap 2 frame (~30fps anim)
+                } else if (distSq > 1600) { // Sedang (40-70 unit): update tiap 2 frame (~30fps anim)
                     isMyFrame = (animFrameCount + i) % 2 === 0;
                 }
 

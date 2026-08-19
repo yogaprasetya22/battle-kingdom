@@ -16,6 +16,7 @@ import {
     TEAM_B,
     TEAM_SIZE,
     TARGET_TURRET,
+    HERO_UNIT_INDEX,
 } from "../constants";
 
 import {
@@ -23,6 +24,7 @@ import {
     DEFENSE_BUFF_MULTIPLIER,
     ATTRIBUTES,
     DEFAULT_ATTRIBUTES,
+    HERO_STATS,
 } from "../config";
 
 // Pre-allocated buffers for Atomics CAS float conversion
@@ -145,9 +147,18 @@ export function applyDamage(
     } else if (attackerIdx !== undefined && attackerIdx >= 0) {
         const attackerType = d[attackerIdx * STRIDE + IDX_TYPE];
         const attr = ATTRIBUTES[attackerType] ?? DEFAULT_ATTRIBUTES;
-        if (Math.random() < attr.critChance) {
+        let critChance = attr.critChance;
+        let critDamage = attr.critDamage;
+
+        // If the attacker is the hero, grant a high crit rate from HERO_STATS config
+        if (attackerIdx === HERO_UNIT_INDEX) {
+            critChance = HERO_STATS.critChance;
+            critDamage = HERO_STATS.critDamage;
+        }
+
+        if (Math.random() < critChance) {
             isCrit = true;
-            adjustedDamage = Math.round(rawDamage * attr.critDamage);
+            adjustedDamage = Math.round(rawDamage * critDamage);
         }
 
         // Cap assassin critical/burst damage to maximum of 70,000

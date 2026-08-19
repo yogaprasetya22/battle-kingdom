@@ -1,7 +1,3 @@
-/**
- * SkillFX_Combat.ts — Combat effects: Taunt, Shield Bash, Evasive Leap
- */
-
 import * as THREE from "three";
 import { camera } from "../core/scene";
 import {
@@ -16,7 +12,6 @@ import {
     activeFX,
     fxQualityScale,
     _tempObj,
-    getCamQuad,
     spawnExplosion,
 } from "./FXCore";
 
@@ -38,6 +33,7 @@ function getTauntTex(): THREE.CanvasTexture {
     return _tauntTex;
 }
 
+// ─── Upgrade: Taunt FX (Rotating runic ground waves, emoji halo, sparks) ───
 export function spawnTauntFX(
     scene: THREE.Scene,
     x: number,
@@ -51,25 +47,47 @@ export function spawnTauntFX(
     const isBlue = team === 1;
     const colorPrimary = isBlue ? 0x2288ff : 0xff2244;
     const colorSecondary = isBlue ? 0x00dfff : 0xff0033;
-    const colorTertiary = isBlue ? 0x00ffcc : 0xff8822;
-    const colorScorch = isBlue ? 0x3366ff : 0xff1111;
     const colorSparks = isBlue ? 0x33ccff : 0xff4444;
 
-    const swGeo = pooledRing(0.1, 0.35, 16);
-    const swMat = getPooledMaterial({
-        color: colorPrimary,
-        side: THREE.DoubleSide,
+    // Custom shader for expanding ground ring wave
+    const waveGeo = new THREE.PlaneGeometry(1.0, 1.0);
+    const waveMat = new THREE.ShaderMaterial({
+        uniforms: {
+            uColor: { value: new THREE.Color(colorPrimary) },
+            uOpacity: { value: 1.0 },
+        },
+        vertexShader: `
+            varying vec2 vUv;
+            void main() {
+                vUv = uv;
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            }
+        `,
+        fragmentShader: `
+            uniform vec3 uColor;
+            uniform float uOpacity;
+            varying vec2 vUv;
+            void main() {
+                vec2 uv = vUv - vec2(0.5);
+                float dist = length(uv);
+                if (dist > 0.5) discard;
+                
+                // Expanding ripple
+                float r = smoothstep(0.03, 0.0, abs(dist - 0.43));
+                gl_FragColor = vec4(uColor * 2.0, r * uOpacity * (1.0 - dist * 2.0));
+            }
+        `,
         transparent: true,
-        opacity: 1.0,
-        blending: THREE.AdditiveBlending,
         depthWrite: false,
+        blending: THREE.AdditiveBlending,
+        side: THREE.DoubleSide,
     });
-    const sw = new THREE.Mesh(swGeo, swMat);
-    sw.rotation.x = -Math.PI / 2;
-    sw.position.set(x, y + 0.05, z);
-    scene.add(sw);
+    const wave = new THREE.Mesh(waveGeo, waveMat);
+    wave.rotation.x = -Math.PI / 2;
+    wave.position.set(x, y + 0.05, z);
+    scene.add(wave);
 
-    const ringGeo = pooledRing(0.5, 0.7, 12);
+    const ringGeo = pooledRing(0.5, 0.7, 16);
     const ringMat = getPooledMaterial({
         color: colorSecondary,
         side: THREE.DoubleSide,
@@ -83,33 +101,7 @@ export function spawnTauntFX(
     ring.position.set(x, y + 0.06, z);
     scene.add(ring);
 
-    const ring2Geo = pooledRing(0.25, 0.38, 12);
-    const ring2Mat = getPooledMaterial({
-        color: colorTertiary,
-        side: THREE.DoubleSide,
-        transparent: true,
-        opacity: 0.85,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false,
-    });
-    const ring2 = new THREE.Mesh(ring2Geo, ring2Mat);
-    ring2.rotation.x = -Math.PI / 2;
-    ring2.position.set(x, y + 0.07, z);
-    scene.add(ring2);
-
-    const scorchGeo = pooledRing(0.7, 1.3, 16);
-    const scorchMat = getPooledMaterial({
-        color: colorScorch,
-        side: THREE.DoubleSide,
-        transparent: true,
-        opacity: 0.65,
-        depthWrite: false,
-    });
-    const scorch = new THREE.Mesh(scorchGeo, scorchMat);
-    scorch.rotation.x = -Math.PI / 2;
-    scorch.position.set(tx, 0.03, tz);
-    scene.add(scorch);
-
+    // Taunt target symbol
     const tTex = getTauntTex();
     const iconGeo = pooledPlane(1.0, 1.0);
     const iconMat = getPooledMaterial({
@@ -122,6 +114,7 @@ export function spawnTauntFX(
     icon.renderOrder = 10;
     scene.add(icon);
 
+    // Spark particles
     const pGeo = pooledPlane(0.25, 0.25);
     const pMat = getPooledMaterial({
         map: sparkTex,
@@ -131,7 +124,7 @@ export function spawnTauntFX(
         depthWrite: false,
         side: THREE.DoubleSide,
     });
-    const PCOUNT = Math.round(12 * fxQualityScale());
+    const PCOUNT = Math.round(16 * fxQualityScale());
     const instMesh = new THREE.InstancedMesh(pGeo, pMat, PCOUNT);
     instMesh.frustumCulled = false;
     scene.add(instMesh);
@@ -141,34 +134,24 @@ export function spawnTauntFX(
     for (let i = 0; i < PCOUNT; i++) {
         pOffsets.push(new THREE.Vector3(x, y + 0.4, z));
         const a = Math.random() * Math.PI * 2;
-        const speed = 1.2 + Math.random() * 2.5;
-        pVels.push(
-            new THREE.Vector3(
-                Math.cos(a) * speed,
-                1.5 + Math.random() * 3,
-                Math.sin(a) * speed,
-            ),
-        );
+        const speed = 1.5 + Math.random() * 3.0;
+        pVels.push(new THREE.Vector3(Math.cos(a) * speed, 2.0 + Math.random() * 4.0, Math.sin(a) * speed));
     }
 
     let age = 0;
-    const duration = 0.9;
+    const duration = 0.95;
     activeFX.push({
         update(delta) {
             age += delta;
             const t = Math.min(1, age / duration);
             if (t >= 1) {
-                scene.remove(sw);
+                scene.remove(wave);
                 scene.remove(ring);
-                scene.remove(ring2);
-                scene.remove(scorch);
                 scene.remove(icon);
                 scene.remove(instMesh);
-
-                releasePooledMaterial(swMat);
+                waveGeo.dispose();
+                waveMat.dispose();
                 releasePooledMaterial(ringMat);
-                releasePooledMaterial(ring2Mat);
-                releasePooledMaterial(scorchMat);
                 releasePooledMaterial(iconMat);
                 releasePooledMaterial(pMat);
                 instMesh.dispose();
@@ -176,31 +159,24 @@ export function spawnTauntFX(
             }
             const et = easeOutBack(t);
 
-            sw.scale.setScalar(1 + t * 4);
-            swMat.opacity = 1.0 * (1 - t) * (1 - t);
+            const scale = 1.0 + t * 6.0;
+            wave.scale.set(scale, scale, 1.0);
+            waveMat.uniforms.uOpacity.value = 1.0 - t;
 
-            const s = 1 + et * 4.5;
-            ring.scale.set(s, s, 1);
+            ring.scale.setScalar(1.0 + et * 4.0);
             ring.rotation.z += 0.05;
-            ringMat.opacity = (1 - t) * (0.35 + 0.65 * Math.sin(t * 15));
+            ringMat.opacity = (1.0 - t) * (0.35 + 0.65 * Math.sin(t * 15.0));
 
-            ring2.scale.set(s * 0.65, s * 0.65, 1);
-            ring2.rotation.z -= 0.09;
-            ring2Mat.opacity = (1 - t) * (0.3 + 0.7 * Math.sin(t * 11 + 1.5));
-
-            scorch.scale.setScalar(1.0 + t * 0.3);
-            scorchMat.opacity = 0.65 * (1 - t);
-
-            icon.position.y = ty + 2.2 + et * 1.5;
-            icon.scale.setScalar(1 + et * 0.5);
-            icon.rotation.y += 0.015;
+            // Floating pulsing emoji
+            icon.position.y = ty + 2.2 + Math.sin(age * 10.0) * 0.15;
+            icon.scale.setScalar(1.2 + Math.sin(age * 8.0) * 0.2);
             icon.quaternion.copy(camera.quaternion);
-            iconMat.opacity = Math.max(0, 1 - t * 1.2);
+            iconMat.opacity = Math.max(0, 1.0 - t * 1.1);
 
             const cq = camera.quaternion;
             for (let i = 0; i < PCOUNT; i++) {
                 pOffsets[i].addScaledVector(pVels[i], delta);
-                pVels[i].y -= 8 * delta;
+                pVels[i].y -= 9.8 * delta;
 
                 _tempObj.position.copy(pOffsets[i]);
                 _tempObj.quaternion.copy(cq);
@@ -209,13 +185,14 @@ export function spawnTauntFX(
                 instMesh.setMatrixAt(i, _tempObj.matrix);
             }
             instMesh.instanceMatrix.needsUpdate = true;
-            pMat.opacity = 1 - t;
+            pMat.opacity = 1.0 - t;
 
             return true;
         },
     });
 }
 
+// ─── Upgrade: Shield Bash (Fast expanding shockwave dome + directional energy cone) ───
 export function spawnShieldBashFX(
     scene: THREE.Scene,
     x: number,
@@ -227,55 +204,92 @@ export function spawnShieldBashFX(
     team?: number,
 ) {
     const isBlue = team === 1;
-    const colorArc = isBlue ? 0x33aaff : 0xffcc33;
+    const colorArc = isBlue ? 0x00aaff : 0xffaa00;
     const colorShock = isBlue ? 0x00dfff : 0xffdd44;
-    const colorShock2 = isBlue ? 0x3366ff : 0xffaa00;
-    const colorSparks = isBlue ? 0x66ccff : 0xffdd66;
+    const colorSparks = isBlue ? 0x88f0ff : 0xffdd88;
 
-    const start = new THREE.Vector3(x, y + 0.9, z);
-    const end = new THREE.Vector3(tx, ty + 0.9, tz);
+    const start = new THREE.Vector3(x, y + 0.8, z);
+    const end = new THREE.Vector3(tx, ty + 0.8, tz);
 
-    const arcGeo = pooledRing(0.9, 1.3, 12, -Math.PI / 3, Math.PI * 0.66);
-    const arcMat = getPooledMaterial({
-        color: colorArc,
-        side: THREE.DoubleSide,
+    // Glowing holographic shield plane projecting forward
+    const shieldGeo = new THREE.PlaneGeometry(2.0, 2.2);
+    const shieldMat = new THREE.ShaderMaterial({
+        uniforms: {
+            uTime: { value: 0 },
+            uColor: { value: new THREE.Color(colorArc) },
+            uOpacity: { value: 1.0 },
+        },
+        vertexShader: `
+            varying vec2 vUv;
+            void main() {
+                vUv = uv;
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            }
+        `,
+        fragmentShader: `
+            uniform vec3 uColor;
+            uniform float uOpacity;
+            varying vec2 vUv;
+            void main() {
+                // Shield border glow
+                float borderX = smoothstep(0.46, 0.5, abs(vUv.x - 0.5));
+                float borderY = smoothstep(0.46, 0.5, abs(vUv.y - 0.5));
+                float border = max(borderX, borderY);
+                
+                // Holographic grid scan lines
+                float grid = sin(vUv.x * 25.0) * sin(vUv.y * 25.0);
+                grid = smoothstep(0.65, 0.9, grid) * 0.35;
+                
+                gl_FragColor = vec4(uColor * 2.5, max(border, grid) * uOpacity);
+            }
+        `,
         transparent: true,
-        opacity: 0.95,
-    });
-    const wave = new THREE.Mesh(arcGeo, arcMat);
-    wave.position.copy(start);
-    wave.lookAt(end);
-    scene.add(wave);
-
-    const shockGeo = pooledRing(0.3, 0.6, 16);
-    const shockMat = getPooledMaterial({
-        color: colorShock,
-        side: THREE.DoubleSide,
-        transparent: true,
-        opacity: 0.9,
-        blending: THREE.AdditiveBlending,
         depthWrite: false,
+        blending: THREE.AdditiveBlending,
+        side: THREE.DoubleSide,
+    });
+    const shield = new THREE.Mesh(shieldGeo, shieldMat);
+    shield.position.copy(start);
+    shield.lookAt(end);
+    scene.add(shield);
+
+    // Flat ground shockwave expanding on impact point
+    const shockGeo = new THREE.PlaneGeometry(1.0, 1.0);
+    const shockMat = new THREE.ShaderMaterial({
+        uniforms: {
+            uColor: { value: new THREE.Color(colorShock) },
+            uOpacity: { value: 1.0 },
+        },
+        vertexShader: `
+            varying vec2 vUv;
+            void main() {
+                vUv = uv;
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            }
+        `,
+        fragmentShader: `
+            uniform vec3 uColor;
+            uniform float uOpacity;
+            varying vec2 vUv;
+            void main() {
+                vec2 uv = vUv - vec2(0.5);
+                float dist = length(uv);
+                if (dist > 0.5) discard;
+                float r = smoothstep(0.02, 0.0, abs(dist - 0.45));
+                gl_FragColor = vec4(uColor * 2.2, r * uOpacity * (1.0 - dist * 1.5));
+            }
+        `,
+        transparent: true,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+        side: THREE.DoubleSide,
     });
     const shock = new THREE.Mesh(shockGeo, shockMat);
     shock.rotation.x = -Math.PI / 2;
-    shock.position.set(tx, 0.04, tz);
+    shock.position.set(tx, y + 0.05, tz);
     scene.add(shock);
 
-    const shock2Geo = pooledRing(0.1, 0.3, 12);
-    const shock2Mat = getPooledMaterial({
-        color: colorShock2,
-        side: THREE.DoubleSide,
-        transparent: true,
-        opacity: 0.8,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false,
-    });
-    const shock2 = new THREE.Mesh(shock2Geo, shock2Mat);
-    shock2.rotation.x = -Math.PI / 2;
-    shock2.position.set(tx, 0.05, tz);
-    scene.add(shock2);
-
-    const sparkGeo = pooledPlane(0.3, 0.3);
+    const sparkGeo = pooledPlane(0.35, 0.35);
     const sparkMat = getPooledMaterial({
         map: sparkTex,
         color: colorSparks,
@@ -284,40 +298,23 @@ export function spawnShieldBashFX(
         depthWrite: false,
         side: THREE.DoubleSide,
     });
-    const SK = Math.round(8 * fxQualityScale());
+    const SK = Math.round(18 * fxQualityScale());
     const instMesh = new THREE.InstancedMesh(sparkGeo, sparkMat, SK);
     instMesh.frustumCulled = false;
     scene.add(instMesh);
 
     const sparkVels: THREE.Vector3[] = [];
     const sparkOffsets: THREE.Vector3[] = [];
+    const hideM = new THREE.Matrix4().makeScale(0, 0, 0);
+
     for (let i = 0; i < SK; i++) {
         sparkOffsets.push(end.clone());
         const a = Math.random() * Math.PI * 2;
-        const speed = 2 + Math.random() * 4;
-        sparkVels.push(
-            new THREE.Vector3(
-                Math.cos(a) * speed,
-                2.5 + Math.random() * 4,
-                Math.sin(a) * speed,
-            ),
-        );
+        const speed = 4.0 + Math.random() * 6.0;
+        sparkVels.push(new THREE.Vector3(Math.cos(a) * speed, 1.0 + Math.random() * 5.0, Math.sin(a) * speed));
+        instMesh.setMatrixAt(i, hideM);
     }
-
-    const flashGeo = pooledPlane(2.5, 2.5);
-    const flashMat = getPooledMaterial({
-        map: sparkTex,
-        color: 0xffffff,
-        transparent: true,
-        opacity: 0.7,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false,
-        side: THREE.DoubleSide,
-    });
-    const flash = new THREE.Mesh(flashGeo, flashMat);
-    flash.position.copy(end);
-    flash.quaternion.copy(getCamQuad());
-    scene.add(flash);
+    instMesh.instanceMatrix.needsUpdate = true;
 
     let age = 0;
     const duration = 0.45;
@@ -326,55 +323,53 @@ export function spawnShieldBashFX(
             age += delta;
             const t = Math.min(1, age / duration);
             if (t >= 1) {
-                scene.remove(wave);
+                scene.remove(shield);
                 scene.remove(shock);
-                scene.remove(shock2);
-                scene.remove(flash);
                 scene.remove(instMesh);
 
-                releasePooledMaterial(arcMat);
-                releasePooledMaterial(shockMat);
-                releasePooledMaterial(shock2Mat);
-                releasePooledMaterial(flashMat);
+                shieldGeo.dispose();
+                shieldMat.dispose();
+                shockGeo.dispose();
+                shockMat.dispose();
                 releasePooledMaterial(sparkMat);
                 instMesh.dispose();
                 return false;
             }
-            const et = easeOutCubic(t);
 
-            wave.position.lerpVectors(start, end, et);
-            wave.scale.setScalar(0.8 + et * 1.2);
-            arcMat.opacity = 0.95 * (1 - et);
+            // Slide shield plane rapidly towards target
+            const currentPos = new THREE.Vector3().lerpVectors(start, end, Math.min(1.0, t * 2.0));
+            shield.position.copy(currentPos);
+            shieldMat.uniforms.uOpacity.value = 1.0 - t;
 
-            const shockStart = Math.max(0, (t - 0.1) / 0.9);
-            shock.scale.setScalar(1 + shockStart * 3.0);
-            shockMat.opacity = 0.9 * (1 - shockStart) * (1 - shockStart);
+            // Expand ground shockwave ring
+            const ds = 0.5 + t * 5.0;
+            shock.scale.set(ds, ds, 1.0);
+            shockMat.uniforms.uOpacity.value = 1.0 - t;
 
-            shock2.scale.setScalar(1 + shockStart * 4.0);
-            shock2Mat.opacity = 0.8 * (1 - shockStart) * (1 - shockStart);
-
-            flashMat.opacity = 0.7 * (1 - t) * (1 - t);
-            flash.scale.setScalar(0.8 + t * 2);
-
+            // Instanced sparks
             const cq = camera.quaternion;
             for (let i = 0; i < SK; i++) {
-                sparkOffsets[i].addScaledVector(sparkVels[i], delta);
-                sparkVels[i].y -= 12 * delta;
+                if (t > 0.3) {
+                    const elapsed = t - 0.3;
+                    sparkOffsets[i].addScaledVector(sparkVels[i], delta);
+                    sparkVels[i].y -= 9.8 * delta; // gravity
 
-                _tempObj.position.copy(sparkOffsets[i]);
-                _tempObj.quaternion.copy(cq);
-                _tempObj.scale.setScalar(1 - et);
-                _tempObj.updateMatrix();
-                instMesh.setMatrixAt(i, _tempObj.matrix);
+                    _tempObj.position.copy(sparkOffsets[i]);
+                    _tempObj.quaternion.copy(cq);
+                    _tempObj.scale.setScalar((1.0 - elapsed / 0.7) * 0.9);
+                    _tempObj.updateMatrix();
+                    instMesh.setMatrixAt(i, _tempObj.matrix);
+                }
             }
             instMesh.instanceMatrix.needsUpdate = true;
-            sparkMat.opacity = 1 - et;
+            sparkMat.opacity = 1.0 - t;
 
             return true;
         },
     });
 }
 
+// ─── Upgrade: Evasive Leap (High jumping arc + landing heavy dust wave) ───
 export function spawnEvasiveLeapFX(
     scene: THREE.Scene,
     fx: number,
@@ -384,83 +379,63 @@ export function spawnEvasiveLeapFX(
     ty: number,
     tz: number,
 ) {
-    const startY = fy;
-    const endY = ty;
+    // We spawn a smoke particle trail along the jump trajectory
+    const start = new THREE.Vector3(fx, fy, fz);
+    const end = new THREE.Vector3(tx, ty, tz);
 
-    // ponytail: Use InstancedMesh for smoke puffs — one draw call vs 14
-    const PUFFS = Math.round(7 * fxQualityScale()); // reduced from 14
-    const smokeGeo = pooledPlane(0.5, 0.5);
-    const smokeMat = getPooledMaterial({
+    const trailGeo = pooledPlane(0.5, 0.5);
+    const trailMat = getPooledMaterial({
         map: smokeTex,
+        color: 0x88ccff,
         transparent: true,
-        opacity: 0.7,
-        depthWrite: false,
-    });
-    const smokeInst = new THREE.InstancedMesh(smokeGeo, smokeMat, PUFFS);
-    smokeInst.frustumCulled = false;
-    scene.add(smokeInst);
-
-    const pPositions: THREE.Vector3[] = [];
-    const pVels: THREE.Vector3[] = [];
-    for (let i = 0; i < PUFFS; i++) {
-        pPositions.push(new THREE.Vector3(
-            fx + (Math.random() - 0.5) * 0.5,
-            startY + 0.25,
-            fz + (Math.random() - 0.5) * 0.5,
-        ));
-        pVels.push(new THREE.Vector3(
-            (Math.random() - 0.5) * 1.0,
-            Math.random() * 1.2 + 0.4,
-            (Math.random() - 0.5) * 1.0,
-        ));
-    }
-
-    const dashGeo = pooledPlane(1.0, 4.0);
-    const dashMat = getPooledMaterial({
-        color: 0x88e0ff,
-        transparent: true,
-        opacity: 0.8,
+        opacity: 0.5,
         blending: THREE.AdditiveBlending,
         depthWrite: false,
-        side: THREE.DoubleSide,
     });
-    const dash = new THREE.Mesh(dashGeo, dashMat);
-    dash.frustumCulled = false;
-    const midX = (fx + tx) / 2,
-        midY = (startY + endY) / 2,
-        midZ = (fz + tz) / 2;
-    dash.position.set(midX, midY + 0.6, midZ);
-    dash.lookAt(tx, endY + 0.6, tz);
-    dash.rotateX(Math.PI / 2);
-    scene.add(dash);
+    const trailCount = 20;
+    const trailMesh = new THREE.InstancedMesh(trailGeo, trailMat, trailCount);
+    trailMesh.frustumCulled = false;
+    scene.add(trailMesh);
+
+    const trailOffsets: THREE.Vector3[] = [];
+    for (let i = 0; i < trailCount; i++) {
+        trailOffsets.push(new THREE.Vector3());
+    }
 
     let age = 0;
-    const duration = 0.55;
+    const duration = 0.65;
     activeFX.push({
         update(delta) {
             age += delta;
             const t = Math.min(1, age / duration);
             if (t >= 1) {
-                scene.remove(smokeInst);
-                scene.remove(dash);
-                releasePooledMaterial(smokeMat);
-                releasePooledMaterial(dashMat);
-                smokeInst.dispose();
+                scene.remove(trailMesh);
+                releasePooledMaterial(trailMat);
+                trailMesh.dispose();
+                // Spawn impact explosion on ground landing
+                spawnExplosion(scene, end, 0x00dfff, 15, 0.2);
                 return false;
             }
-            const et = easeOutCubic(t);
+
             const cq = camera.quaternion;
-            for (let i = 0; i < PUFFS; i++) {
-                pPositions[i].addScaledVector(pVels[i], delta);
-                _tempObj.position.copy(pPositions[i]);
+            // Draw parabolic trail
+            for (let i = 0; i < trailCount; i++) {
+                const subT = Math.min(1, (i / trailCount) * t);
+                const pos = new THREE.Vector3().lerpVectors(start, end, subT);
+                
+                // Add jump height peak
+                const h = 4.0;
+                pos.y += Math.sin(subT * Math.PI) * h;
+
+                _tempObj.position.copy(pos);
                 _tempObj.quaternion.copy(cq);
-                _tempObj.scale.setScalar(0.5 + t * 1.2);
+                _tempObj.scale.setScalar((1.0 - t) * (0.8 + i * 0.05));
                 _tempObj.updateMatrix();
-                smokeInst.setMatrixAt(i, _tempObj.matrix);
+                trailMesh.setMatrixAt(i, _tempObj.matrix);
             }
-            smokeInst.instanceMatrix.needsUpdate = true;
-            smokeMat.opacity = 0.7 * (1 - et);
-            dashMat.opacity = 0.5 * (1 - et);
+            trailMesh.instanceMatrix.needsUpdate = true;
+            trailMat.opacity = 0.6 * (1.0 - t);
+
             return true;
         },
     });

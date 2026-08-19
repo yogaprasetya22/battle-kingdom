@@ -3,6 +3,8 @@
  */
 
 import * as THREE from "three";
+import * as SkeletonUtils from "three/examples/jsm/utils/SkeletonUtils.js";
+import { getUnits } from "../core/UnitRenderer";
 import { camera } from "../core/scene";
 import {
     easeOutCubic,
@@ -17,6 +19,8 @@ import {
     _tempObj,
     getCamQuad,
     spawnExplosion,
+    getPooledMaterial,
+    releasePooledMaterial,
 } from "./FXCore";
 import { soundFX } from "../core/SoundFX";
 
@@ -508,6 +512,71 @@ export function spawnShadowStepFX(
             return true;
         },
     });
+
+    // Spawn neon blue holographic afterimage ghost trails along the teleport path
+    let baseMesh: THREE.Object3D | null = null;
+    const units = getUnits();
+    let minDist = 3.0;
+    for (const unit of units) {
+        if (unit && unit.root) {
+            const dist = unit.root.position.distanceTo(endPos);
+            if (dist < minDist) {
+                minDist = dist;
+                baseMesh = unit.root;
+            }
+        }
+    }
+
+    if (baseMesh) {
+        const pathDist = startPos.distanceTo(endPos);
+        const stepSize = 1.8; // Spawn a ghost every 1.8 meters for a dense, smooth trail
+        const steps = Math.max(1, Math.floor(pathDist / stepSize));
+        for (let i = 1; i <= steps; i++) {
+            const t = i / (steps + 1);
+            const ghostPos = new THREE.Vector3().lerpVectors(startPos, endPos, t);
+            
+            const ghost = SkeletonUtils.clone(baseMesh);
+            ghost.position.copy(ghostPos);
+            ghost.scale.copy(baseMesh.scale);
+            
+            const ghostMat = new THREE.MeshBasicMaterial({
+                color: 0x00dfff, // Neon blue holographic
+                transparent: true,
+                opacity: 0.5,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false,
+            });
+
+            ghost.traverse((child) => {
+                if ((child as THREE.Mesh).isMesh) {
+                    (child as THREE.Mesh).material = ghostMat;
+                }
+            });
+
+            scene.add(ghost);
+
+            let gAge = 0;
+            const gDuration = 0.35;
+            activeFX.push({
+                update(delta) {
+                    gAge += delta;
+                    const factor = gAge / gDuration;
+                    if (factor >= 1) {
+                        scene.remove(ghost);
+                        ghostMat.dispose();
+                        ghost.traverse((child) => {
+                            if ((child as THREE.Mesh).isMesh) {
+                                (child as THREE.Mesh).geometry.dispose();
+                            }
+                        });
+                        return false;
+                    }
+                    ghostMat.opacity = 0.5 * (1.0 - factor);
+                    return true;
+                }
+            });
+        }
+    }
 }
 
 export function spawnBackstabFX(
@@ -630,64 +699,106 @@ export function spawnHolySanctuaryFX(
 ) {
     const isBlue = team === 1;
     const colorRing = isBlue ? 0x00dfff : 0xffff00;
-    const colorPillar = isBlue ? 0xaae8ff : 0xffffcc;
+    const colorDome = isBlue ? 0xaae8ff : 0xffffaa;
     const colorSpark = isBlue ? 0x88ddff : 0xffdd66;
 
-    const ringGeo = new THREE.RingGeometry(0.4, 1.5, 32);
-    const ringMat = new THREE.MeshBasicMaterial({
-        color: colorRing,
-        side: THREE.DoubleSide,
+    // Glowing runic circle on the ground
+    const ringGeo = new THREE.PlaneGeometry(3.5, 3.5);
+    const ringMat = new THREE.ShaderMaterial({
+        uniforms: {
+            uTime: { value: 0 },
+            uColor: { value: new THREE.Color(colorRing) },
+            uOpacity: { value: 1.0 },
+        },
+        vertexShader: `
+            varying vec2 vUv;
+            void main() {
+                vUv = uv;
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            }
+        `,
+        fragmentShader: `
+            uniform vec3 uColor;
+            uniform float uOpacity;
+            uniform float uTime;
+            varying vec2 vUv;
+            void main() {
+                vec2 uv = vUv - vec2(0.5);
+                float dist = length(uv);
+                if (dist > 0.5) discard;
+                float r1 = smoothstep(0.015, 0.0, abs(dist - 0.44));
+                float r2 = smoothstep(0.01, 0.0, abs(dist - 0.32));
+                float rad = atan(uv.y, uv.x);
+                float spokes = step(0.96, sin(rad * 8.0 - uTime * 3.0)) * r1;
+                gl_FragColor = vec4(uColor * 2.0, (r1 + r2 + spokes) * uOpacity * (1.0 - dist * 1.8));
+            }
+        `,
         transparent: true,
-        opacity: 0.8,
-        blending: THREE.AdditiveBlending,
         depthWrite: false,
+        blending: THREE.AdditiveBlending,
+        side: THREE.DoubleSide,
     });
     const ring = new THREE.Mesh(ringGeo, ringMat);
     ring.rotation.x = -Math.PI / 2;
     ring.position.set(centerPos.x, centerPos.y + 0.02, centerPos.z);
     scene.add(ring);
 
-    const PILLARS = 6;
-    const pillars: THREE.Mesh[] = [];
-    for (let i = 0; i < PILLARS; i++) {
-        const pillarGeo = new THREE.CylinderGeometry(
-            0.08,
-            0.15,
-            2.0,
-            8,
-            1,
-            false,
-        );
-        const pillarMat = new THREE.MeshBasicMaterial({
-            color: colorPillar,
-            transparent: true,
-            opacity: 0.7,
-            blending: THREE.AdditiveBlending,
-            depthWrite: false,
-        });
-        const pillar = new THREE.Mesh(pillarGeo, pillarMat);
-        const angle = (i / PILLARS) * Math.PI * 2;
-        const radius = 1.0;
-        pillar.position.set(
-            centerPos.x + Math.cos(angle) * radius,
-            centerPos.y + 1.0,
-            centerPos.z + Math.sin(angle) * radius,
-        );
-        scene.add(pillar);
-        pillars.push(pillar);
-    }
+    // Glowing Hemispherical Sanctuary Dome shell
+    const domeGeo = new THREE.SphereGeometry(1.8, 24, 18, 0, Math.PI * 2, 0, Math.PI / 2);
+    const domeMat = new THREE.ShaderMaterial({
+        uniforms: {
+            uTime: { value: 0 },
+            uColor: { value: new THREE.Color(colorDome) },
+            uOpacity: { value: 1.0 },
+        },
+        vertexShader: `
+            varying vec3 vNormal;
+            varying vec3 vViewPos;
+            void main() {
+                vNormal = normalize(normalMatrix * normal);
+                vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+                vViewPos = -mvPosition.xyz;
+                gl_Position = projectionMatrix * mvPosition;
+            }
+        `,
+        fragmentShader: `
+            uniform vec3 uColor;
+            uniform float uOpacity;
+            uniform float uTime;
+            varying vec3 vNormal;
+            varying vec3 vViewPos;
+            void main() {
+                vec3 normal = normalize(vNormal);
+                viewDir = normalize(vViewPos);
+                
+                // Fresnel glow
+                float fresnel = pow(1.0 - max(0.0, dot(normal, viewDir)), 3.0);
+                
+                // Pulsing vertical stripe grid lines
+                float stripes = sin(vViewPos.y * 8.0 - uTime * 4.0) * 0.15 + 0.85;
 
-    // Instanced rising holy star particles (reusing starTex)
-    const starCount = 15;
+                gl_FragColor = vec4(uColor * 2.2, fresnel * stripes * uOpacity * 0.45);
+            }
+        `,
+        transparent: true,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+        side: THREE.DoubleSide,
+    });
+    const dome = new THREE.Mesh(domeGeo, domeMat);
+    dome.position.copy(centerPos);
+    scene.add(dome);
+
+    // Star particles
+    const starCount = 20;
     const starGeo = pooledPlane(0.35, 0.35);
-    const starMat = new THREE.MeshBasicMaterial({
+    const starMat = getPooledMaterial({
         map: starTex,
         color: colorSpark,
         transparent: true,
-        opacity: 0.9,
         blending: THREE.AdditiveBlending,
         depthWrite: false,
-        side: THREE.DoubleSide
+        side: THREE.DoubleSide,
     });
     const starMesh = new THREE.InstancedMesh(starGeo, starMat, starCount);
     starMesh.frustumCulled = false;
@@ -698,7 +809,7 @@ export function spawnHolySanctuaryFX(
     const starScales: number[] = [];
     for (let i = 0; i < starCount; i++) {
         const angle = Math.random() * Math.PI * 2;
-        const dist = Math.random() * 1.4;
+        const dist = Math.random() * 1.5;
         starPositions.push(new THREE.Vector3(
             centerPos.x + Math.cos(angle) * dist,
             centerPos.y + 0.1 + Math.random() * 0.5,
@@ -706,14 +817,14 @@ export function spawnHolySanctuaryFX(
         ));
         starVels.push(new THREE.Vector3(
             (Math.random() - 0.5) * 0.2,
-            1.2 + Math.random() * 1.5,
+            1.5 + Math.random() * 2.0,
             (Math.random() - 0.5) * 0.2
         ));
         starScales.push(0.6 + Math.random() * 0.6);
     }
 
     let age = 0;
-    const duration = 1.0;
+    const duration = 2.0; // Stay for 2 seconds
 
     activeFX.push({
         update(delta) {
@@ -722,30 +833,24 @@ export function spawnHolySanctuaryFX(
 
             if (t >= 1) {
                 scene.remove(ring);
-                pillars.forEach((p) => scene.remove(p));
+                scene.remove(dome);
                 scene.remove(starMesh);
                 ringGeo.dispose();
                 ringMat.dispose();
-                pillars.forEach((p) => {
-                    (p.material as THREE.MeshBasicMaterial).dispose();
-                    p.geometry.dispose();
-                });
-                starGeo.dispose();
-                starMat.dispose();
+                domeGeo.dispose();
+                domeMat.dispose();
+                releasePooledMaterial(starMat);
+                starMesh.dispose();
                 return false;
             }
 
-            ring.scale.setScalar(1 + t * 1.5);
-            ring.rotation.z += 0.02;
-            ringMat.opacity = 0.8 * (1 - t);
+            ringMat.uniforms.uTime.value = age;
+            ringMat.uniforms.uOpacity.value = 1.0 - t;
 
-            for (let i = 0; i < pillars.length; i++) {
-                pillars[i].scale.setScalar(1 + Math.sin(t * Math.PI) * 0.3);
-                (pillars[i].material as THREE.MeshBasicMaterial).opacity =
-                    0.7 * (1 - t);
-            }
+            domeMat.uniforms.uTime.value = age;
+            domeMat.uniforms.uOpacity.value = 1.0 - t;
+            dome.scale.setScalar(1.0 + Math.sin(age * 3.0) * 0.02);
 
-            // Update rising star positions & matrices
             const cq = camera.quaternion;
             const tempObj = new THREE.Object3D();
             for (let i = 0; i < starCount; i++) {
@@ -759,7 +864,7 @@ export function spawnHolySanctuaryFX(
                 starMesh.setMatrixAt(i, tempObj.matrix);
             }
             starMesh.instanceMatrix.needsUpdate = true;
-            starMat.opacity = 0.9 * (1 - t);
+            starMat.opacity = 0.9 * (1.0 - t);
 
             return true;
         },

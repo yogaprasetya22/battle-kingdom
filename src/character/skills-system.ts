@@ -96,26 +96,26 @@ export class SkillsSystem {
       }
     };
 
-    // Skill HUD — di atas #controls bar (fixed bottom: 2rem + ~70px = controls height)
+    // Skill HUD — di atas #controls bar (fixed bottom: 1.25rem + ~54px = controls height)
     this.cdIndicator = document.createElement('div');
     this.cdIndicator.id = 'skill-hud';
     this.cdIndicator.style.cssText = `
       position: fixed;
-      bottom: calc(2rem + 72px);
+      bottom: calc(1.25rem + 54px);
       left: 50%;
       transform: translateX(-50%);
       display: flex;
-      gap: 8px;
+      gap: 6px;
       z-index: 11;
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       pointer-events: none;
-      background: rgba(15, 23, 42, 0.65);
-      padding: 8px 12px;
-      border-radius: 14px;
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
+      background: rgba(15, 23, 42, 0.3);
+      padding: 6px 10px;
+      border-radius: 12px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
     `;
     document.body.appendChild(this.cdIndicator);
     this.updateUI();
@@ -206,15 +206,15 @@ export class SkillsSystem {
 
       const item = document.createElement('div');
       item.style.cssText = `
-        width: 52px;
-        height: 52px;
+        width: 44px;
+        height: 44px;
         background-image: url('${iconUrl}');
         background-size: cover;
         background-position: center;
         border: 2px solid ${isReady ? activeColor : 'rgba(239, 68, 68, 0.5)'};
-        border-radius: 10px;
+        border-radius: 8px;
         position: relative;
-        box-shadow: inset 0 0 12px rgba(0,0,0,0.7), 0 4px 12px rgba(0,0,0,0.4);
+        box-shadow: inset 0 0 10px rgba(0,0,0,0.6), 0 3px 8px rgba(0,0,0,0.3);
         transition: border-color 0.2s ease, opacity 0.2s ease;
         opacity: ${isReady ? '1' : '0.65'};
       `;

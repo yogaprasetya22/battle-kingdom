@@ -6,6 +6,7 @@ export const CHARACTER_CONFIG = {
     jumpForce: 10.0,             // Vertical impulse force on jump
     gravity: -28.0,              // Gravity acceleration (m/s^2)
     friction: 12.0,              // Rotation interpolation alignment lerp speed
+    dodgeCooldown: 1.0,          // Cooldown between dodges (seconds)
   },
 
   // Combat stats
@@ -16,6 +17,8 @@ export const CHARACTER_CONFIG = {
     attackAnimScale: 6.0,        // Speed multiplier for basic attack animation clip
     attackLockDuration: 0.12,    // Animation lock duration for basic attacks (seconds)
     damage: 18000,                 // Damage for basic attack arrow
+    critChance: 0.60,            // Hero critical strike chance (60%)
+    critDamage: 2.0,             // Hero critical strike multiplier (2.0x)
   },
 
   // Projectile system parameters

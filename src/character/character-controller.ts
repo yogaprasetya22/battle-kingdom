@@ -40,7 +40,7 @@ export class CharacterController {
 
   // Camera Settings (Spring arm / Orbit style)
   public cameraOffset = new THREE.Vector3(0, 2.5, 5);
-  public cameraDistance = 8.0; // Comfort follow range (zoom default)
+  public cameraDistance = 11.0; // Comfort follow range (zoom default)
   private cameraTargetRotation = new THREE.Euler(0, 0, 0, 'YXZ');
   private mouseSensitivity = 0.002;
   private smoothedLookAt = new THREE.Vector3();
@@ -54,6 +54,23 @@ export class CharacterController {
     Space: false,
     ShiftLeft: false,
   };
+
+  private lastTapTimes: { [key: string]: number } = {
+    KeyW: 0,
+    KeyA: 0,
+    KeyS: 0,
+    KeyD: 0,
+  };
+  private isDodging = false;
+  private dodgeDirection = new THREE.Vector3();
+  private dodgeTimeLeft = 0;
+  private activeGhosts: Array<{
+    ghost: THREE.Object3D;
+    materials: THREE.Material[];
+    update: (delta: number) => boolean;
+  }> = [];
+  private ghostSpawnTimer = 0;
+  private dodgeCooldownLeft = 0;
 
   // Temp variables for math to avoid garbage collection
   private tempSegment = new THREE.Line3();
@@ -100,10 +117,25 @@ export class CharacterController {
 
   private initInputs() {
     window.addEventListener('keydown', (e) => {
+      if (e.repeat) return;
+
       if (e.code === 'KeyW' || e.code === 'ArrowUp') this.keys.KeyW = true;
       if (e.code === 'KeyA' || e.code === 'ArrowLeft') this.keys.KeyA = true;
       if (e.code === 'KeyS' || e.code === 'ArrowDown') this.keys.KeyS = true;
       if (e.code === 'KeyD' || e.code === 'ArrowRight') this.keys.KeyD = true;
+
+      if (['KeyW', 'KeyA', 'KeyS', 'KeyD'].includes(e.code)) {
+        const now = performance.now();
+        if (now - this.lastTapTimes[e.code] < 260) {
+          this.triggerDodge(e.code);
+        }
+        this.lastTapTimes[e.code] = now;
+      }
+
+      if (e.code === 'KeyE') {
+        this.triggerDodgeByKey();
+      }
+
       if (e.code === 'Space') {
         this.keys.Space = true;
         this.onSpacePressed();
@@ -135,11 +167,20 @@ export class CharacterController {
   }
 
   private initMouseLook() {
-    // Lock pointer only on canvas click in Player Mode
-    window.addEventListener('click', (e) => {
+    // Lock pointer only on right-click (button === 2) on canvas in Player Mode
+    window.addEventListener('mousedown', (e) => {
+      if (e.button !== 2) return;
       const canvas = document.querySelector('canvas');
       if (this.enabled && e.target === canvas) {
         canvas?.requestPointerLock?.();
+      }
+    });
+
+    // Prevent default context menu on right-click on the canvas
+    window.addEventListener('contextmenu', (e) => {
+      const canvas = document.querySelector('canvas');
+      if (this.enabled && e.target === canvas) {
+        e.preventDefault();
       }
     });
 
@@ -325,6 +366,25 @@ export class CharacterController {
         this.actions['attack'].timeScale = CHARACTER_CONFIG.combat.attackAnimScale; // Configured speed scale for 193 ASPD
       }
 
+      const dodgeForwardClip = pickClip(["Dodge_Forward"]);
+      const dodgeBackwardClip = pickClip(["Dodge_Backward"]);
+      const dodgeLeftClip = pickClip(["Dodge_Left"]);
+      const dodgeRightClip = pickClip(["Dodge_Right"]);
+
+      const setDodgeAction = (actionName: string, clip: THREE.AnimationClip) => {
+        if (!this.mixer) return;
+        const act = this.mixer.clipAction(clip);
+        act.setLoop(THREE.LoopOnce, 1);
+        act.clampWhenFinished = true;
+        act.timeScale = 1.35;
+        this.actions[actionName] = act;
+      };
+
+      if (dodgeForwardClip) setDodgeAction('dodge_forward', dodgeForwardClip);
+      if (dodgeBackwardClip) setDodgeAction('dodge_backward', dodgeBackwardClip);
+      if (dodgeLeftClip) setDodgeAction('dodge_left', dodgeLeftClip);
+      if (dodgeRightClip) setDodgeAction('dodge_right', dodgeRightClip);
+
       // Start by playing idle animation
       this.playAnimationState('idle');
 
@@ -406,6 +466,127 @@ export class CharacterController {
     this.currentActionName = name;
   }
 
+  private triggerDodgeByKey() {
+    if (this.isDodging || !this.isGrounded || this.dodgeCooldownLeft > 0) return;
+
+    let animName = 'dodge_backward'; // Default if no key is pressed
+    let localDir = new THREE.Vector3(0, 0, 1); // Default backward
+
+    const moveX = (this.keys.KeyD ? 1 : 0) - (this.keys.KeyA ? 1 : 0);
+    const moveZ = (this.keys.KeyS ? 1 : 0) - (this.keys.KeyW ? 1 : 0);
+
+    if (moveX !== 0 || moveZ !== 0) {
+      localDir.set(moveX, 0, moveZ).normalize();
+      
+      // Determine dominant animation based on current active movement input keys
+      if (Math.abs(moveX) >= Math.abs(moveZ)) {
+        animName = moveX > 0 ? 'dodge_right' : 'dodge_left';
+      } else {
+        animName = moveZ > 0 ? 'dodge_backward' : 'dodge_forward';
+      }
+    }
+
+    const camRotationY = this.cameraTargetRotation.y;
+    this.dodgeDirection.copy(localDir).normalize().applyAxisAngle(new THREE.Vector3(0, 1, 0), camRotationY);
+
+    this.isDodging = true;
+    this.dodgeTimeLeft = 0.45;
+    this.animationLockTime = 0.45;
+    this.dodgeCooldownLeft = CHARACTER_CONFIG.physics.dodgeCooldown || 1.0;
+
+    if (this.playerMesh) {
+      this.playerMesh.rotation.y = Math.atan2(this.dodgeDirection.x, this.dodgeDirection.z);
+    }
+
+    this.playAnimationState(animName);
+
+    this.ghostSpawnTimer = 0.05;
+    this.spawnGhostTrail();
+  }
+
+  private triggerDodge(key: string) {
+    if (this.isDodging || !this.isGrounded || this.dodgeCooldownLeft > 0) return;
+
+    let animName = 'dodge_forward';
+    let localDir = new THREE.Vector3(0, 0, -1); // W
+
+    if (key === 'KeyS') {
+      animName = 'dodge_backward';
+      localDir.set(0, 0, 1);
+    } else if (key === 'KeyA') {
+      animName = 'dodge_left';
+      localDir.set(-1, 0, 0);
+    } else if (key === 'KeyD') {
+      animName = 'dodge_right';
+      localDir.set(1, 0, 0);
+    }
+
+    const camRotationY = this.cameraTargetRotation.y;
+    this.dodgeDirection.copy(localDir).normalize().applyAxisAngle(new THREE.Vector3(0, 1, 0), camRotationY);
+
+    this.isDodging = true;
+    this.dodgeTimeLeft = 0.45;
+    this.animationLockTime = 0.45;
+    this.dodgeCooldownLeft = CHARACTER_CONFIG.physics.dodgeCooldown || 1.0;
+
+    if (this.playerMesh) {
+      this.playerMesh.rotation.y = Math.atan2(this.dodgeDirection.x, this.dodgeDirection.z);
+    }
+
+    this.playAnimationState(animName);
+
+    this.ghostSpawnTimer = 0.05;
+    this.spawnGhostTrail();
+  }
+
+  private spawnGhostTrail() {
+    if (!this.playerMesh) return;
+    const ghost = SkeletonUtils.clone(this.playerMesh);
+    ghost.position.copy(this.position);
+    ghost.rotation.copy(this.playerMesh.rotation);
+    this.scene.add(ghost);
+
+    const materials: THREE.Material[] = [];
+    ghost.traverse((child) => {
+      if ((child as THREE.Mesh).isMesh) {
+        const mesh = child as THREE.Mesh;
+        const ghostMat = new THREE.MeshBasicMaterial({
+          color: 0x00dfff,
+          transparent: true,
+          opacity: 0.35,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+        });
+        mesh.material = ghostMat;
+        materials.push(ghostMat);
+      }
+    });
+
+    let age = 0;
+    const duration = 0.38;
+    const scene = this.scene;
+    this.activeGhosts.push({
+      ghost,
+      materials,
+      update(delta: number) {
+        age += delta;
+        const t = age / duration;
+        if (t >= 1) {
+          scene.remove(ghost);
+          materials.forEach(m => m.dispose());
+          ghost.traverse(c => {
+            if ((c as THREE.Mesh).isMesh) (c as THREE.Mesh).geometry.dispose();
+          });
+          return false;
+        }
+        materials.forEach(m => {
+          m.opacity = 0.35 * (1.0 - t);
+        });
+        return true;
+      }
+    });
+  }
+
   private airTime = 0;
   private animationLockTime = 0;
   private jumpCount = 0;
@@ -452,6 +633,18 @@ export class CharacterController {
   public update(delta: number) {
     if (delta > 0.1) delta = 0.1;
 
+    // Update active ghost afterimages
+    for (let i = this.activeGhosts.length - 1; i >= 0; i--) {
+      if (!this.activeGhosts[i].update(delta)) {
+        this.activeGhosts.splice(i, 1);
+      }
+    }
+
+    // Tick down dodge cooldown
+    if (this.dodgeCooldownLeft > 0) {
+      this.dodgeCooldownLeft -= delta;
+    }
+
     // Tick down speed buff duration
     if (this.speedBuffDuration > 0) {
       this.speedBuffDuration -= delta;
@@ -464,9 +657,27 @@ export class CharacterController {
     const moveZ = (this.keys.KeyS ? 1 : 0) - (this.keys.KeyW ? 1 : 0);
     const inputDirection = this.tempVector.set(moveX, 0, moveZ).normalize();
     inputDirection.applyAxisAngle(new THREE.Vector3(0, 1, 0), camRotationY);
-    const currentSpeed = this.speed * (this.keys.ShiftLeft ? this.sprintMultiplier : 1) * this.speedBuff;
-    this.velocity.x = inputDirection.x * currentSpeed;
-    this.velocity.z = inputDirection.z * currentSpeed;
+
+    if (this.isDodging) {
+      this.dodgeTimeLeft -= delta;
+      this.ghostSpawnTimer -= delta;
+      if (this.ghostSpawnTimer <= 0) {
+        this.ghostSpawnTimer = 0.07;
+        this.spawnGhostTrail();
+      }
+
+      const dodgeSpeed = this.speed * 2.8;
+      this.velocity.x = this.dodgeDirection.x * dodgeSpeed;
+      this.velocity.z = this.dodgeDirection.z * dodgeSpeed;
+
+      if (this.dodgeTimeLeft <= 0) {
+        this.isDodging = false;
+      }
+    } else {
+      const currentSpeed = this.speed * (this.keys.ShiftLeft ? this.sprintMultiplier : 1) * this.speedBuff;
+      this.velocity.x = inputDirection.x * currentSpeed;
+      this.velocity.z = inputDirection.z * currentSpeed;
+    }
 
     // 2. Vertical — only integrate when airborne to avoid ping-pong jitter
     if (this.isGrounded) {
@@ -487,7 +698,11 @@ export class CharacterController {
     this.playerGroup.position.copy(this.position);
 
     // 4. Rotate Character Mesh towards movement direction
-    if (this.playerMesh && inputDirection.lengthSq() > 0.01) {
+    if (this.isDodging) {
+      if (this.playerMesh) {
+        this.playerMesh.rotation.y = Math.atan2(this.dodgeDirection.x, this.dodgeDirection.z);
+      }
+    } else if (this.playerMesh && inputDirection.lengthSq() > 0.01) {
       const targetAngle = Math.atan2(inputDirection.x, inputDirection.z);
       const currentAngle = this.playerMesh.rotation.y;
       let diff = targetAngle - currentAngle;

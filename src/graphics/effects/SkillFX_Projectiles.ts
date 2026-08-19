@@ -1,8 +1,3 @@
-/**
- * SkillFX_Projectiles.ts — Arrow Volley, Fireball, Double Shot, Basic Attack
- * Extracted untuk mengurangi memory pressure selama type checking
- */
-
 import * as THREE from "three";
 import { camera } from "../core/scene";
 import {
@@ -22,13 +17,57 @@ import {
     releasePooledMaterial,
     _tempObj,
     spawnExplosion,
-    spawnGasExplosionFX,
 } from "./FXCore";
 
-// Cached shader materials for fireball trail particles — avoids per-fireball GPU shader compilation
-const _flameMatCache = new Map<string, THREE.ShaderMaterial>();
-const _smokeMatCache = new Map<string, THREE.ShaderMaterial>();
+// ─── Load Premium Assets ─────────────────────────────────────────────────────
+const texLoader = new THREE.TextureLoader();
+const blueEmbersTex = texLoader.load('/vfx/cartoon-blue-flamethrower/tex_2.png');
+const blueFlameTex = texLoader.load('/vfx/cartoon-blue-flamethrower/tex_3.png');
+const blueExplosionTex = texLoader.load('/vfx/cartoon-blue-gas-explosion/tex_3.png');
+const subSmokeTex = texLoader.load('/vfx/subemitter2/tex_0.png');
+const subEmbersTex = texLoader.load('/vfx/subemitter2/tex_1.png');
 
+// Helper to create instanced flipbook shader material
+function makeFlipbookMat(tex: THREE.Texture, uTiles: number, vTiles: number, colorOverride?: THREE.Color): THREE.ShaderMaterial {
+    return new THREE.ShaderMaterial({
+        uniforms: {
+            uMap: { value: tex },
+            uTiles: { value: new THREE.Vector2(uTiles, vTiles) },
+            uColor: { value: colorOverride || new THREE.Color(1, 1, 1) },
+        },
+        vertexShader: `
+            attribute float aFrame;
+            attribute float aOpacity;
+            varying vec2 vUv;
+            varying float vOpacity;
+            uniform vec2 uTiles;
+            void main() {
+                float c = mod(aFrame, uTiles.x);
+                float r = floor(aFrame / uTiles.x);
+                vUv = vec2((c + uv.x) / uTiles.x, 1.0 - (r + 1.0 - uv.y) / uTiles.y);
+                vOpacity = aOpacity;
+                gl_Position = projectionMatrix * modelViewMatrix * instanceMatrix * vec4(position, 1.0);
+            }
+        `,
+        fragmentShader: `
+            uniform sampler2D uMap;
+            uniform vec3 uColor;
+            varying vec2 vUv;
+            varying float vOpacity;
+            void main() {
+                vec4 tex = texture2D(uMap, vUv);
+                if (tex.a < 0.02) discard;
+                gl_FragColor = vec4(tex.rgb * uColor, tex.a * vOpacity);
+            }
+        `,
+        transparent: true,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+        side: THREE.DoubleSide,
+    });
+}
+
+// ─── Upgrade: Arrow Volley (Runic circle, falling arrows with ribbon tracers & ground crystal spark/smoke puffs) ───
 export function spawnArrowVolleyFX(
     scene: THREE.Scene,
     centerX: number,
@@ -38,18 +77,46 @@ export function spawnArrowVolleyFX(
     team?: number,
 ): void {
     const isBlue = team === 1;
-    const colorCircle = isBlue ? 0x00aaff : 0xff4433;
-    const colorRune = isBlue ? 0x88ccff : 0xffaa44;
-    const colorStar = isBlue ? 0x99ddff : 0xffdd66;
+    const colorCircle = isBlue ? 0x00dfff : 0xff3300;
+    const colorRune = isBlue ? 0xaae8ff : 0xffdd44;
+    const colorStar = isBlue ? 0xffffff : 0xffeedd;
 
-    const ringGeo = new THREE.PlaneGeometry(radius * 2.4, radius * 2.4);
-    const ringMat = new THREE.MeshBasicMaterial({
-        map: circleTex,
-        color: colorCircle,
+    // Glowing runic targeting circle on the ground
+    const ringGeo = new THREE.PlaneGeometry(radius * 2.5, radius * 2.5);
+    const ringMat = new THREE.ShaderMaterial({
+        uniforms: {
+            uTime: { value: 0 },
+            uColor: { value: new THREE.Color(colorCircle) },
+            uOpacity: { value: 1.0 },
+        },
+        vertexShader: `
+            varying vec2 vUv;
+            void main() {
+                vUv = uv;
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            }
+        `,
+        fragmentShader: `
+            uniform vec3 uColor;
+            uniform float uOpacity;
+            uniform float uTime;
+            varying vec2 vUv;
+            void main() {
+                vec2 uv = vUv - vec2(0.5);
+                float dist = length(uv);
+                if (dist > 0.5) discard;
+
+                float ring = smoothstep(0.015, 0.0, abs(dist - 0.44));
+                float ringInner = smoothstep(0.01, 0.0, abs(dist - 0.32));
+                float rad = atan(uv.y, uv.x);
+                float spokes = step(0.96, sin(rad * 12.0 + uTime * 3.0)) * ring;
+
+                gl_FragColor = vec4(uColor * 2.2, (ring + ringInner * 0.4 + spokes) * uOpacity * (1.0 - dist * 1.5));
+            }
+        `,
         transparent: true,
-        opacity: 0.95,
-        blending: THREE.AdditiveBlending,
         depthWrite: false,
+        blending: THREE.AdditiveBlending,
         side: THREE.DoubleSide,
     });
     const ring = new THREE.Mesh(ringGeo, ringMat);
@@ -57,24 +124,8 @@ export function spawnArrowVolleyFX(
     ring.position.set(centerX, groundY + 0.03, centerZ);
     scene.add(ring);
 
-    const innerGeo = new THREE.PlaneGeometry(radius * 1.6, radius * 1.6);
-    const innerMat = new THREE.MeshBasicMaterial({
-        map: circleTex,
-        color: colorRune,
-        transparent: true,
-        opacity: 0.7,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false,
-        side: THREE.DoubleSide,
-    });
-    const inner = new THREE.Mesh(innerGeo, innerMat);
-    inner.rotation.x = -Math.PI / 2;
-    inner.position.set(centerX, groundY + 0.04, centerZ);
-    scene.add(inner);
-
     const COUNT = 60;
-    const arrowGeo = new THREE.CylinderGeometry(0.01, 0.035, 1.0, 4);
-
+    const arrowGeo = new THREE.CylinderGeometry(0.01, 0.035, 1.2, 4);
     const arrowMat = new THREE.MeshBasicMaterial({
         color: colorStar,
         transparent: true,
@@ -86,123 +137,259 @@ export function spawnArrowVolleyFX(
     arrows.frustumCulled = false;
     scene.add(arrows);
 
-    const impactRingGeo = new THREE.PlaneGeometry(1.2, 1.2);
-    const impactRingMat = new THREE.MeshBasicMaterial({
-        map: starTex,
-        color: colorStar,
+    // Glowing ribbon trails using an instanced mesh of cylinders
+    const tracerGeo = new THREE.CylinderGeometry(0.02, 0.02, 3.0, 4);
+    const tracerMat = new THREE.MeshBasicMaterial({
+        color: colorRune,
         transparent: true,
+        opacity: 0.45,
         blending: THREE.AdditiveBlending,
         depthWrite: false,
-        side: THREE.DoubleSide,
     });
-    const impacts = new THREE.InstancedMesh(
-        impactRingGeo,
-        impactRingMat,
-        COUNT,
-    );
+    const tracers = new THREE.InstancedMesh(tracerGeo, tracerMat, COUNT);
+    tracers.frustumCulled = false;
+    scene.add(tracers);
+
+    // Instanced crystal shards geometry
+    const SHARDS_PER_ARROW = 3;
+    const shardCount = COUNT * SHARDS_PER_ARROW;
+    const shardGeo = new THREE.DodecahedronGeometry(0.12, 0);
+    const shardMat = new THREE.ShaderMaterial({
+        uniforms: {
+            uColor: { value: new THREE.Color(isBlue ? 0x00dfff : 0xffaa00) },
+            uOpacity: { value: 1.0 },
+        },
+        vertexShader: `
+            varying float vNormalDot;
+            void main() {
+                vec3 norm = normalize(normalMatrix * normal);
+                vec4 mvPosition = modelViewMatrix * instanceMatrix * vec4(position, 1.0);
+                vNormalDot = abs(dot(norm, normalize(-mvPosition.xyz)));
+                gl_Position = projectionMatrix * mvPosition;
+            }
+        `,
+        fragmentShader: `
+            uniform vec3 uColor;
+            uniform float uOpacity;
+            varying float vNormalDot;
+            void main() {
+                float highlight = pow(1.0 - vNormalDot, 3.0);
+                gl_FragColor = vec4(mix(uColor, vec3(1.0), highlight * 0.7) * 2.2, uOpacity);
+            }
+        `,
+        transparent: true,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+    });
+    const shardMesh = new THREE.InstancedMesh(shardGeo, shardMat, shardCount);
+    shardMesh.frustumCulled = false;
+    scene.add(shardMesh);
+
+    // Ground impact smoke flipbook particles (2x2 layout from subemitter2/tex_0.png)
+    const impactGeo = new THREE.PlaneGeometry(1.6, 1.6);
+    const impactMat = makeFlipbookMat(subSmokeTex, 2, 2, isBlue ? new THREE.Color(0.3, 0.8, 1.0) : new THREE.Color(1.0, 0.5, 0.2));
+    const impacts = new THREE.InstancedMesh(impactGeo, impactMat, COUNT);
     impacts.frustumCulled = false;
+    const aFrame = new Float32Array(COUNT);
+    const aOpacity = new Float32Array(COUNT);
+    impacts.geometry.setAttribute('aFrame', new THREE.InstancedBufferAttribute(aFrame, 1));
+    impacts.geometry.setAttribute('aOpacity', new THREE.InstancedBufferAttribute(aOpacity, 1));
     scene.add(impacts);
 
-    const data: {
-        ax: number;
-        az: number;
-        startY: number;
-        speed: number;
-        hitTime: number;
-    }[] = [];
+    const positions: THREE.Vector3[] = [];
+    const vels: THREE.Vector3[] = [];
+    const delays: number[] = [];
+    const impactAges: number[] = [];
 
-    for (let k = 0; k < COUNT; k++) {
+    const shardPositions: THREE.Vector3[] = [];
+    const shardVels: THREE.Vector3[] = [];
+    const shardScales: number[] = [];
+    const shardRots: THREE.Vector3[] = [];
+    const shardRotVels: THREE.Vector3[] = [];
+
+    const tempObj = new THREE.Object3D();
+    const tempTracerObj = new THREE.Object3D();
+    const tempImpactObj = new THREE.Object3D();
+
+    const hideM = new THREE.Matrix4().makeScale(0, 0, 0);
+
+    for (let i = 0; i < COUNT; i++) {
         const angle = Math.random() * Math.PI * 2;
-        const r = Math.random() * radius;
+        const r = Math.sqrt(Math.random()) * radius;
         const targetX = centerX + Math.cos(angle) * r;
         const targetZ = centerZ + Math.sin(angle) * r;
-        const startY = groundY + 9 + Math.random() * 6;
-        const speed = 0.015 + Math.random() * 0.01;
-        const height = startY - groundY;
-        const hitTime = height / speed;
 
-        data.push({ ax: targetX, az: targetZ, startY, speed, hitTime });
+        const startHeight = 22.0 + Math.random() * 8.0;
+        positions.push(new THREE.Vector3(targetX + (Math.random() - 0.5) * 1.5, groundY + startHeight, targetZ + (Math.random() - 0.5) * 1.5));
+        vels.push(new THREE.Vector3(0, -38.0 - Math.random() * 12.0, 0));
+        delays.push(Math.random() * 0.95);
+        impactAges.push(-1);
+
+        arrows.setMatrixAt(i, hideM);
+        tracers.setMatrixAt(i, hideM);
+        impacts.setMatrixAt(i, hideM);
+        aOpacity[i] = 0.0;
     }
 
-    const DURATION = 1.8;
-    const startTime = performance.now();
+    for (let i = 0; i < shardCount; i++) {
+        shardPositions.push(new THREE.Vector3());
+        shardVels.push(new THREE.Vector3());
+        shardScales.push(0.4 + Math.random() * 0.6);
+        shardRots.push(new THREE.Vector3(Math.random(), Math.random(), Math.random()));
+        shardRotVels.push(new THREE.Vector3((Math.random() - 0.5) * 8.0, (Math.random() - 0.5) * 8.0, (Math.random() - 0.5) * 8.0));
+        shardMesh.setMatrixAt(i, hideM);
+    }
 
+    arrows.instanceMatrix.needsUpdate = true;
+    tracers.instanceMatrix.needsUpdate = true;
+    impacts.instanceMatrix.needsUpdate = true;
+    shardMesh.instanceMatrix.needsUpdate = true;
+    (impacts.geometry.getAttribute('aOpacity') as THREE.InstancedBufferAttribute).needsUpdate = true;
+    (impacts.geometry.getAttribute('aFrame') as THREE.InstancedBufferAttribute).needsUpdate = true;
+
+    let age = 0;
+    const duration = 2.0;
     activeFX.push({
-        update(_delta) {
-            const elapsed = performance.now() - startTime;
-            if (elapsed > DURATION * 1000) {
-                scene.remove(arrows);
-                scene.remove(impacts);
+        update(delta) {
+            age += delta;
+            const t = Math.min(1, age / duration);
+            if (t >= 1) {
                 scene.remove(ring);
-                scene.remove(inner);
+                scene.remove(arrows);
+                scene.remove(tracers);
+                scene.remove(impacts);
+                scene.remove(shardMesh);
 
                 ringGeo.dispose();
                 ringMat.dispose();
-                innerGeo.dispose();
-                innerMat.dispose();
                 arrowGeo.dispose();
                 arrowMat.dispose();
-                impactRingGeo.dispose();
-                impactRingMat.dispose();
+                tracerGeo.dispose();
+                tracerMat.dispose();
+                impactGeo.dispose();
+                impactMat.dispose();
+                shardGeo.dispose();
+                shardMat.dispose();
+
+                arrows.dispose();
+                tracers.dispose();
+                impacts.dispose();
+                shardMesh.dispose();
                 return false;
             }
 
-            const t = elapsed / (DURATION * 1000);
-            const et = easeOutCubic(t);
+            ringMat.uniforms.uTime.value = age;
+            ringMat.uniforms.uOpacity.value = 1.0 - t;
 
-            ring.rotation.z += 0.02;
-            ringMat.opacity = 0.95 * (1 - et);
-            inner.rotation.z -= 0.025;
-            innerMat.opacity = 0.7 * (1 - et);
+            const cq = camera.quaternion;
+            let arrowsUpdated = false;
+            let impactsUpdated = false;
+            let shardsUpdated = false;
 
-            for (let k = 0; k < COUNT; k++) {
-                const d = data[k];
+            for (let i = 0; i < COUNT; i++) {
+                const elapsed = age - delays[i];
+                if (elapsed < 0) continue;
 
-                if (elapsed < d.hitTime) {
-                    const distY = d.speed * elapsed;
-                    const ax = d.ax;
-                    const ay = d.startY - distY;
-                    const az = d.az;
+                const yPos = positions[i].y + vels[i].y * elapsed;
+                if (yPos > groundY) {
+                    tempObj.position.set(positions[i].x, yPos, positions[i].z);
+                    tempObj.scale.set(1.0, 1.0, 1.0);
+                    tempObj.updateMatrix();
+                    arrows.setMatrixAt(i, tempObj.matrix);
 
-                    _tempObj.position.set(ax, ay, az);
-                    _tempObj.scale.set(1, 1, 1);
-                    _tempObj.rotation.set(0, 0, 0);
-                    _tempObj.updateMatrix();
-                    arrows.setMatrixAt(k, _tempObj.matrix);
+                    tempTracerObj.position.set(positions[i].x, yPos + 1.5, positions[i].z);
+                    tempTracerObj.scale.set(1.0, 1.0, 1.0);
+                    tempTracerObj.updateMatrix();
+                    tracers.setMatrixAt(i, tempTracerObj.matrix);
 
-                    _tempObj.scale.setScalar(0);
-                    _tempObj.updateMatrix();
-                    impacts.setMatrixAt(k, _tempObj.matrix);
+                    arrowsUpdated = true;
                 } else {
-                    _tempObj.scale.setScalar(0);
-                    _tempObj.updateMatrix();
-                    arrows.setMatrixAt(k, _tempObj.matrix);
+                    arrows.setMatrixAt(i, hideM);
+                    tracers.setMatrixAt(i, hideM);
+                    arrowsUpdated = true;
 
-                    const tHit = elapsed - d.hitTime;
-                    const impactDuration = 300;
-                    if (tHit < impactDuration) {
-                        const hitT = tHit / impactDuration;
-                        _tempObj.position.set(d.ax, groundY + 0.02, d.az);
-                        _tempObj.rotation.set(-Math.PI / 2, 0, 0);
-                        const scaleFactor = hitT * 1.5;
-                        _tempObj.scale.set(scaleFactor, scaleFactor, 1);
-                        _tempObj.updateMatrix();
-                        impacts.setMatrixAt(k, _tempObj.matrix);
-                    } else {
-                        _tempObj.scale.setScalar(0);
-                        _tempObj.updateMatrix();
-                        impacts.setMatrixAt(k, _tempObj.matrix);
+                    const justHit = (impactAges[i] === -1);
+                    if (justHit) {
+                        impactAges[i] = age;
+                        const baseIdx = i * SHARDS_PER_ARROW;
+                        for (let k = 0; k < SHARDS_PER_ARROW; k++) {
+                            const idx = baseIdx + k;
+                            shardPositions[idx].set(positions[i].x, groundY + 0.1, positions[i].z);
+                            const theta = Math.random() * Math.PI * 2;
+                            const speed = 2.0 + Math.random() * 4.0;
+                            shardVels[idx].set(
+                                Math.cos(theta) * speed,
+                                3.0 + Math.random() * 4.0,
+                                Math.sin(theta) * speed
+                            );
+                        }
                     }
+
+                    const impactTime = age - impactAges[i];
+                    const maxImpactLife = 0.4;
+                    const ip = Math.min(1, impactTime / maxImpactLife);
+
+                    if (ip < 1.0) {
+                        tempImpactObj.position.set(positions[i].x, groundY + 0.05, positions[i].z);
+                        tempImpactObj.quaternion.copy(cq);
+                        tempImpactObj.scale.setScalar(0.4 + ip * 2.0);
+                        tempImpactObj.updateMatrix();
+                        impacts.setMatrixAt(i, tempImpactObj.matrix);
+
+                        aFrame[i] = Math.min(3, Math.floor(ip * 4.0));
+                        aOpacity[i] = 1.0 - ip;
+                    } else {
+                        impacts.setMatrixAt(i, hideM);
+                        aOpacity[i] = 0;
+                    }
+                    impactsUpdated = true;
+
+                    // Update crystal shards
+                    const baseIdx = i * SHARDS_PER_ARROW;
+                    for (let k = 0; k < SHARDS_PER_ARROW; k++) {
+                        const idx = baseIdx + k;
+                        const p = shardPositions[idx];
+                        if (impactTime < 0.35) {
+                            shardVels[idx].y -= 9.8 * delta;
+                            p.addScaledVector(shardVels[idx], delta);
+                            shardRots[idx].addScaledVector(shardRotVels[idx], delta);
+
+                            _tempObj.position.copy(p);
+                            _tempObj.rotation.set(shardRots[idx].x, shardRots[idx].y, shardRots[idx].z);
+                            _tempObj.scale.setScalar(shardScales[idx] * Math.sin((impactTime / 0.35) * Math.PI));
+                            _tempObj.updateMatrix();
+                            shardMesh.setMatrixAt(idx, _tempObj.matrix);
+                        } else {
+                            shardMesh.setMatrixAt(idx, hideM);
+                        }
+                    }
+                    shardsUpdated = true;
                 }
             }
 
-            arrows.instanceMatrix.needsUpdate = true;
-            impacts.instanceMatrix.needsUpdate = true;
+            if (arrowsUpdated) {
+                arrows.instanceMatrix.needsUpdate = true;
+                tracers.instanceMatrix.needsUpdate = true;
+            }
+            if (impactsUpdated) {
+                impacts.instanceMatrix.needsUpdate = true;
+                (impacts.geometry.getAttribute('aFrame') as THREE.InstancedBufferAttribute).needsUpdate = true;
+                (impacts.geometry.getAttribute('aOpacity') as THREE.InstancedBufferAttribute).needsUpdate = true;
+            }
+            if (shardsUpdated) {
+                shardMesh.instanceMatrix.needsUpdate = true;
+            }
+
+            arrowMat.opacity = 0.95 * (1.0 - t);
+            tracerMat.opacity = 0.45 * (1.0 - t);
+            shardMat.uniforms.uOpacity.value = 1.0 - t;
+
             return true;
         },
     });
 }
 
+// ─── Upgrade: Fireball (Glowing core sphere + trailing embers & 3x3 cartoon gas explosion impact) ───
 export function spawnFireballFX(
     scene: THREE.Scene,
     fx: number,
@@ -219,367 +406,155 @@ export function spawnFireballFX(
     const end = new THREE.Vector3(tx, ty, tz);
     const isBlue = team === 1;
 
-    const coreGeo = pooledPlane(1.2, 1.2);
-    const coreMat = getPooledMaterial({
-        map: lightTex,
-        color: 0xffffff,
+    // Glowing core sphere with custom noise wave
+    const coreGeo = new THREE.SphereGeometry(0.55, 16, 16);
+    const coreMat = new THREE.ShaderMaterial({
+        uniforms: {
+            uTime: { value: 0 },
+            uColor: { value: new THREE.Color(isBlue ? 0x00f0ff : 0xffaa00) },
+        },
+        vertexShader: `
+            varying vec2 vUv;
+            void main() {
+                vUv = uv;
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            }
+        `,
+        fragmentShader: `
+            uniform vec3 uColor;
+            uniform float uTime;
+            varying vec2 vUv;
+            void main() {
+                float ripple = sin(vUv.x * 25.0 + uTime * 12.0) * cos(vUv.y * 25.0 - uTime * 12.0) * 0.2 + 0.8;
+                gl_FragColor = vec4(uColor * 2.5 * ripple, 1.0);
+            }
+        `,
         transparent: true,
-        blending: THREE.AdditiveBlending,
         depthWrite: false,
-        side: THREE.DoubleSide,
+        blending: THREE.AdditiveBlending,
     });
     const coreMesh = new THREE.Mesh(coreGeo, coreMat);
-    coreMesh.frustumCulled = false;
-    coreMesh.position.copy(start);
     scene.add(coreMesh);
 
-    const wrapGeo = pooledPlane(2.4, 2.4);
-    const wrapMat = getPooledMaterial({
-        map: fireTex,
-        color: isBlue ? 0x00aaff : 0xff5500,
+    // Instanced blue flames & embers trailing behind
+    const trailGeo = pooledPlane(0.7, 0.7);
+    const trailMat = getPooledMaterial({
+        map: blueFlameTex,
+        color: isBlue ? 0x00dfff : 0xff7700,
         transparent: true,
         blending: THREE.AdditiveBlending,
         depthWrite: false,
         side: THREE.DoubleSide,
     });
-    const wrapMesh = new THREE.Mesh(wrapGeo, wrapMat);
-    wrapMesh.frustumCulled = false;
-    wrapMesh.position.copy(start);
-    scene.add(wrapMesh);
+    const trailCount = 35;
+    const trailMesh = new THREE.InstancedMesh(trailGeo, trailMat, trailCount);
+    trailMesh.frustumCulled = false;
+    scene.add(trailMesh);
 
-    const qs = fxQualityScale();
-    const maxFlame = Math.max(6, Math.round(25 * qs));
-    const maxSmoke = Math.max(6, Math.round(25 * qs));
-    const geo = pooledPlane(1.0, 1.0);
-
-    // Cache shader materials by color to avoid per-fireball GPU shader compilation
-    const flameCacheKey = isBlue ? "blue" : "red";
-    if (!_flameMatCache.has(flameCacheKey)) {
-        _flameMatCache.set(
-            flameCacheKey,
-            new THREE.ShaderMaterial({
-                uniforms: {
-                    uMap: { value: flameTex },
-                    uColor: {
-                        value: isBlue
-                            ? new THREE.Color(0.0, 0.4, 1.0)
-                            : new THREE.Color(1.0, 0.3, 0.0),
-                    },
-                },
-                vertexShader: /* glsl */ `
-                attribute float aOpacity;
-                varying vec2 vUv;
-                varying float vOpacity;
-                void main() {
-                    vUv = uv;
-                    vOpacity = aOpacity;
-                    gl_Position = projectionMatrix * modelViewMatrix * instanceMatrix * vec4(position, 1.0);
-                }
-            `,
-                fragmentShader: /* glsl */ `
-                uniform sampler2D uMap;
-                uniform vec3 uColor;
-                varying vec2 vUv;
-                varying float vOpacity;
-                void main() {
-                    vec4 tex = texture2D(uMap, vUv);
-                    if (tex.a < 0.05) discard;
-                    gl_FragColor = vec4(tex.rgb * uColor, tex.a * vOpacity);
-                }
-            `,
-                transparent: true,
-                depthWrite: false,
-                blending: THREE.AdditiveBlending,
-                side: THREE.DoubleSide,
-            }),
-        );
+    const trailPositions: THREE.Vector3[] = [];
+    const trailVels: THREE.Vector3[] = [];
+    const trailAges: number[] = [];
+    const hideM = new THREE.Matrix4().makeScale(0, 0, 0);
+    for (let i = 0; i < trailCount; i++) {
+        trailPositions.push(new THREE.Vector3().copy(start));
+        trailVels.push(new THREE.Vector3((Math.random() - 0.5) * 2.0, (Math.random() - 0.5) * 2.0, (Math.random() - 0.5) * 2.0));
+        trailAges.push(-1);
+        trailMesh.setMatrixAt(i, hideM);
     }
-    if (!_smokeMatCache.has(flameCacheKey)) {
-        _smokeMatCache.set(
-            flameCacheKey,
-            new THREE.ShaderMaterial({
-                uniforms: {
-                    uMap: { value: blueFlameSmokeTex },
-                    uColor: {
-                        value: isBlue
-                            ? new THREE.Color(0.0, 0.2, 0.8)
-                            : new THREE.Color(0.8, 0.2, 0.0),
-                    },
-                },
-                vertexShader: /* glsl */ `
-                attribute float aFrameIdx;
-                attribute float aOpacity;
-                varying vec2 vUv;
-                varying float vOpacity;
-                void main() {
-                    float c = mod(aFrameIdx, 2.0);
-                    float r = floor(aFrameIdx / 2.0);
-                    vUv = vec2((c + uv.x) / 2.0, 1.0 - (r + 1.0 - uv.y) / 2.0);
-                    vOpacity = aOpacity;
-                    gl_Position = projectionMatrix * modelViewMatrix * instanceMatrix * vec4(position, 1.0);
-                }
-            `,
-                fragmentShader: /* glsl */ `
-                uniform sampler2D uMap;
-                uniform vec3 uColor;
-                varying vec2 vUv;
-                varying float vOpacity;
-                void main() {
-                    vec4 tex = texture2D(uMap, vUv);
-                    if (tex.a < 0.05) discard;
-                    gl_FragColor = vec4(tex.rgb * uColor, tex.a * vOpacity * 0.4);
-                }
-            `,
-                transparent: true,
-                depthWrite: false,
-                blending: THREE.NormalBlending,
-                side: THREE.DoubleSide,
-            }),
-        );
-    }
-    const flameMat = _flameMatCache.get(flameCacheKey)!;
-    const smokeMat = _smokeMatCache.get(flameCacheKey)!;
+    trailMesh.instanceMatrix.needsUpdate = true;
 
-    const aFlameOpacity = new Float32Array(maxFlame);
-    const flameMesh = new THREE.InstancedMesh(geo, flameMat, maxFlame);
-    flameMesh.frustumCulled = false;
-    flameMesh.geometry.setAttribute(
-        "aOpacity",
-        new THREE.InstancedBufferAttribute(aFlameOpacity, 1),
-    );
-    scene.add(flameMesh);
-
-    const aSmokeFrameIdx = new Float32Array(maxSmoke);
-    const aSmokeOpacity = new Float32Array(maxSmoke);
-    const smokeMesh = new THREE.InstancedMesh(geo, smokeMat, maxSmoke);
-    smokeMesh.frustumCulled = false;
-    smokeMesh.geometry.setAttribute(
-        "aFrameIdx",
-        new THREE.InstancedBufferAttribute(aSmokeFrameIdx, 1),
-    );
-    smokeMesh.geometry.setAttribute(
-        "aOpacity",
-        new THREE.InstancedBufferAttribute(aSmokeOpacity, 1),
-    );
-    scene.add(smokeMesh);
-
-    const hideMatrix = new THREE.Matrix4().makeScale(0, 0, 0);
-    for (let i = 0; i < maxFlame; i++) {
-        flameMesh.setMatrixAt(i, hideMatrix);
-        aFlameOpacity[i] = 0;
-    }
-    for (let i = 0; i < maxSmoke; i++) {
-        smokeMesh.setMatrixAt(i, hideMatrix);
-        aSmokeOpacity[i] = 0;
-    }
-
-    interface Trail {
-        pos: THREE.Vector3;
-        vel: THREE.Vector3;
-        scale: number;
-        maxScale: number;
-        age: number;
-        life: number;
-        rotation: number;
-        rotVel: number;
-    }
-
-    const flames: Trail[] = [];
-    const smokes: Trail[] = [];
+    // 3x3 flipbook explosion on impact (cartoon-blue-gas-explosion/tex_3.png)
+    const expGeo = new THREE.PlaneGeometry(3.5, 3.5);
+    const expMat = makeFlipbookMat(blueExplosionTex, 3, 3, isBlue ? new THREE.Color(1.5, 1.5, 2.0) : new THREE.Color(2.5, 1.8, 1.0));
+    const expMesh = new THREE.InstancedMesh(expGeo, expMat, 1);
+    const aFrame = new Float32Array(1);
+    const aOpacity = new Float32Array(1);
+    expMesh.geometry.setAttribute('aFrame', new THREE.InstancedBufferAttribute(aFrame, 1));
+    expMesh.geometry.setAttribute('aOpacity', new THREE.InstancedBufferAttribute(aOpacity, 1));
+    expMesh.setMatrixAt(0, hideM);
+    aOpacity[0] = 0.0;
+    scene.add(expMesh);
+    expMesh.instanceMatrix.needsUpdate = true;
+    (expMesh.geometry.getAttribute('aOpacity') as THREE.InstancedBufferAttribute).needsUpdate = true;
+    (expMesh.geometry.getAttribute('aFrame') as THREE.InstancedBufferAttribute).needsUpdate = true;
 
     let age = 0;
-    const flightDuration = 0.85; // Slow down meteor fall rate (was 0.45)
-    let spawnAccumulator = 0;
-    const spawnRate = 25; // particles per second
-    let exploded = false;
+    const flightDuration = 0.55;
+    let impactAge = -1;
 
     activeFX.push({
         update(delta) {
             age += delta;
-            const t = Math.min(1, age / flightDuration);
-            const et = easeOutQuad(t);
-            const cq = camera.quaternion;
+            coreMat.uniforms.uTime.value = age;
 
-            const pos = new THREE.Vector3().lerpVectors(start, end, et);
+            if (impactAge === -1) {
+                const t = Math.min(1, age / flightDuration);
+                const currentPos = new THREE.Vector3().lerpVectors(start, end, easeOutQuad(t));
+                coreMesh.position.copy(currentPos);
 
-            if (!exploded) {
-                coreMesh.quaternion.copy(cq);
-                wrapMesh.quaternion.copy(cq);
-                wrapMesh.rotation.z += 0.15;
-                coreMesh.position.copy(pos);
-                wrapMesh.position.copy(pos);
-            }
-
-            if (t >= 1 && !exploded) {
-                exploded = true;
-                scene.remove(coreMesh);
-                scene.remove(wrapMesh);
-                spawnGasExplosionFX(scene, end, team);
-            }
-
-            // Spawn trails while meteor is in flight
-            if (t < 1) {
-                spawnAccumulator += delta * spawnRate;
-                while (spawnAccumulator >= 1.0) {
-                    spawnAccumulator -= 1.0;
-
-                    // Spawn blue flame trail
-                    if (flames.length < maxFlame) {
-                        flames.push({
-                            pos: pos
-                                .clone()
-                                .add(
-                                    new THREE.Vector3(
-                                        (Math.random() - 0.5) * 0.4,
-                                        (Math.random() - 0.5) * 0.4,
-                                        (Math.random() - 0.5) * 0.4,
-                                    ),
-                                ),
-                            vel: new THREE.Vector3(
-                                (Math.random() - 0.5) * 0.5,
-                                0.5 + Math.random() * 0.5,
-                                (Math.random() - 0.5) * 0.5,
-                            ),
-                            scale: 0.2,
-                            maxScale: 1.2 + Math.random() * 0.4,
-                            age: 0,
-                            life: 0.4,
-                            rotation: Math.random() * Math.PI * 2,
-                            rotVel: (Math.random() - 0.5) * 2,
-                        });
+                // Update trails along flight path
+                const cq = camera.quaternion;
+                const step = Math.floor(t * trailCount);
+                for (let i = 0; i < trailCount; i++) {
+                    if (i <= step && trailAges[i] === -1) {
+                        trailPositions[i].copy(currentPos);
+                        trailAges[i] = age;
                     }
-
-                    // Spawn blue smoke trail
-                    if (smokes.length < maxSmoke) {
-                        smokes.push({
-                            pos: pos
-                                .clone()
-                                .add(
-                                    new THREE.Vector3(
-                                        (Math.random() - 0.5) * 0.5,
-                                        (Math.random() - 0.5) * 0.5,
-                                        (Math.random() - 0.5) * 0.5,
-                                    ),
-                                ),
-                            vel: new THREE.Vector3(
-                                (Math.random() - 0.5) * 0.8,
-                                1.0 + Math.random() * 1.0,
-                                (Math.random() - 0.5) * 0.8,
-                            ),
-                            scale: 0.3,
-                            maxScale: 1.5 + Math.random() * 0.5,
-                            age: 0,
-                            life: 0.6,
-                            rotation: Math.random() * Math.PI * 2,
-                            rotVel: (Math.random() - 0.5) * 1.0,
-                        });
+                    if (trailAges[i] !== -1) {
+                        const elapsed = age - trailAges[i];
+                        trailPositions[i].addScaledVector(trailVels[i], delta);
+                        _tempObj.position.copy(trailPositions[i]);
+                        _tempObj.quaternion.copy(cq);
+                        _tempObj.scale.setScalar(Math.max(0.01, (1.0 - elapsed * 2.0) * 1.3));
+                        _tempObj.updateMatrix();
+                        trailMesh.setMatrixAt(i, _tempObj.matrix);
                     }
                 }
-            }
+                trailMesh.instanceMatrix.needsUpdate = true;
 
-            // Cleanup when flight is done and all trails are dead
-            if (t >= 1 && flames.length === 0 && smokes.length === 0) {
-                scene.remove(flameMesh);
-                scene.remove(smokeMesh);
-                releasePooledMaterial(coreMat);
-                releasePooledMaterial(wrapMat);
-                flameMesh.dispose();
-                smokeMesh.dispose();
-                // ShaderMaterials are cached, do NOT dispose
-                return false;
-            }
-
-            // Update and render active flames
-            for (let i = flames.length - 1; i >= 0; i--) {
-                const p = flames[i];
-                p.age += delta;
-                if (p.age >= p.life) {
-                    flames.splice(i, 1);
-                    continue;
+                if (t >= 1) {
+                    impactAge = age;
+                    scene.remove(coreMesh);
+                    scene.remove(trailMesh);
+                    coreGeo.dispose();
+                    coreMat.dispose();
+                    releasePooledMaterial(trailMat);
+                    trailMesh.dispose();
                 }
-                const tp = p.age / p.life;
-                p.pos.addScaledVector(p.vel, delta);
-                p.scale = THREE.MathUtils.lerp(
-                    p.maxScale * 0.2,
-                    p.maxScale,
-                    tp,
-                );
-                p.rotation += p.rotVel * delta;
-            }
+            } else {
+                // Animate cartoon flipbook explosion on impact point
+                const elapsed = age - impactAge;
+                const maxLife = 0.45;
+                const pct = Math.min(1, elapsed / maxLife);
 
-            for (let i = 0; i < maxFlame; i++) {
-                if (i < flames.length) {
-                    const p = flames[i];
-                    const tp = p.age / p.life;
-                    _tempObj.position.copy(p.pos);
-                    _tempObj.quaternion.copy(cq);
-                    _tempObj.rotateZ(p.rotation);
-                    _tempObj.scale.setScalar(p.scale);
+                if (pct < 1.0) {
+                    _tempObj.position.copy(end);
+                    _tempObj.quaternion.copy(camera.quaternion);
+                    _tempObj.scale.setScalar(1.0 + pct * 2.0);
                     _tempObj.updateMatrix();
+                    expMesh.setMatrixAt(0, _tempObj.matrix);
 
-                    flameMesh.setMatrixAt(i, _tempObj.matrix);
-                    aFlameOpacity[i] = 1 - easeOutQuad(tp);
+                    aFrame[0] = Math.min(8, Math.floor(pct * 9.0));
+                    aOpacity[0] = 1.0 - pct;
+
+                    expMesh.instanceMatrix.needsUpdate = true;
+                    (expMesh.geometry.getAttribute('aFrame') as THREE.InstancedBufferAttribute).needsUpdate = true;
+                    (expMesh.geometry.getAttribute('aOpacity') as THREE.InstancedBufferAttribute).needsUpdate = true;
                 } else {
-                    flameMesh.setMatrixAt(i, hideMatrix);
-                    aFlameOpacity[i] = 0;
+                    scene.remove(expMesh);
+                    expGeo.dispose();
+                    expMat.dispose();
+                    expMesh.dispose();
+                    return false;
                 }
             }
-            flameMesh.instanceMatrix.needsUpdate = true;
-            (
-                flameMesh.geometry.attributes
-                    .aOpacity as THREE.InstancedBufferAttribute
-            ).needsUpdate = true;
 
-            // Update and render active smoke
-            for (let i = smokes.length - 1; i >= 0; i--) {
-                const p = smokes[i];
-                p.age += delta;
-                if (p.age >= p.life) {
-                    smokes.splice(i, 1);
-                    continue;
-                }
-                const tp = p.age / p.life;
-                p.pos.addScaledVector(p.vel, delta);
-                p.scale = THREE.MathUtils.lerp(
-                    p.maxScale * 0.3,
-                    p.maxScale,
-                    tp,
-                );
-                p.rotation += p.rotVel * delta;
-            }
-
-            for (let i = 0; i < maxSmoke; i++) {
-                if (i < smokes.length) {
-                    const p = smokes[i];
-                    const tp = p.age / p.life;
-                    _tempObj.position.copy(p.pos);
-                    _tempObj.quaternion.copy(cq);
-                    _tempObj.rotateZ(p.rotation);
-                    _tempObj.scale.setScalar(p.scale);
-                    _tempObj.updateMatrix();
-
-                    smokeMesh.setMatrixAt(i, _tempObj.matrix);
-                    aSmokeOpacity[i] = 0.5 * (1 - easeOutQuad(tp));
-                    aSmokeFrameIdx[i] = Math.min(3, Math.floor(tp * 4));
-                } else {
-                    smokeMesh.setMatrixAt(i, hideMatrix);
-                    aSmokeOpacity[i] = 0;
-                }
-            }
-            smokeMesh.instanceMatrix.needsUpdate = true;
-            (
-                smokeMesh.geometry.attributes
-                    .aFrameIdx as THREE.InstancedBufferAttribute
-            ).needsUpdate = true;
-            (
-                smokeMesh.geometry.attributes
-                    .aOpacity as THREE.InstancedBufferAttribute
-            ).needsUpdate = true;
             return true;
         },
     });
 }
 
+// ─── Upgrade: Double Shot (Spiraling blue embers trails & mini flipbook impacts) ───
 export function spawnDoubleShotFX(
     scene: THREE.Scene,
     fx: number,
@@ -596,7 +571,7 @@ export function spawnDoubleShotFX(
     const isBlue = team === 1;
 
     if (isTurret) {
-        // --- 1. LUXURIOUS MUZZLE FLASH ---
+        // Sci-fi laser instant beam
         const flareGeo = pooledPlane(1.8, 1.8);
         const flareMat = new THREE.MeshBasicMaterial({
             map: lightTex,
@@ -611,29 +586,10 @@ export function spawnDoubleShotFX(
         flareMesh.position.copy(start);
         scene.add(flareMesh);
 
-        const ringGeo = pooledPlane(1.2, 1.2);
-        const ringMat = new THREE.MeshBasicMaterial({
-            map: circleTex,
-            color: isBlue ? 0x0066ff : 0xff6600,
-            transparent: true,
-            opacity: 0.8,
-            blending: THREE.AdditiveBlending,
-            depthWrite: false,
-            side: THREE.DoubleSide,
-        });
-        const ringMesh = new THREE.Mesh(ringGeo, ringMat);
-        ringMesh.position.copy(start);
-        ringMesh.rotation.x = -Math.PI / 2;
-        scene.add(ringMesh);
-
-        // --- 2. SCI-FI LASER BEAM (INSTANT TRACER BOLT) ---
         const dir = new THREE.Vector3().subVectors(end, start);
         const dist = dir.length();
-        const mid = new THREE.Vector3()
-            .addVectors(start, end)
-            .multiplyScalar(0.5);
+        const mid = new THREE.Vector3().addVectors(start, end).multiplyScalar(0.5);
 
-        // White core cylinder
         const coreGeo = new THREE.CylinderGeometry(0.04, 0.04, dist, 6);
         const coreMat = new THREE.MeshBasicMaterial({
             color: 0xffffff,
@@ -644,7 +600,6 @@ export function spawnDoubleShotFX(
         });
         const coreMesh = new THREE.Mesh(coreGeo, coreMat);
 
-        // Neon orange/red outer aura cylinder
         const glowGeo = new THREE.CylinderGeometry(0.18, 0.18, dist, 6);
         const glowMat = new THREE.MeshBasicMaterial({
             color: isBlue ? 0x0044ff : 0xff3300,
@@ -655,172 +610,187 @@ export function spawnDoubleShotFX(
         });
         const glowMesh = new THREE.Mesh(glowGeo, glowMat);
 
-        // Create laser group and rotate to point from start to end
         const laserGroup = new THREE.Group();
         laserGroup.add(coreMesh);
         laserGroup.add(glowMesh);
 
         const up = new THREE.Vector3(0, 1, 0);
-        const quat = new THREE.Quaternion().setFromUnitVectors(
-            up,
-            dir.clone().normalize(),
-        );
+        const quat = new THREE.Quaternion().setFromUnitVectors(up, dir.clone().normalize());
 
         laserGroup.position.copy(mid);
         laserGroup.quaternion.copy(quat);
         scene.add(laserGroup);
 
-        // --- 3. SPECTACULAR IMPACT SHOCKWAVE ---
-        const shockGeo = pooledPlane(1.5, 1.5);
-        const shockMat = new THREE.MeshBasicMaterial({
-            map: circleTex,
-            color: isBlue ? 0x0044ff : 0xff3300,
-            transparent: true,
-            opacity: 1.0,
-            blending: THREE.AdditiveBlending,
-            depthWrite: false,
-            side: THREE.DoubleSide,
-        });
-        const shockMesh = new THREE.Mesh(shockGeo, shockMat);
-        shockMesh.position.copy(end).y += 0.05;
-        shockMesh.rotation.x = -Math.PI / 2;
-        scene.add(shockMesh);
-
-        const flashGeo = pooledPlane(3.0, 3.0);
-        const flashMat = new THREE.MeshBasicMaterial({
-            map: lightTex,
-            color: isBlue ? 0x00aaff : 0xffaa44,
-            transparent: true,
-            opacity: 1.0,
-            blending: THREE.AdditiveBlending,
-            depthWrite: false,
-        });
-        const flashMesh = new THREE.Mesh(flashGeo, flashMat);
-        flashMesh.position.copy(end);
-        scene.add(flashMesh);
-
-        // Sparks explosion
         spawnExplosion(scene, end, isBlue ? 0x0088ff : 0xff7700, 36, 0.5);
 
         let age = 0;
-        const duration = 0.16; // 160ms lifetime for the laser flash
+        const duration = 0.16;
         activeFX.push({
             update(delta) {
                 age += delta;
                 const t = Math.min(1, age / duration);
                 if (t >= 1) {
                     scene.remove(flareMesh);
-                    scene.remove(ringMesh);
                     scene.remove(laserGroup);
-                    scene.remove(shockMesh);
-                    scene.remove(flashMesh);
-
                     flareMat.dispose();
-                    ringMat.dispose();
                     coreGeo.dispose();
                     coreMat.dispose();
                     glowGeo.dispose();
                     glowMat.dispose();
-                    shockMat.dispose();
-                    flashMat.dispose();
                     return false;
                 }
-
-                // Fade muzzle flash
                 flareMesh.scale.setScalar(0.4 + t * 2.2);
                 flareMesh.quaternion.copy(camera.quaternion);
-                flareMat.opacity = 1 - easeOutCubic(t);
+                flareMat.opacity = 1.0 - easeOutCubic(t);
 
-                ringMesh.scale.setScalar(0.5 + t * 3.0);
-                ringMat.opacity = 0.8 * (1 - easeOutQuad(t));
-
-                // Fade & shrink laser beam
                 coreMat.opacity = 1.0 - t;
                 glowMat.opacity = 0.8 * (1.0 - t);
-                const scaleX = 1.0 - t * 0.7;
-                laserGroup.scale.set(scaleX, 1.0, scaleX);
-
-                // Expand ground shockwave
-                shockMesh.scale.setScalar(1.0 + t * 4.0);
-                shockMat.opacity = 1.0 - easeOutCubic(t);
-
-                // Fade impact flash
-                flashMesh.scale.setScalar(0.5 + t * 2.2);
-                flashMesh.quaternion.copy(camera.quaternion);
-                flashMat.opacity = 1.0 - easeOutQuad(t);
-
                 return true;
             },
         });
     } else {
-        // Regular Archer double shot (moving projectile)
-        const shootArrow = (delay: number) => {
+        // Regular Archer double shot (two moving projectiles)
+        const shootArrow = (delay: number, isOffsetLeft: boolean) => {
             let age = -delay;
-            const flight = 0.28;
-            let meshGroup: THREE.Group | null = null;
-            let glowMat: THREE.MeshBasicMaterial | null = null;
+            const flight = 0.42;
+
+            const projectileGeo = new THREE.SphereGeometry(0.2, 8, 8);
+            const projectileMat = new THREE.MeshBasicMaterial({
+                color: 0xffffff,
+                transparent: true,
+                opacity: 0.95,
+                blending: THREE.AdditiveBlending,
+            });
+            const proj = new THREE.Mesh(projectileGeo, projectileMat);
+
+            // Orbiting particle trail mesh (blueEmbersTex)
+            const trailGeo = pooledPlane(0.35, 0.35);
+            const trailMat = getPooledMaterial({
+                map: blueEmbersTex,
+                color: isBlue ? 0x00dfff : 0xffdd44,
+                transparent: true,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false,
+                side: THREE.DoubleSide,
+            });
+            const TRAIL_LEN = 14;
+            const trailMesh = new THREE.InstancedMesh(trailGeo, trailMat, TRAIL_LEN);
+            trailMesh.frustumCulled = false;
+
+            const hideM = new THREE.Matrix4().makeScale(0, 0, 0);
+            for (let i = 0; i < TRAIL_LEN; i++) {
+                trailMesh.setMatrixAt(i, hideM);
+            }
+            trailMesh.instanceMatrix.needsUpdate = true;
+
+            const trailPosList: THREE.Vector3[] = Array.from({ length: TRAIL_LEN }, () => start.clone());
+
+            // Cartoon impact flipbook
+            const expGeo = new THREE.PlaneGeometry(1.8, 1.8);
+            const expMat = makeFlipbookMat(blueExplosionTex, 3, 3, isBlue ? new THREE.Color(1.0, 1.2, 1.5) : new THREE.Color(1.8, 1.3, 0.8));
+            const expMesh = new THREE.InstancedMesh(expGeo, expMat, 1);
+            const aFrame = new Float32Array(1);
+            const aOpacity = new Float32Array(1);
+            expMesh.geometry.setAttribute('aFrame', new THREE.InstancedBufferAttribute(aFrame, 1));
+            expMesh.geometry.setAttribute('aOpacity', new THREE.InstancedBufferAttribute(aOpacity, 1));
+            expMesh.setMatrixAt(0, hideM);
+            aOpacity[0] = 0.0;
+
+            let impactAge = -1;
+            let addedToScene = false;
 
             activeFX.push({
                 update(delta) {
                     age += delta;
                     if (age < 0) return true;
 
-                    if (!meshGroup) {
-                        meshGroup = new THREE.Group();
-                        const geo = new THREE.CylinderGeometry(
-                            0.12,
-                            0.12,
-                            1.2,
-                            8,
-                        );
-                        glowMat = new THREE.MeshBasicMaterial({
-                            color: isBlue ? 0x00dfff : 0xffdd44,
-                            transparent: true,
-                            opacity: 0.9,
-                            blending: THREE.AdditiveBlending,
-                            depthWrite: false,
-                        });
-                        const coreMesh = new THREE.Mesh(geo, glowMat);
-                        coreMesh.rotateX(Math.PI / 2);
-                        meshGroup.add(coreMesh);
-
-                        meshGroup.position.copy(start);
-                        meshGroup.lookAt(end);
-                        scene.add(meshGroup);
+                    if (!addedToScene) {
+                        addedToScene = true;
+                        scene.add(proj);
+                        scene.add(trailMesh);
+                        scene.add(expMesh);
+                        expMesh.instanceMatrix.needsUpdate = true;
+                        (expMesh.geometry.getAttribute('aOpacity') as THREE.InstancedBufferAttribute).needsUpdate = true;
+                        (expMesh.geometry.getAttribute('aFrame') as THREE.InstancedBufferAttribute).needsUpdate = true;
                     }
 
-                    const t = Math.min(1, age / flight);
-                    const currentPos = new THREE.Vector3().lerpVectors(
-                        start,
-                        end,
-                        easeOutQuad(t),
-                    );
-                    meshGroup.position.copy(currentPos);
+                    if (impactAge === -1) {
+                        const t = Math.min(1, age / flight);
+                        const linearPos = new THREE.Vector3().lerpVectors(start, end, easeOutQuad(t));
 
-                    if (t >= 1) {
-                        scene.remove(meshGroup);
-                        meshGroup.traverse((child) => {
-                            if (child instanceof THREE.Mesh) {
-                                child.geometry.dispose();
+                        // Spiral calculations
+                        const orbitSpd = 32.0;
+                        const radius = 0.4 * (1.0 - t);
+                        const angle = age * orbitSpd + (isOffsetLeft ? Math.PI : 0);
+                        const spiralOffset = new THREE.Vector3(Math.cos(angle) * radius, Math.sin(angle) * radius, 0);
+
+                        const dir = new THREE.Vector3().subVectors(end, start).normalize();
+                        const up = new THREE.Vector3(0, 1, 0);
+                        const quat = new THREE.Quaternion().setFromUnitVectors(up, dir);
+                        spiralOffset.applyQuaternion(quat);
+
+                        const finalPos = new THREE.Vector3().copy(linearPos).add(spiralOffset);
+                        proj.position.copy(finalPos);
+
+                        trailPosList.pop();
+                        trailPosList.unshift(finalPos.clone());
+
+                        const cq = camera.quaternion;
+                        for (let i = 0; i < TRAIL_LEN; i++) {
+                            _tempObj.position.copy(trailPosList[i]);
+                            _tempObj.quaternion.copy(cq);
+                            _tempObj.scale.setScalar((1.0 - (i / TRAIL_LEN)) * (1.0 - t) * 0.8);
+                            _tempObj.updateMatrix();
+                            trailMesh.setMatrixAt(i, _tempObj.matrix);
+                        }
+                        trailMesh.instanceMatrix.needsUpdate = true;
+
+                        if (t >= 1) {
+                            impactAge = age;
+                            if (addedToScene) {
+                                scene.remove(proj);
+                                scene.remove(trailMesh);
                             }
-                        });
-                        if (glowMat) glowMat.dispose();
+                            projectileGeo.dispose();
+                            projectileMat.dispose();
+                            releasePooledMaterial(trailMat);
+                            trailMesh.dispose();
+                        }
+                    } else {
+                        // Impact cartoon explosion
+                        const elapsed = age - impactAge;
+                        const maxLife = 0.35;
+                        const pct = Math.min(1, elapsed / maxLife);
 
-                        spawnExplosion(
-                            scene,
-                            end,
-                            isBlue ? 0x0088ff : 0xffbb44,
-                            8,
-                            0.12,
-                        );
-                        return false;
+                        if (pct < 1.0) {
+                            _tempObj.position.copy(end);
+                            _tempObj.quaternion.copy(camera.quaternion);
+                            _tempObj.scale.setScalar(0.5 + pct * 1.5);
+                            _tempObj.updateMatrix();
+                            expMesh.setMatrixAt(0, _tempObj.matrix);
+
+                            aFrame[0] = Math.min(8, Math.floor(pct * 9.0));
+                            aOpacity[0] = 1.0 - pct;
+
+                            expMesh.instanceMatrix.needsUpdate = true;
+                            (expMesh.geometry.getAttribute('aFrame') as THREE.InstancedBufferAttribute).needsUpdate = true;
+                            (expMesh.geometry.getAttribute('aOpacity') as THREE.InstancedBufferAttribute).needsUpdate = true;
+                        } else {
+                            if (addedToScene) {
+                                scene.remove(expMesh);
+                            }
+                            expGeo.dispose();
+                            expMat.dispose();
+                            expMesh.dispose();
+                            return false;
+                        }
                     }
                     return true;
                 },
             });
         };
 
-        shootArrow(0);
-        shootArrow(0.12);
+        shootArrow(0, false);
+        shootArrow(0.08, true);
     }
 }
