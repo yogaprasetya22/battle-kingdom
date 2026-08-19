@@ -44,6 +44,7 @@ import {
     TURRET_DAMAGE,
     TURRET_ATTACK_INTERVAL,
     TARGET_TURRET,
+    HERO_UNIT_INDEX,
 } from "./constants";
 
 import {
@@ -98,6 +99,17 @@ let endIndex = UNIT_COUNT;
 
 let workerId = -1;
 let customClasses: number[] = [0, 1, 2, 3, 4, 5];
+
+interface AoeEffect {
+    originX: number;
+    originZ: number;
+    radius: number;
+    damagePerTick: number;
+    ticksLeft: number;
+    intervalTicks: number;
+    targetTeam: number;
+}
+let activeAoes: AoeEffect[] = [];
 
 interface TeamComposition {
     tank: number;
@@ -176,6 +188,19 @@ function initUnits(d: Float32Array, matchup: string = "mix") {
     fillTypes(typesB, teamBConfig);
 
     for (let i = startIndex; i < endIndex; i++) {
+        // Worker-Bypass: hero slot sepenuhnya dikelola main thread.
+        // Set HP ke -999 (sentinel unspawned) agar UnitRenderer menyembunyikannya.
+        if (i === HERO_UNIT_INDEX) {
+            const base = i * STRIDE;
+            d[base + IDX_HP]     = -999;
+            d[base + IDX_MAX_HP] = 1000;
+            d[base + IDX_TEAM]   = TEAM_A;
+            d[base + IDX_X]      = -9999;
+            d[base + IDX_Y]      = -9999;
+            d[base + IDX_Z]      = -9999;
+            continue;
+        }
+
         const base = i * STRIDE;
         const team = i < TEAM_SIZE ? TEAM_A : TEAM_B;
         const localIdx = i < TEAM_SIZE ? i : i - TEAM_SIZE;
@@ -384,6 +409,7 @@ function tick(d: Float32Array) {
     // Spawn Team A
     const maxSpawnA = Math.min(activeCountA, unitsToSpawn);
     for (let i = startIndex; i < Math.min(endIndex, maxSpawnA); i++) {
+        if (i === HERO_UNIT_INDEX) continue; // Worker-Bypass: jangan respawn hero slot
         const base = i * STRIDE;
         if (d[base + IDX_HP] === -999) {
             d[base + IDX_HP] = d[base + IDX_MAX_HP];
@@ -463,6 +489,10 @@ function tick(d: Float32Array) {
 
     for (let i = startIndex; i < endIndex; i++) {
         const base = i * STRIDE;
+
+        // Worker-Bypass: posisi & gerak hero dikontrol main thread.
+        // Worker tetap bisa mengurangi HP-nya (AI musuh menyerang).
+        if (i === HERO_UNIT_INDEX) continue;
 
         if (d[base + IDX_HP] === -999) {
             continue;
@@ -624,6 +654,36 @@ function tick(d: Float32Array) {
         }
     }
 
+    // Process active AoE effects (Tornado DoT)
+    if (activeAoes.length > 0) {
+        for (let a = activeAoes.length - 1; a >= 0; a--) {
+            const aoe = activeAoes[a];
+            aoe.ticksLeft--;
+            
+            // Lakukan hit jika berada pada interval yang pas
+            if (aoe.ticksLeft % aoe.intervalTicks === 0) {
+                const r2 = aoe.radius * aoe.radius;
+                for (let i = startIndex; i < endIndex; i++) {
+                    if (i === HERO_UNIT_INDEX) continue;
+                    const base = i * STRIDE;
+                    if (d[base + IDX_HP] <= 0) continue;
+                    if (d[base + IDX_TEAM] !== aoe.targetTeam) continue;
+                    
+                    const dx = d[base + IDX_X] - aoe.originX;
+                    const dz = d[base + IDX_Z] - aoe.originZ;
+                    if (dx * dx + dz * dz <= r2) {
+                        applyDamage(d, i, aoe.damagePerTick, HERO_UNIT_INDEX);
+                    }
+                }
+            }
+            
+            // Hapus AoE yang durasinya sudah habis
+            if (aoe.ticksLeft <= 0) {
+                activeAoes.splice(a, 1);
+            }
+        }
+    }
+
     // Send batched skill FX events
     if (skillFXBatch.length > 0) {
         self.postMessage({ type: "skillFXBatch", events: skillFXBatch });
@@ -704,7 +764,61 @@ self.onmessage = (e: MessageEvent) => {
         battleTicks = 0;
         animLockTicks.fill(0);
         resetCombatStats();
+        activeAoes = []; // Reset active AoEs
         if (data) initUnits(data, e.data.matchup || "mix");
         self.postMessage({ type: "ready" });
+    }
+
+    // Worker-Bypass: terima skill damage dari main thread, eksekusi AoE di sini.
+    // HP dikurangi di worker agar tidak ada race condition dengan logik combat existing.
+    if (type === "PLAYER_SKILL_CAST" && data) {
+        const { skillId, originX, originZ, radius, damage, targetTeam } = e.data;
+        const r2 = (radius ?? 5) * (radius ?? 5);
+        const dmg = damage ?? 0;
+        const enemyTeam = targetTeam ?? TEAM_B;
+
+        // Tornado (Digit3): Register AoE DoT selama 3.5 detik (210 ticks)
+        if (skillId === 'Digit3' || skillId === 'tornado') {
+            const totalDurationTicks = 210; // 3.5s * 60 FPS
+            const tickInterval = 15; // Damage terpicu setiap 15 ticks (~0.25s)
+            const hitCount = Math.floor(totalDurationTicks / tickInterval);
+            
+            activeAoes.push({
+                originX,
+                originZ,
+                radius: radius ?? 6.0,
+                damagePerTick: Math.round(dmg / hitCount),
+                ticksLeft: totalDurationTicks,
+                intervalTicks: tickInterval,
+                targetTeam: enemyTeam
+            });
+        } else {
+            // Skill Instant Lainnya (Gas Explosion, Flamethrower, dll.)
+            clearSkillFXBatch();
+            let hitAny = false;
+            
+            // Hanya proses index unit yang berada di slice/rentang worker ini
+            for (let i = startIndex; i < endIndex; i++) {
+                if (i === HERO_UNIT_INDEX) continue;
+                const base = i * STRIDE;
+                if (data[base + IDX_HP] <= 0) continue;
+                if (data[base + IDX_TEAM] !== enemyTeam) continue;
+                const dx = data[base + IDX_X] - originX;
+                const dz = data[base + IDX_Z] - originZ;
+                if (dx * dx + dz * dz <= r2) {
+                    applyDamage(data, i, dmg, HERO_UNIT_INDEX);
+                    hitAny = true;
+                }
+            }
+            
+            // Kirim event visual damage (seperti damage HUD text) ke main thread secara instan
+            if (hitAny && skillFXBatch.length > 0) {
+                self.postMessage({
+                    type: "skillFXBatch",
+                    events: [...skillFXBatch]
+                });
+                clearSkillFXBatch();
+            }
+        }
     }
 };

@@ -1,0 +1,12 @@
+public/report/
+public/models/
+node_modules/
+dist/
+build/
+scratch/
+graphify-out/
+*.glb
+*.png
+*.mp3
+*.wav
+*.json
