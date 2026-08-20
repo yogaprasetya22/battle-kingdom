@@ -825,6 +825,7 @@ setBeforeRenderCb((_timestamp: number, delta: number) => {
     const activeUnits = getUnits();
     const targets: any[] = [];
     const STRIDE = 15; // Sesuai dengan layout STRIDE di main simulation/worker
+    const IDX_HP = 3;
     const IDX_TEAM = 4;
     
     // Dapatkan tim dari hero (index 0)
@@ -833,6 +834,10 @@ setBeforeRenderCb((_timestamp: number, delta: number) => {
     for (let i = 0; i < activeUnits.length; i++) {
         const u = activeUnits[i];
         if (u && i !== HERO_UNIT_INDEX && u.root) {
+            // Hanya targetkan unit yang masih hidup (HP > 0)
+            const hp = sharedData[i * STRIDE + IDX_HP];
+            if (hp <= 0) continue;
+
             // Hanya targetkan unit yang memiliki tim BERBEDA dengan hero
             const unitTeam = sharedData[i * STRIDE + IDX_TEAM];
             if (unitTeam !== heroTeam) {
@@ -844,7 +849,7 @@ setBeforeRenderCb((_timestamp: number, delta: number) => {
 
     heroCtrl.update(delta);                                      // fisika + input + kamera
     syncHeroToBuffer(heroCtrl, sharedData, HERO_UNIT_INDEX);     // tulis x,y,z ke SAB
-    skills.update(delta);                                        // tick cooldown VFX partikel
+    skills.update(delta, heroCtrl);                                        // tick cooldown VFX partikel
 
     if (!isRunning) return;
     const now = performance.now();

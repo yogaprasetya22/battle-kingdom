@@ -1754,7 +1754,10 @@ export class Subemitter2NativeVFX {
 
   public update(delta: number) {
     for (let i = this.activeFX.length - 1; i >= 0; i--) {
-      if (!this.activeFX[i].update(delta)) this.activeFX.splice(i, 1);
+      if (!this.activeFX[i].update(delta)) {
+        this.activeFX[i] = this.activeFX[this.activeFX.length - 1];
+        this.activeFX.pop();
+      }
     }
   }
 }

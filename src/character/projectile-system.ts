@@ -10,6 +10,14 @@ interface Projectile {
   target: THREE.Object3D | null;
 }
 
+// Module-level pre-allocated scratch vectors — zero heap allocation in hot loop
+const _gravity = new THREE.Vector3(0, -5.0, 0);
+const _targetPos = new THREE.Vector3();
+const _toTarget = new THREE.Vector3();
+const _movementVec = new THREE.Vector3();
+const _targetLook = new THREE.Vector3();
+const _tPos = new THREE.Vector3();
+
 export class ProjectileSystem {
   private scene: THREE.Scene;
   private projectiles: Projectile[] = [];
@@ -74,59 +82,50 @@ export class ProjectileSystem {
   }
 
   public update(delta: number, environmentMesh: THREE.Mesh | null, spawnVFXCallback?: (pos: THREE.Vector3) => void) {
-    const gravity = new THREE.Vector3(0, -5.0, 0); // slightly floatier gravity for homing feel
-    const targetPos = new THREE.Vector3();
-
     for (let i = this.projectiles.length - 1; i >= 0; i--) {
       const p = this.projectiles[i];
       p.age += delta;
 
       // 1. Auto-Aim Homing / Target Seeking steering
       if (p.target) {
-        p.target.getWorldPosition(targetPos);
-        targetPos.y += 1.0; // Aim at target center/chest height
+        p.target.getWorldPosition(_targetPos);
+        _targetPos.y += 1.0; // Aim at target center/chest height
 
         // Vector pointing directly from projectile to target center
-        const toTarget = targetPos.clone().sub(p.mesh.position).normalize();
+        _toTarget.copy(_targetPos).sub(p.mesh.position).normalize();
         const currentSpeed = p.velocity.length();
-        const targetVelocity = toTarget.multiplyScalar(currentSpeed);
+        _toTarget.multiplyScalar(currentSpeed);
 
         // Interpolate velocity towards target direction using configured steer force
-        p.velocity.lerp(targetVelocity, CHARACTER_CONFIG.projectiles.homingSteerForce * delta);
+        p.velocity.lerp(_toTarget, CHARACTER_CONFIG.projectiles.homingSteerForce * delta);
       } else {
         // Apply normal gravity drop if no active target
-        p.velocity.addScaledVector(gravity, delta);
+        p.velocity.addScaledVector(_gravity, delta);
       }
 
       // Record old position for collision raycast
-      const oldPosition = p.mesh.position.clone();
+      const oldX = p.mesh.position.x, oldY = p.mesh.position.y, oldZ = p.mesh.position.z;
 
       // Move forward
       p.mesh.position.addScaledVector(p.velocity, delta);
 
       // Orient to follow velocity vector
-      const targetLook = p.mesh.position.clone().add(p.velocity);
-      p.mesh.lookAt(targetLook);
+      _targetLook.copy(p.mesh.position).add(p.velocity);
+      p.mesh.lookAt(_targetLook);
 
       let collided = false;
 
-      // Direct Target/Unit Collision Check (dalam space 3D)
+      // Direct Target/Unit Collision Check
       if (p.target) {
-        const tPos = new THREE.Vector3();
-        p.target.getWorldPosition(tPos);
-        tPos.y += 0.5; // target center
-        const distToTarget = p.mesh.position.distanceTo(tPos);
-        if (distToTarget < 0.7) { // 0.7m radius hit range
+        p.target.getWorldPosition(_tPos);
+        _tPos.y += 0.5;
+        const distToTarget = p.mesh.position.distanceTo(_tPos);
+        if (distToTarget < 0.7) {
           collided = true;
-          // Trigger hit explosion visual
-          if (spawnVFXCallback) {
-            spawnVFXCallback(p.mesh.position);
-          }
-          // Kirim damage ke worker agar mengurangi HP unit
+          if (spawnVFXCallback) spawnVFXCallback(p.mesh.position);
           const targetIndexAttr = p.target.userData.unitIndex ?? p.target.name;
           const targetIdx = parseInt(targetIndexAttr);
           if (!isNaN(targetIdx)) {
-             // Kirim message damage ke worker secara dinamis dari config
              window.dispatchEvent(new CustomEvent('projectile_hit', {
                 detail: { targetIdx: targetIdx, damage: CHARACTER_CONFIG.combat.damage }
              }));
@@ -134,43 +133,41 @@ export class ProjectileSystem {
         }
       }
 
-      let collidedEnv = false;
-
       // Collision Check against static environment BVH using Raycaster
-      if (environmentMesh && environmentMesh.geometry.boundsTree) {
-        const movementVec = p.mesh.position.clone().sub(oldPosition);
-        const dist = movementVec.length();
+      if (!collided && environmentMesh && environmentMesh.geometry.boundsTree) {
+        _movementVec.set(
+          p.mesh.position.x - oldX,
+          p.mesh.position.y - oldY,
+          p.mesh.position.z - oldZ,
+        );
+        const dist = _movementVec.length();
         if (dist > 0.001) {
-          const dir = movementVec.clone().normalize();
-          const raycaster = new THREE.Raycaster(oldPosition, dir, 0, dist);
-          
+          const dir = _movementVec.normalize();
+          const raycaster = new THREE.Raycaster(
+            new THREE.Vector3(oldX, oldY, oldZ), dir, 0, dist
+          );
           const intersects = raycaster.intersectObject(environmentMesh);
           if (intersects.length > 0) {
             collided = true;
             p.mesh.position.copy(intersects[0].point);
-            
-            // Spawn hit impact visual
-            if (spawnVFXCallback) {
-              spawnVFXCallback(intersects[0].point);
-            }
+            if (spawnVFXCallback) spawnVFXCallback(intersects[0].point);
           }
         }
       }
 
-      // Falls below terrain floor fallback — use dynamic terrain height (not hardcoded 0)
+      // Falls below terrain floor fallback
       const floorY = getTerrainHeight(p.mesh.position.x, p.mesh.position.z);
       if (p.mesh.position.y < floorY + 0.05) {
         collided = true;
         p.mesh.position.y = floorY + 0.05;
-        if (spawnVFXCallback) {
-          spawnVFXCallback(p.mesh.position);
-        }
+        if (spawnVFXCallback) spawnVFXCallback(p.mesh.position);
       }
 
-      // Cleanup if collided or aged out
+      // Swap-pop O(1) removal
       if (collided || p.age >= p.maxAge) {
         this.scene.remove(p.mesh);
-        this.projectiles.splice(i, 1);
+        this.projectiles[i] = this.projectiles[this.projectiles.length - 1];
+        this.projectiles.length--;
       }
     }
   }

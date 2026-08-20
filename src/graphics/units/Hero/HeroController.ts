@@ -51,23 +51,17 @@ export function createHero(
     // Instansiasi efek ledakan gas biru saat panah mengenai target/tanah
     const hitVFX = new CartoonBlueGasExplosionNativeVFX(scene, camera);
     
-    // Handle continuous basic attack (mousedown/mouseup tracking)
+    // Handle continuous basic attack (mousedown/mouseup tracking) — ONLY allowed when pointer is locked
     let isShooting = false;
     window.addEventListener('mousedown', (e) => {
-        if (e.button === 0 && ctrl.enabled && document.pointerLockElement) {
+        const canvas = document.querySelector('canvas');
+        if (e.button === 0 && ctrl.enabled && document.pointerLockElement === canvas) {
             isShooting = true;
         }
     });
 
     window.addEventListener('mouseup', (e) => {
         if (e.button === 0) {
-            isShooting = false;
-        }
-    });
-
-    // Reset shooting status when pointer lock is lost
-    document.addEventListener('pointerlockchange', () => {
-        if (!document.pointerLockElement) {
             isShooting = false;
         }
     });
@@ -149,6 +143,10 @@ export function createHero(
                     radius: skillConf.radius,
                     damage: skillConf.damage,
                     targetTeam: targetTeam, // Kirim target tim secara dinamis
+                    activeDuration: (skillConf as any).activeDuration, // Kirim durasi dinamis jika ada
+                    targetIdx: nearestTarget && e.code !== CHARACTER_CONFIG.skills.flamethrower.key 
+                        ? parseInt(nearestTarget.userData.unitIndex ?? nearestTarget.name) 
+                        : undefined
                 });
             }
         }

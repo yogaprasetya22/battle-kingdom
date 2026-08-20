@@ -6,7 +6,7 @@ export const CHARACTER_CONFIG = {
     jumpForce: 10.0,             // Vertical impulse force on jump
     gravity: -28.0,              // Gravity acceleration (m/s^2)
     friction: 12.0,              // Rotation interpolation alignment lerp speed
-    dodgeCooldown: 1.0,          // Cooldown between dodges (seconds)
+    dodgeCooldown: 0.5,          // Cooldown between dodges (seconds)
   },
 
   // Combat stats
@@ -33,22 +33,23 @@ export const CHARACTER_CONFIG = {
   // Skills configs
   skills: {
     tornado: {
-      cooldown: 12.0,             // Cooldown in seconds (disesuaikan)
+      cooldown: 0,             // Cooldown in seconds (disesuaikan)
       key: 'Digit3',
       hudColor: '#00d2ff',       // Cyan/Blue border color for tornado
-      damage: 120000,              // AoE damage
-      radius: 6.0,               // AoE radius
+      damage: 180000,              // AoE damage
+      radius: 3.0,               // AoE radius
+      activeDuration: 13.5,        // Duration of the tornado (seconds)
     },
     gasExplosion: {
-      cooldown: 6.0,             // Cooldown in seconds (disesuaikan)
+      cooldown: 0,             // Cooldown in seconds (disesuaikan)
       key: 'Digit1',
       forwardOffset: 4.0,        // Distance in front of character to spawn explosion
       hudColor: '#00ffaa',       // Bright Teal/Green for gas explosion
-      damage: 35000,              // AoE damage
+      damage: 90000,              // AoE damage
       radius: 5.0,               // AoE radius
     },
     flamethrower: {
-      cooldown: 18.0,             // Cooldown in seconds (disesuaikan)
+      cooldown: 0,             // Cooldown in seconds (disesuaikan)
       key: 'Digit2',
       forwardOffset: 1.5,        // Distance offset
       activeDuration: 12.0,      // Duration of the flamethrower spray (seconds)

@@ -24,6 +24,8 @@ export class CharacterController {
   private mixer: THREE.AnimationMixer | null = null;
   private actions: { [key: string]: THREE.AnimationAction } = {};
   private currentActionName = '';
+  private bowMesh: THREE.Group | null = null;
+  private quiverMesh: THREE.Group | null = null;
 
   // Controller parameters
   public radius = 0.5;
@@ -123,14 +125,7 @@ export class CharacterController {
       if (e.code === 'KeyA' || e.code === 'ArrowLeft') this.keys.KeyA = true;
       if (e.code === 'KeyS' || e.code === 'ArrowDown') this.keys.KeyS = true;
       if (e.code === 'KeyD' || e.code === 'ArrowRight') this.keys.KeyD = true;
-
-      if (['KeyW', 'KeyA', 'KeyS', 'KeyD'].includes(e.code)) {
-        const now = performance.now();
-        if (now - this.lastTapTimes[e.code] < 260) {
-          this.triggerDodge(e.code);
-        }
-        this.lastTapTimes[e.code] = now;
-      }
+      // Double-tap dodging disabled per request (only KeyE triggers dodge now)
 
       if (e.code === 'KeyE') {
         this.triggerDodgeByKey();
@@ -245,13 +240,13 @@ export class CharacterController {
       });
 
       // 3. Attach Weapons to character bones (bow_withString -> hand_l, quiver -> spine)
-      this.attachWeaponToBone(this.playerMesh, bowGLTF.scene, 'hand_l', {
+      this.bowMesh = this.attachWeaponToBone(this.playerMesh, bowGLTF.scene, 'hand_l', {
         pos: [0.01, 0.15, 0.0],
         rot: [0.0, -0.112, 1.458],
         scale: [1.0, 1.0, 1.0]
       });
 
-      this.attachWeaponToBone(this.playerMesh, quiverGLTF.scene, 'spine', {
+      this.quiverMesh = this.attachWeaponToBone(this.playerMesh, quiverGLTF.scene, 'spine', {
         pos: [0.0, 0.15, -0.1],
         rot: [0, 0, 0],
         scale: [0.8, 0.8, 0.8]
@@ -295,7 +290,7 @@ export class CharacterController {
       // Select bow-specific animations and multi-phase jump clips
       const idleClip = pickClip(["Ranged_Bow_Idle"]);
       const walkClip = pickClip(["Running_HoldingBow"]);
-      const runClip = pickClip(["Running_HoldingRifle", "Running_HoldingBow"]);
+      const runClip = pickClip(["Running_B", "Running_HoldingBow"]);
       const jumpStartClip = pickClip(["Jump_Start"]);
       const jumpIdleClip = pickClip(["Jump_Idle"]);
       const jumpLandClip = pickClip(["Jump_Land"]);
@@ -425,11 +420,11 @@ export class CharacterController {
     weaponScene: THREE.Group,
     handPattern: string,
     transform: { pos: number[]; rot: number[]; scale: number[] }
-  ) {
+  ): THREE.Group | null {
     const bone = this.findBone(characterRoot, handPattern);
     if (!bone) {
       console.warn(`Bone matching hand pattern: ${handPattern} not found on character.`);
-      return;
+      return null;
     }
 
     const weaponClone = SkeletonUtils.clone(weaponScene) as THREE.Group;
@@ -446,10 +441,16 @@ export class CharacterController {
     });
 
     bone.add(weaponClone);
+    return weaponClone;
   }
 
-  private playAnimationState(name: string) {
-    if (this.currentActionName === name) return;
+  private playAnimationState(name: string, crossfadeDuration = 0.15, timeScale = 1.0) {
+    if (this.currentActionName === name) {
+      // Still allow timeScale updates even when already in this state
+      const action = this.actions[name];
+      if (action) action.setEffectiveTimeScale(timeScale);
+      return;
+    }
 
     const currentAction = this.actions[this.currentActionName];
     const targetAction = this.actions[name];
@@ -457,10 +458,11 @@ export class CharacterController {
     if (!targetAction) return;
 
     targetAction.reset();
+    targetAction.setEffectiveTimeScale(timeScale);
     targetAction.play();
 
     if (currentAction) {
-      currentAction.crossFadeTo(targetAction, 0.15, true);
+      currentAction.crossFadeTo(targetAction, crossfadeDuration, true);
     }
 
     this.currentActionName = name;
@@ -492,7 +494,7 @@ export class CharacterController {
     this.isDodging = true;
     this.dodgeTimeLeft = 0.45;
     this.animationLockTime = 0.45;
-    this.dodgeCooldownLeft = CHARACTER_CONFIG.physics.dodgeCooldown || 1.0;
+    this.dodgeCooldownLeft = CHARACTER_CONFIG.physics.dodgeCooldown ?? 0.5;
 
     if (this.playerMesh) {
       this.playerMesh.rotation.y = Math.atan2(this.dodgeDirection.x, this.dodgeDirection.z);
@@ -760,6 +762,14 @@ export class CharacterController {
         this.playerMesh.rotation.x = 0;
       }
 
+      // Hide weapon (bow) when running/sprinting (W + Shift) or when jumping/airborne
+      if (this.bowMesh) {
+        const isRunning = this.isGrounded && inputDirection.lengthSq() > 0.01 && this.keys.ShiftLeft;
+        const isAirborne = !this.isGrounded;
+        const isAttacking = this.currentActionName === 'attack';
+        this.bowMesh.visible = (!isRunning && !isAirborne) || isAttacking;
+      }
+
       this.mixer.update(delta);
     }
 
@@ -820,7 +830,11 @@ export class CharacterController {
       this.playerMesh.rotation.y = Math.atan2(dx, dz);
     }
 
-    this.playAnimationState('attack');
+    this.playAnimationState(
+      'attack',
+      0.02,                                              // ultra-short crossfade for snappy high-ASPD response
+      CHARACTER_CONFIG.combat.attackAnimScale,           // timeScale driven by ASPD config
+    );
     this.animationLockTime = CHARACTER_CONFIG.combat.attackLockDuration;
     this.attackCooldown = CHARACTER_CONFIG.combat.rateOfFire;
 

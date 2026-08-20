@@ -177,12 +177,15 @@ export function releasePooledMaterial(mat: THREE.MeshBasicMaterial) {
 // ═══════════════════════════════════════════════════════════════
 // Active FX management
 // ═══════════════════════════════════════════════════════════════
-const MAX_FX_HARSH = 150;
+const MAX_FX_HARSH = 80; // Hard cap: beyond this FX spawning is gated
 export const activeFX: Array<{ update: (delta: number) => boolean }> = [];
 
 export function updateFX(delta: number) {
     for (let i = activeFX.length - 1; i >= 0; i--) {
-        if (!activeFX[i].update(delta)) activeFX.splice(i, 1);
+        if (!activeFX[i].update(delta)) {
+            activeFX[i] = activeFX[activeFX.length - 1];
+            activeFX.pop();
+        }
     }
 }
 
@@ -192,9 +195,9 @@ export function canSpawnFX(): boolean {
 
 export function fxQualityScale(): number {
     const n = activeFX.length;
-    if (n < 5) return 1.0;
-    if (n < 12) return 0.4;
-    return 0.15;
+    if (n < 8)  return 1.0;
+    if (n < 20) return 0.4;
+    return 0.12;
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -214,8 +217,7 @@ export function spawnScreenFlash(
     color: number,
     size: number,
 ): THREE.Mesh {
-    const geo = new THREE.PlaneGeometry(size, size);
-    const mat = new THREE.MeshBasicMaterial({
+    const mat = getPooledMaterial({
         map: lightTex,
         color,
         transparent: true,
@@ -224,7 +226,8 @@ export function spawnScreenFlash(
         depthWrite: false,
         side: THREE.DoubleSide,
     });
-    const mesh = new THREE.Mesh(geo, mat);
+    mat.opacity = 1.0;
+    const mesh = new THREE.Mesh(pooledPlane(size, size), mat);
     mesh.position.copy(pos);
     mesh.quaternion.copy(getCamQuad());
     scene.add(mesh);

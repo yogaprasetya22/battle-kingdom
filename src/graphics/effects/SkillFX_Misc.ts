@@ -530,7 +530,8 @@ export function spawnShadowStepFX(
     if (baseMesh) {
         const pathDist = startPos.distanceTo(endPos);
         const stepSize = 1.8; // Spawn a ghost every 1.8 meters for a dense, smooth trail
-        const steps = Math.max(1, Math.floor(pathDist / stepSize));
+        // Cap at 4: SkeletonUtils.clone() is expensive, more than 4 causes frame drops
+        const steps = Math.min(4, Math.max(1, Math.floor(pathDist / stepSize)));
         for (let i = 1; i <= steps; i++) {
             const t = i / (steps + 1);
             const ghostPos = new THREE.Vector3().lerpVectors(startPos, endPos, t);
@@ -769,7 +770,7 @@ export function spawnHolySanctuaryFX(
             varying vec3 vViewPos;
             void main() {
                 vec3 normal = normalize(vNormal);
-                viewDir = normalize(vViewPos);
+                vec3 viewDir = normalize(vViewPos);
                 
                 // Fresnel glow
                 float fresnel = pow(1.0 - max(0.0, dot(normal, viewDir)), 3.0);

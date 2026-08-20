@@ -108,6 +108,7 @@ interface AoeEffect {
     ticksLeft: number;
     intervalTicks: number;
     targetTeam: number;
+    targetIdx?: number;
 }
 let activeAoes: AoeEffect[] = [];
 
@@ -659,6 +660,19 @@ function tick(d: Float32Array) {
         for (let a = activeAoes.length - 1; a >= 0; a--) {
             const aoe = activeAoes[a];
             aoe.ticksLeft--;
+
+            // Update AoE center dynamically matching the moving target if specified
+            if (aoe.targetIdx !== undefined) {
+                const targetBase = aoe.targetIdx * STRIDE;
+                // If target is valid and still alive, follow it
+                if (targetBase < d.length && d[targetBase + IDX_HP] > 0) {
+                    aoe.originX = d[targetBase + IDX_X];
+                    aoe.originZ = d[targetBase + IDX_Z];
+                } else {
+                    // Target died: release tracking to freeze tornado damage center in place
+                    aoe.targetIdx = undefined;
+                }
+            }
             
             // Lakukan hit jika berada pada interval yang pas
             if (aoe.ticksLeft % aoe.intervalTicks === 0) {
@@ -777,11 +791,12 @@ self.onmessage = (e: MessageEvent) => {
         const dmg = damage ?? 0;
         const enemyTeam = targetTeam ?? TEAM_B;
 
-        // Tornado (Digit3): Register AoE DoT selama 3.5 detik (210 ticks)
+        // Tornado (Digit3): Register AoE DoT dengan durasi dinamis dari config
         if (skillId === 'Digit3' || skillId === 'tornado') {
-            const totalDurationTicks = 210; // 3.5s * 60 FPS
+            const durationSec = e.data.activeDuration ?? 3.5;
+            const totalDurationTicks = Math.round(durationSec * 60); // duration * 60 FPS
             const tickInterval = 15; // Damage terpicu setiap 15 ticks (~0.25s)
-            const hitCount = Math.floor(totalDurationTicks / tickInterval);
+            const hitCount = Math.max(1, Math.floor(totalDurationTicks / tickInterval));
             
             activeAoes.push({
                 originX,
@@ -790,7 +805,8 @@ self.onmessage = (e: MessageEvent) => {
                 damagePerTick: Math.round(dmg / hitCount),
                 ticksLeft: totalDurationTicks,
                 intervalTicks: tickInterval,
-                targetTeam: enemyTeam
+                targetTeam: enemyTeam,
+                targetIdx: e.data.targetIdx
             });
         } else {
             // Skill Instant Lainnya (Gas Explosion, Flamethrower, dll.)

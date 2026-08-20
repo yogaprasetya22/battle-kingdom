@@ -19,6 +19,19 @@ export class SkillsSystem {
 
   // UI overlay representation
   private cdIndicator: HTMLDivElement;
+  private skillElements: Array<{
+    key: string;
+    itemEl: HTMLDivElement;
+    overlayEl: HTMLDivElement;
+    cdTextEl: HTMLSpanElement;
+    activeColor: string;
+  }> = [];
+
+  private passiveElement: {
+    itemEl: HTMLDivElement;
+    overlayEl: HTMLDivElement;
+    cdTextEl: HTMLSpanElement;
+  } | null = null;
 
   constructor(
     gasVFX: VFXInterface,
@@ -96,12 +109,12 @@ export class SkillsSystem {
       }
     };
 
-    // Skill HUD — di atas #controls bar (fixed bottom: 1.25rem + ~54px = controls height)
+    // Skill HUD — di atas #controls bar (fixed bottom: 1.25rem)
     this.cdIndicator = document.createElement('div');
     this.cdIndicator.id = 'skill-hud';
     this.cdIndicator.style.cssText = `
       position: fixed;
-      bottom: calc(1.25rem + 54px);
+      bottom: 1.25rem;
       left: 50%;
       transform: translateX(-50%);
       display: flex;
@@ -118,47 +131,6 @@ export class SkillsSystem {
       -webkit-backdrop-filter: blur(20px);
     `;
     document.body.appendChild(this.cdIndicator);
-    this.updateUI();
-  }
-
-  public setVisible(visible: boolean) {
-    this.cdIndicator.style.display = visible ? 'flex' : 'none';
-  }
-
-  public handleInput(code: string, playerPos: THREE.Vector3, forward: THREE.Vector3, character?: any) {
-    const skill = this.skills[code];
-    if (skill && skill.currentCD <= 0) {
-      // Auto-Aim: Force character to face target dummy before casting any skill
-      if (character) {
-        character.faceNearestTarget();
-        // Fetch fresh vectors pointing towards the newly auto-aimed target
-        forward = character.getForwardVector();
-        playerPos = character.position;
-      }
-
-      skill.trigger(playerPos, forward, character);
-      skill.currentCD = skill.cooldown;
-      this.updateUI();
-    }
-  }
-
-  public update(delta: number) {
-    let cdUpdated = false;
-    for (const key in this.skills) {
-      const s = this.skills[key];
-      if (s.currentCD > 0) {
-        s.currentCD -= delta;
-        if (s.currentCD < 0) s.currentCD = 0;
-        cdUpdated = true;
-      }
-    }
-    if (cdUpdated) {
-      this.updateUI();
-    }
-  }
-
-  private updateUI() {
-    this.cdIndicator.innerHTML = '';
 
     // Label "SKILLS" di atas container
     const label = document.createElement('div');
@@ -174,7 +146,7 @@ export class SkillsSystem {
       color: rgba(255,255,255,0.35);
     `;
     label.innerText = 'SKILLS';
-    this.cdIndicator.style.position = 'fixed'; // ensure relative context
+    this.cdIndicator.style.position = 'fixed';
     this.cdIndicator.appendChild(label);
 
     const keys = [
@@ -199,10 +171,8 @@ export class SkillsSystem {
     };
 
     keys.forEach((key, idx) => {
-      const s = this.skills[key];
       const iconUrl = skillIcons[key] || '/assets-image-skills/PNG/1.png';
       const activeColor = skillColors[key] || '#ffffff';
-      const isReady = s.currentCD <= 0;
 
       const item = document.createElement('div');
       item.style.cssText = `
@@ -211,12 +181,12 @@ export class SkillsSystem {
         background-image: url('${iconUrl}');
         background-size: cover;
         background-position: center;
-        border: 2px solid ${isReady ? activeColor : 'rgba(239, 68, 68, 0.5)'};
+        border: 2px solid ${activeColor};
         border-radius: 8px;
         position: relative;
         box-shadow: inset 0 0 10px rgba(0,0,0,0.6), 0 3px 8px rgba(0,0,0,0.3);
         transition: border-color 0.2s ease, opacity 0.2s ease;
-        opacity: ${isReady ? '1' : '0.65'};
+        opacity: 1;
       `;
 
       // Hotkey Badge
@@ -239,33 +209,204 @@ export class SkillsSystem {
       `;
       item.appendChild(keyLabel);
 
-      // Cooldown Overlay
-      if (s.currentCD > 0) {
-        const overlay = document.createElement('div');
-        overlay.style.cssText = `
-          position: absolute;
-          inset: 0;
-          background: rgba(0,0,0,0.62);
-          border-radius: 8px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          z-index: 2;
-        `;
-        const cdText = document.createElement('span');
-        cdText.innerText = s.currentCD.toFixed(1);
-        cdText.style.cssText = `
-          color: #f87171;
-          font-size: 14px;
-          font-weight: 900;
-          text-shadow: 0 1px 6px rgba(0,0,0,0.95);
-          font-family: 'Inter', monospace;
-        `;
-        overlay.appendChild(cdText);
-        item.appendChild(overlay);
-      }
+      // Cooldown Overlay (Hidden by default)
+      const overlay = document.createElement('div');
+      overlay.style.cssText = `
+        position: absolute;
+        inset: 0;
+        background: rgba(0,0,0,0.62);
+        border-radius: 8px;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 2;
+      `;
+      const cdText = document.createElement('span');
+      cdText.style.cssText = `
+        color: #f87171;
+        font-size: 14px;
+        font-weight: 900;
+        text-shadow: 0 1px 6px rgba(0,0,0,0.95);
+        font-family: 'Inter', monospace;
+      `;
+      overlay.appendChild(cdText);
+      item.appendChild(overlay);
 
       this.cdIndicator.appendChild(item);
+
+      this.skillElements.push({
+        key,
+        itemEl: item,
+        overlayEl: overlay,
+        cdTextEl: cdText,
+        activeColor
+      });
     });
+
+    // Create Passive Dodge Cooldown indicator once
+    const passiveItem = document.createElement('div');
+    passiveItem.style.cssText = `
+      width: 44px;
+      height: 44px;
+      background-image: url('/assets-image-skills/PNG/1.png');
+      background-size: cover;
+      background-position: center;
+      border: 2px solid #a855f7;
+      border-radius: 8px;
+      position: relative;
+      box-shadow: inset 0 0 10px rgba(0,0,0,0.6), 0 3px 8px rgba(0,0,0,0.3);
+      transition: border-color 0.2s ease, opacity 0.2s ease;
+      opacity: 1;
+    `;
+
+    // Passive label badge
+    const passiveLabel = document.createElement('div');
+    passiveLabel.innerText = 'PASSIVE';
+    passiveLabel.style.cssText = `
+      position: absolute;
+      bottom: -7px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(10, 12, 20, 0.95);
+      color: #e9d5ff;
+      border: 1px solid rgba(168, 85, 247, 0.4);
+      border-radius: 4px;
+      padding: 0px 4px;
+      font-size: 7px;
+      font-weight: 900;
+      z-index: 5;
+      font-family: 'Segoe UI', monospace;
+      letter-spacing: 0.05em;
+      white-space: nowrap;
+    `;
+    passiveItem.appendChild(passiveLabel);
+
+    // Key badge (E)
+    const keyLabel = document.createElement('div');
+    keyLabel.innerText = 'E';
+    keyLabel.style.cssText = `
+      position: absolute;
+      top: -7px;
+      right: -7px;
+      background: rgba(10, 12, 20, 0.92);
+      color: #e2e8f0;
+      border: 1px solid rgba(255,255,255,0.25);
+      border-radius: 5px;
+      padding: 1px 5px;
+      font-size: 9px;
+      font-weight: 900;
+      z-index: 5;
+      font-family: 'Inter', monospace;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.5);
+    `;
+    passiveItem.appendChild(keyLabel);
+
+    // Cooldown Overlay (Hidden by default)
+    const passiveOverlay = document.createElement('div');
+    passiveOverlay.style.cssText = `
+      position: absolute;
+      inset: 0;
+      background: rgba(0,0,0,0.62);
+      border-radius: 8px;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 2;
+    `;
+    const passiveCdText = document.createElement('span');
+    passiveCdText.style.cssText = `
+      color: #f87171;
+      font-size: 14px;
+      font-weight: 900;
+      text-shadow: 0 1px 6px rgba(0,0,0,0.95);
+      font-family: 'Inter', monospace;
+    `;
+    passiveOverlay.appendChild(passiveCdText);
+    passiveItem.appendChild(passiveOverlay);
+
+    this.cdIndicator.appendChild(passiveItem);
+
+    this.passiveElement = {
+      itemEl: passiveItem,
+      overlayEl: passiveOverlay,
+      cdTextEl: passiveCdText
+    };
+
+    this.updateUI();
+  }
+
+  public setVisible(visible: boolean) {
+    this.cdIndicator.style.display = visible ? 'flex' : 'none';
+  }
+
+  public handleInput(code: string, playerPos: THREE.Vector3, forward: THREE.Vector3, character?: any) {
+    const skill = this.skills[code];
+    if (skill && skill.currentCD <= 0) {
+      // Auto-Aim: Force character to face target dummy before casting any skill
+      if (character) {
+        character.faceNearestTarget();
+        // Fetch fresh vectors pointing towards the newly auto-aimed target
+        forward = character.getForwardVector();
+        playerPos = character.position;
+      }
+
+      skill.trigger(playerPos, forward, character);
+      skill.currentCD = skill.cooldown;
+      this.updateUI();
+    }
+  }
+
+  public update(delta: number, character?: any) {
+    let cdUpdated = false;
+    for (const key in this.skills) {
+      const s = this.skills[key];
+      if (s.currentCD > 0) {
+        s.currentCD -= delta;
+        if (s.currentCD < 0) s.currentCD = 0;
+        cdUpdated = true;
+      }
+    }
+    // Track dynamic character stats (dodge cooldown) for UI updates
+    if (character && (character.dodgeCooldownLeft !== undefined || character.dodgeCooldownLeft >= 0)) {
+      cdUpdated = true;
+    }
+    if (cdUpdated) {
+      this.updateUI(character);
+    }
+  }
+
+  private updateUI(character?: any) {
+    // Update active skills UI state without rebuilding DOM
+    this.skillElements.forEach((el) => {
+      const s = this.skills[el.key];
+      if (!s) return;
+      
+      const isReady = s.currentCD <= 0;
+      el.itemEl.style.borderColor = isReady ? el.activeColor : 'rgba(239, 68, 68, 0.5)';
+      el.itemEl.style.opacity = isReady ? '1' : '0.65';
+      
+      if (s.currentCD > 0) {
+        el.overlayEl.style.display = 'flex';
+        el.cdTextEl.innerText = s.currentCD.toFixed(1);
+      } else {
+        el.overlayEl.style.display = 'none';
+      }
+    });
+
+    // Update passive dodge UI state
+    if (this.passiveElement) {
+      const dodgeCD = character ? (character.dodgeCooldownLeft ?? 0) : 0;
+      const isReady = dodgeCD <= 0;
+      
+      this.passiveElement.itemEl.style.borderColor = isReady ? '#a855f7' : 'rgba(239, 68, 68, 0.5)';
+      this.passiveElement.itemEl.style.opacity = isReady ? '1' : '0.65';
+      
+      if (dodgeCD > 0) {
+        this.passiveElement.overlayEl.style.display = 'flex';
+        this.passiveElement.cdTextEl.innerText = dodgeCD.toFixed(1);
+      } else {
+        this.passiveElement.overlayEl.style.display = 'none';
+      }
+    }
   }
 }
