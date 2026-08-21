@@ -160,6 +160,7 @@ let teamBConfig: TeamComposition = {
 };
 
 const animLockTicks = new Int32Array(UNIT_COUNT);
+const rangedClaimCounts = new Int32Array(UNIT_COUNT);
 
 // --- Spawn ---
 function initUnits(d: Float32Array, matchup: string = "mix") {
@@ -459,7 +460,7 @@ function tick(d: Float32Array) {
 
     // Pre-count target claims for ranged units (Archer/Mage/Gunslinger)
     // so findNearestEnemyDistributed can apply claim-based penalty.
-    const rangedClaimCounts = new Int32Array(UNIT_COUNT);
+    rangedClaimCounts.fill(0);
     for (let i = startIndex; i < endIndex; i++) {
         const uBase = i * STRIDE;
         const hp = d[uBase + IDX_HP];
@@ -827,11 +828,10 @@ self.onmessage = (e: MessageEvent) => {
                 }
             }
             
-            // Kirim event visual damage (seperti damage HUD text) ke main thread secara instan
             if (hitAny && skillFXBatch.length > 0) {
                 self.postMessage({
                     type: "skillFXBatch",
-                    events: [...skillFXBatch]
+                    events: skillFXBatch
                 });
                 clearSkillFXBatch();
             }

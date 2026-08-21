@@ -710,6 +710,8 @@ export function updateFrame(data: Float32Array, delta: number) {
     if (!modelLoaded) return;
 
     animFrameCount++;
+    let mixerUpdatesThisFrame = 0;
+    const MAX_MIXER_UPDATES_PER_FRAME = 20;
 
     const cameraMoved = !_lastCameraMatrix.equals(camera.matrixWorld);
     if (cameraMoved) {
@@ -1147,17 +1149,21 @@ export function updateFrame(data: Float32Array, delta: number) {
             if (shouldUpdateMixer) {
                 unit.accumulatedDelta += delta;
                 
-                // Jarak ke kamera menentukan frame-skip untuk update skeletal anim
+                // Jarak ke kamera menentukan frame-skip untuk update skeletal anim (P2 LOD Tiers)
                 let isMyFrame = true;
-                if (distSq > 4900) { // Jauh (> 70 unit): update tiap 4 frame (~15fps anim)
+                if (distSq > 4900) { // Jauh (> 70 unit): update tiap 8 frame (~7.5fps anim)
+                    isMyFrame = (animFrameCount + i) % 8 === 0;
+                } else if (distSq > 2500) { // Sedang-jauh (50-70 unit): update tiap 4 frame (~15fps anim)
                     isMyFrame = (animFrameCount + i) % 4 === 0;
-                } else if (distSq > 1600) { // Sedang (40-70 unit): update tiap 2 frame (~30fps anim)
+                } else if (distSq > 900) { // Sedang (30-50 unit): update tiap 2 frame (~30fps anim)
                     isMyFrame = (animFrameCount + i) % 2 === 0;
                 }
 
-                if (isMyFrame) {
+                // P0 - Batasi jumlah update mixer per frame ke maks 20 unit terdekat
+                if (isMyFrame && mixerUpdatesThisFrame < MAX_MIXER_UPDATES_PER_FRAME) {
                     unit.mixer.update(unit.accumulatedDelta);
                     unit.accumulatedDelta = 0;
+                    mixerUpdatesThisFrame++;
                 }
             } else {
                 unit.accumulatedDelta = 0;
