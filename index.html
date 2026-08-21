@@ -1625,6 +1625,23 @@
       }
     });
   </script>
+  <!-- Online Players UI -->
+  <div id="online-players-panel" class="fixed top-20 left-4 z-40 bg-slate-950/80 backdrop-blur-md border border-slate-800 rounded-2xl p-4 w-60 shadow-2xl pointer-events-auto">
+    <div class="flex items-center justify-between mb-3 border-b border-slate-800 pb-2">
+      <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+        <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping"></span>
+        Multiplayer Lobby
+      </h3>
+      <span id="online-count" class="text-xs font-semibold px-2 py-0.5 bg-slate-800 rounded-md text-emerald-400">1 Online</span>
+    </div>
+    <ul id="online-players-list" class="max-h-40 overflow-y-auto space-y-1 text-xs text-slate-300">
+      <li class="flex items-center justify-between bg-slate-900/50 px-2.5 py-1.5 rounded-lg border border-slate-800">
+        <span class="truncate font-medium text-slate-200">Anda</span>
+        <span class="text-[10px] text-emerald-500 font-bold bg-emerald-500/10 px-1.5 py-0.5 rounded">Host</span>
+      </li>
+    </ul>
+  </div>
+
   <script type="module" src="/src/main.ts"></script>
 </body>
 

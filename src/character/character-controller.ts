@@ -3,9 +3,17 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 // @ts-ignore
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
+import { loadGLTFWithCache } from '../graphics/core/scene';
 import { CHARACTER_CONFIG } from './character-config';
 import { ProjectileSystem } from './projectile-system';
 import { getTerrainHeight } from '../simulation/constants';
+
+// Module-level scratch vectors — zero heap allocation in hot attack/targeting paths
+const _scratchTargetPos = new THREE.Vector3();
+const _scratchSpawnPos = new THREE.Vector3();
+const _scratchDir = new THREE.Vector3();
+const _upVec = new THREE.Vector3(0, 1, 0);
+
 
 export class CharacterController {
   // THREE.js elements
@@ -15,6 +23,7 @@ export class CharacterController {
   private scene: THREE.Scene;
   private environmentMesh: THREE.Mesh | null = null;
   private projectileSystem: ProjectileSystem | null = null;
+  public teamId: number = 0;
 
   public setProjectileSystem(ps: ProjectileSystem): void {
     this.projectileSystem = ps;
@@ -23,7 +32,7 @@ export class CharacterController {
   // Animation system
   private mixer: THREE.AnimationMixer | null = null;
   private actions: { [key: string]: THREE.AnimationAction } = {};
-  private currentActionName = '';
+  public currentActionName = '';
   private bowMesh: THREE.Group | null = null;
   private quiverMesh: THREE.Group | null = null;
 
@@ -200,20 +209,17 @@ export class CharacterController {
   }
 
   private async loadAssets() {
-    const loader = new GLTFLoader();
-    loader.setMeshoptDecoder(MeshoptDecoder);
-
     try {
       // 1. Load character model, animations and weapons in parallel
       const [charGLTF, generalAnim, advancedAnim, combatAnim, basicAnim, flipAnim, bowGLTF, quiverGLTF] = await Promise.all([
-        loader.loadAsync('/character/characters/Ranger.glb'),
-        loader.loadAsync('/character/animation/Rig_Medium_General.glb'),
-        loader.loadAsync('/character/animation/Rig_Medium_MovementAdvanced.glb'),
-        loader.loadAsync('/character/animation/Rig_Medium_CombatRanged.glb'),
-        loader.loadAsync('/character/animation/Rig_Medium_MovementBasic.glb'),
-        loader.loadAsync('/character/animation/Running_Forward_Flip.glb'),
-        loader.loadAsync('/character/weapons/bow_withString.glb'),
-        loader.loadAsync('/character/weapons/quiver.glb')
+        loadGLTFWithCache('/character/characters/Ranger.glb'),
+        loadGLTFWithCache('/character/animation/Rig_Medium_General.glb'),
+        loadGLTFWithCache('/character/animation/Rig_Medium_MovementAdvanced.glb'),
+        loadGLTFWithCache('/character/animation/Rig_Medium_CombatRanged.glb'),
+        loadGLTFWithCache('/character/animation/Rig_Medium_MovementBasic.glb'),
+        loadGLTFWithCache('/character/animation/Running_Forward_Flip.glb'),
+        loadGLTFWithCache('/character/weapons/bow_withString.glb'),
+        loadGLTFWithCache('/character/weapons/quiver.glb')
       ]);
 
       // Remove placeholder mesh
@@ -266,7 +272,7 @@ export class CharacterController {
       
       // Filter out root node animation tracks to prevent overriding playerMesh position/rotation/orientation
       allClips.forEach((clip) => {
-        clip.tracks = clip.tracks.filter((track) => {
+        clip.tracks = clip.tracks.filter((track: any) => {
           const name = track.name;
           const isRootTrack = name.startsWith('.position') || 
                               name.startsWith('.rotation') || 
@@ -299,7 +305,7 @@ export class CharacterController {
       // Automatically retarget/rename doubleJumpClip track names to match target bone names
       if (doubleJumpClip && allClips.length > 0) {
         let targetPrefix = "";
-        const targetTrackSample = allClips[0].tracks.find(t => t.name.toLowerCase().includes('hips'));
+        const targetTrackSample = allClips[0].tracks.find((t: any) => t.name.toLowerCase().includes('hips'));
         if (targetTrackSample) {
           const parts = targetTrackSample.name.split('.');
           const bonePath = parts[0];
@@ -310,7 +316,7 @@ export class CharacterController {
         }
 
         let sourcePrefix = "";
-        const sourceTrackSample = doubleJumpClip.tracks.find(t => t.name.toLowerCase().includes('hips'));
+        const sourceTrackSample = doubleJumpClip.tracks.find((t: any) => t.name.toLowerCase().includes('hips'));
         if (sourceTrackSample) {
           const parts = sourceTrackSample.name.split('.');
           const bonePath = parts[0];
@@ -321,7 +327,7 @@ export class CharacterController {
         }
 
         if (sourcePrefix !== targetPrefix) {
-          doubleJumpClip.tracks.forEach(track => {
+          doubleJumpClip.tracks.forEach((track: any) => {
             const parts = track.name.split('.');
             let bonePath = parts[0];
             const property = parts[1];
@@ -658,7 +664,7 @@ export class CharacterController {
     const moveX = (this.keys.KeyD ? 1 : 0) - (this.keys.KeyA ? 1 : 0);
     const moveZ = (this.keys.KeyS ? 1 : 0) - (this.keys.KeyW ? 1 : 0);
     const inputDirection = this.tempVector.set(moveX, 0, moveZ).normalize();
-    inputDirection.applyAxisAngle(new THREE.Vector3(0, 1, 0), camRotationY);
+    inputDirection.applyAxisAngle(_upVec, camRotationY);
 
     if (this.isDodging) {
       this.dodgeTimeLeft -= delta;
@@ -799,18 +805,17 @@ export class CharacterController {
     let nearest: THREE.Object3D | null = null;
     let minDist = Infinity;
     const playerPos = this.position;
+    const range = CHARACTER_CONFIG.combat.autoAimRange;
 
-    this.targets.forEach((target) => {
-      const targetPos = new THREE.Vector3();
-      target.getWorldPosition(targetPos);
-      const dist = playerPos.distanceTo(targetPos);
-      // Auto aim range cap from config
-      if (dist < CHARACTER_CONFIG.combat.autoAimRange && dist < minDist) {
+    for (let i = 0; i < this.targets.length; i++) {
+      const target = this.targets[i];
+      target.getWorldPosition(_scratchTargetPos); // no alloc
+      const dist = playerPos.distanceTo(_scratchTargetPos);
+      if (dist < range && dist < minDist) {
         minDist = dist;
         nearest = target;
       }
-    });
-
+    }
     return nearest;
   }
 
@@ -818,37 +823,39 @@ export class CharacterController {
     if (this.currentActionName === 'double_jump' && this.animationLockTime > 0) {
       return false;
     }
-
     if (this.attackCooldown > 0 || !this.actions['attack']) return false;
 
+    // Get target once — reused for rotation + projectile aim
     const target = this.getNearestTarget();
+
     if (target && this.playerMesh) {
-      const targetPos = new THREE.Vector3();
-      target.getWorldPosition(targetPos);
-      const dx = targetPos.x - this.position.x;
-      const dz = targetPos.z - this.position.z;
+      target.getWorldPosition(_scratchTargetPos); // no alloc
+      const dx = _scratchTargetPos.x - this.position.x;
+      const dz = _scratchTargetPos.z - this.position.z;
       this.playerMesh.rotation.y = Math.atan2(dx, dz);
     }
 
-    this.playAnimationState(
-      'attack',
-      0.02,                                              // ultra-short crossfade for snappy high-ASPD response
-      CHARACTER_CONFIG.combat.attackAnimScale,           // timeScale driven by ASPD config
-    );
+    this.playAnimationState('attack', 0.02, CHARACTER_CONFIG.combat.attackAnimScale);
     this.animationLockTime = CHARACTER_CONFIG.combat.attackLockDuration;
     this.attackCooldown = CHARACTER_CONFIG.combat.rateOfFire;
 
     if (this.projectileSystem) {
-      const spawnPos = this.getWeaponWorldPosition('hand_l', 1.0);
-      let dir = this.getForwardVector();
-      const target = this.getNearestTarget();
+      const spawnPos = this.getWeaponWorldPosition('hand_l', 1.0); // uses scratch internally
+      let dx = 0, dy = 0, dz = 1;
       if (target) {
-        const targetWorldPos = new THREE.Vector3();
-        target.getWorldPosition(targetWorldPos);
-        targetWorldPos.y += 0.5; // aim at body center
-        dir = targetWorldPos.sub(spawnPos).normalize();
+        target.getWorldPosition(_scratchTargetPos); // no alloc
+        _scratchTargetPos.y += 0.5;
+        _scratchDir.copy(_scratchTargetPos).sub(spawnPos).normalize();
+        dx = _scratchDir.x; dy = _scratchDir.y; dz = _scratchDir.z;
+      } else {
+        _scratchDir.copy(this.getForwardVector());
+        dx = _scratchDir.x; dy = _scratchDir.y; dz = _scratchDir.z;
       }
-      this.projectileSystem.spawn(spawnPos, dir, CHARACTER_CONFIG.projectiles.speed, target ?? null);
+      this.projectileSystem.spawn(spawnPos, _scratchDir, CHARACTER_CONFIG.projectiles.speed, target ?? null, this.teamId);
+
+      window.dispatchEvent(new CustomEvent('network_attack_cast', {
+        detail: { x: spawnPos.x, y: spawnPos.y, z: spawnPos.z, dx, dy, dz }
+      }));
     }
     return true;
   }

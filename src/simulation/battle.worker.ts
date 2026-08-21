@@ -410,7 +410,8 @@ function tick(d: Float32Array) {
 
     // Spawn Team A
     const maxSpawnA = Math.min(activeCountA, unitsToSpawn);
-    for (let i = startIndex; i < Math.min(endIndex, maxSpawnA); i++) {
+    const aEndLimit = Math.min(TEAM_SIZE, maxSpawnA);
+    for (let i = startIndex; i < Math.min(endIndex, aEndLimit); i++) {
         if (i === HERO_UNIT_INDEX) continue; // Worker-Bypass: jangan respawn hero slot
         const base = i * STRIDE;
         if (d[base + IDX_HP] === -999) {
@@ -434,9 +435,10 @@ function tick(d: Float32Array) {
     // Spawn Team B
     const maxSpawnB = Math.min(activeCountB, unitsToSpawn);
     const bStartIdx = TEAM_SIZE;
+    const bEndLimit = bStartIdx + Math.min(TEAM_SIZE, maxSpawnB);
     for (
         let i = Math.max(startIndex, bStartIdx);
-        i < Math.min(endIndex, bStartIdx + maxSpawnB);
+        i < Math.min(endIndex, bEndLimit);
         i++
     ) {
         const base = i * STRIDE;

@@ -74,6 +74,16 @@ export const gltfLoader = new GLTFLoader(loadingManager);
 gltfLoader.setMeshoptDecoder(MeshoptDecoder);
 // ponytail: no DRACOLoader — gltfpack output uses Meshopt, not Draco. Saves ~500KB wasm.
 
+const gltfCache = new Map<string, Promise<any>>();
+export function loadGLTFWithCache(url: string): Promise<any> {
+    let p = gltfCache.get(url);
+    if (!p) {
+        p = gltfLoader.loadAsync(url);
+        gltfCache.set(url, p);
+    }
+    return p;
+}
+
 // Canvas & WebGLRenderer
 export const canvas = document.getElementById("canvas") as HTMLCanvasElement;
 export const renderer = new THREE.WebGLRenderer({

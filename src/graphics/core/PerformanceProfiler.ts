@@ -62,6 +62,9 @@ class PerformanceProfiler {
         movementPhysics: 0,
         targeting: 0,
         render: 0,
+        workerComm: 0,
+        workerMsg: 0,
+        netSync: 0,
     };
 
     private activityMetrics = {
@@ -74,6 +77,7 @@ class PerformanceProfiler {
 
     private lastWorkerTickTime = 0;
     private webGLRendererRef: THREE.WebGLRenderer | null = null;
+    private logCounter = 0;
 
     constructor() {
         // Expose to window for console control
@@ -123,15 +127,26 @@ class PerformanceProfiler {
     }
 
     public endFrame() {
-        // Reset times
+        // Periodically log profiling breakdown (every 300 frames ~ 5 seconds)
+        this.logCounter++;
+        if (this.logCounter >= 300) {
+            this.logCounter = 0;
+            this.printProfilingBreakdown();
+        }
+
+        // Reset system times for next frame
         this.systemTimes.animations = 0;
         this.systemTimes.billboards = 0;
         this.systemTimes.movementPhysics = 0;
         this.systemTimes.targeting = 0;
+        this.systemTimes.workerComm = 0;
+        this.systemTimes.workerMsg = 0;
+        this.systemTimes.netSync = 0;
+        this.systemTimes.render = 0;
     }
 
     public startLogging() {
-        this.isProfiling = false;
+        this.isProfiling = true;
     }
 
     public stopLogging() {
@@ -144,6 +159,10 @@ class PerformanceProfiler {
         durationMs: number,
     ) {
         this.systemTimes[systemName] = durationMs;
+    }
+
+    public getSystemTime(systemName: keyof typeof PerformanceProfiler.prototype.systemTimes): number {
+        return this.systemTimes[systemName];
     }
 
     public setWorkerTickTime(durationMs: number) {
@@ -190,7 +209,30 @@ class PerformanceProfiler {
         return 1000 / (sum / n);
     }
 
+    private printProfilingBreakdown() {
+        const totalMeasured = 
+            this.systemTimes.workerComm +
+            this.systemTimes.workerMsg +
+            this.systemTimes.netSync +
+            this.systemTimes.render +
+            this.systemTimes.animations;
 
+        if (totalMeasured <= 0) return;
+
+        const pWorkerComm = (this.systemTimes.workerComm / totalMeasured) * 100;
+        const pWorkerMsg = (this.systemTimes.workerMsg / totalMeasured) * 100;
+        const pNetSync = (this.systemTimes.netSync / totalMeasured) * 100;
+        const pRender = (this.systemTimes.render / totalMeasured) * 100;
+        const pAnim = (this.systemTimes.animations / totalMeasured) * 100;
+
+        console.log(`%c[PerfProfiler] FRAME TIME BREAKDOWN (Total CPU/Render: ${totalMeasured.toFixed(2)}ms)
+  - Worker postMessage (Tick Dispatch): ${this.systemTimes.workerComm.toFixed(2)}ms (${pWorkerComm.toFixed(1)}%)
+  - Worker onMessage (Response Handling): ${this.systemTimes.workerMsg.toFixed(2)}ms (${pWorkerMsg.toFixed(1)}%)
+  - Network state sync: ${this.systemTimes.netSync.toFixed(2)}ms (${pNetSync.toFixed(1)}%)
+  - GPU Render: ${this.systemTimes.render.toFixed(2)}ms (${pRender.toFixed(1)}%)
+  - Skeletal Animations LOD / Blend: ${this.systemTimes.animations.toFixed(2)}ms (${pAnim.toFixed(1)}%)
+  - Live FPS: ${this.getLiveFps()} FPS`, "color: #00dfff; font-weight: bold;");
+    }
 }
 
 export const perfProfiler = new PerformanceProfiler();

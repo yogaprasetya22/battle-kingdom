@@ -199,7 +199,10 @@ export function startRenderLoop() {
                 : "0";
 
         if (sharedData) updateFrame(sharedData, delta);
+        const tStartRender = performance.now();
         renderer.render(scene, camera);
+        const tDurationRender = performance.now() - tStartRender;
+        perfProfiler.trackSystemTime("render", tDurationRender);
 
         perfProfiler.endFrame();
     };

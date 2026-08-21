@@ -1,5 +1,5 @@
 // Total units per team
-export const TEAM_SIZE = 50;
+export const TEAM_SIZE = 20;
 export const UNIT_COUNT = TEAM_SIZE * 2; // 100 total
 
 // Flat ECS layout per unit (15 floats = 60 bytes each)
@@ -23,7 +23,7 @@ export const IDX_IMMUNE_CD = 14; // Countdown imun Tank (> 0 = imun, tidak bisa 
 
 // LOD Culling Distance for unit meshes (larger visual range)
 export const UNIT_LOD_DIST_SQ = 90000; // ~300 units (entire map)
-export const WEAPON_LOD_DIST_SQ = 3600; // ~60 units
+export const WEAPON_LOD_DIST_SQ = 1600; // ~40 units (cull weapon meshes earlier for draw call savings)
 
 // Class Types
 export const TYPE_BARBARIAN = 0;

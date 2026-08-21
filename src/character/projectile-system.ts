@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { CHARACTER_CONFIG } from './character-config';
 import { getTerrainHeight } from '../simulation/constants';
+import { getUnits } from '../graphics/core/UnitRenderer';
 
 interface Projectile {
   mesh: THREE.Mesh;
@@ -8,6 +9,7 @@ interface Projectile {
   age: number;
   maxAge: number;
   target: THREE.Object3D | null;
+  ownerTeam?: number;
 }
 
 // Module-level pre-allocated scratch vectors — zero heap allocation in hot loop
@@ -17,6 +19,8 @@ const _toTarget = new THREE.Vector3();
 const _movementVec = new THREE.Vector3();
 const _targetLook = new THREE.Vector3();
 const _tPos = new THREE.Vector3();
+const _rayOrigin = new THREE.Vector3(); // pre-alloc: was `new THREE.Vector3(oldX,...)` per frame
+const _raycaster = new THREE.Raycaster(); // pre-alloc: was `new THREE.Raycaster(...)` per frame
 
 export class ProjectileSystem {
   private scene: THREE.Scene;
@@ -61,7 +65,7 @@ export class ProjectileSystem {
     });
   }
 
-  public spawn(startPosition: THREE.Vector3, direction: THREE.Vector3, speed = CHARACTER_CONFIG.projectiles.speed, target: THREE.Object3D | null = null) {
+  public spawn(startPosition: THREE.Vector3, direction: THREE.Vector3, speed = CHARACTER_CONFIG.projectiles.speed, target: THREE.Object3D | null = null, ownerTeam = -1) {
     const arrowMesh = new THREE.Mesh(this.arrowGeometry, this.arrowMaterial);
     arrowMesh.position.copy(startPosition);
 
@@ -77,7 +81,8 @@ export class ProjectileSystem {
       velocity: velocity,
       age: 0,
       maxAge: CHARACTER_CONFIG.projectiles.maxDistance / speed,
-      target: target
+      target: target,
+      ownerTeam: ownerTeam
     });
   }
 
@@ -131,6 +136,36 @@ export class ProjectileSystem {
              }));
           }
         }
+      } else {
+        // No specific target (e.g. guest player attacks or blind firing). Check collision against all eligible opponent units.
+        const units = getUnits();
+        const ownerTeam = p.ownerTeam !== undefined ? p.ownerTeam : -1;
+        for (let j = 0; j < units.length; j++) {
+          const u = units[j];
+          if (u && u.root) {
+            // Only collide with opposing team (if ownerTeam is specified)
+            if (ownerTeam !== -1 && u.team === ownerTeam) {
+              continue;
+            }
+            
+            // Check distance
+            u.root.getWorldPosition(_tPos);
+            _tPos.y += 0.5;
+            const dist = p.mesh.position.distanceTo(_tPos);
+            // 0.8 meters collision radius
+            if (dist < 0.8) {
+              collided = true;
+              if (spawnVFXCallback) spawnVFXCallback(p.mesh.position);
+              const targetIdx = u.root.userData.unitIndex;
+              if (targetIdx !== undefined && !isNaN(targetIdx)) {
+                 window.dispatchEvent(new CustomEvent('projectile_hit', {
+                    detail: { targetIdx: targetIdx, damage: CHARACTER_CONFIG.combat.damage }
+                 }));
+              }
+              break; // Collided with one target, stop checking other units
+            }
+          }
+        }
       }
 
       // Collision Check against static environment BVH using Raycaster
@@ -143,10 +178,11 @@ export class ProjectileSystem {
         const dist = _movementVec.length();
         if (dist > 0.001) {
           const dir = _movementVec.normalize();
-          const raycaster = new THREE.Raycaster(
-            new THREE.Vector3(oldX, oldY, oldZ), dir, 0, dist
-          );
-          const intersects = raycaster.intersectObject(environmentMesh);
+          _rayOrigin.set(oldX, oldY, oldZ);
+          _raycaster.set(_rayOrigin, dir);
+          _raycaster.near = 0;
+          _raycaster.far = dist;
+          const intersects = _raycaster.intersectObject(environmentMesh);
           if (intersects.length > 0) {
             collided = true;
             p.mesh.position.copy(intersects[0].point);

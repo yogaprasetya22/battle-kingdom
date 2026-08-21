@@ -51,6 +51,24 @@ export function createHero(
     // Instansiasi efek ledakan gas biru saat panah mengenai target/tanah
     const hitVFX = new CartoonBlueGasExplosionNativeVFX(scene, camera);
     
+    // Pre-warm custom VFX shader materials to prevent dynamic compile stalls (50ms spikes)
+    try {
+        console.log("[ShaderPrewarm] Pre-warming VFX shaders...");
+        gasVFX.spawn(0, -999, 0);
+        flameVFX.spawn(0, -999, 0);
+        tornadoVFX.spawn(0, -999, 0);
+        hitVFX.spawn(0, -999, 0);
+        projectiles.spawn(new THREE.Vector3(0, -999, 0), new THREE.Vector3(0, 0, 1));
+        
+        // Dynamic import to avoid eager circular dependencies if any
+        import('../../core/scene').then(({ renderer }) => {
+            renderer.compile(scene, camera);
+            console.log("[ShaderPrewarm] Pre-warming VFX shaders complete!");
+        });
+    } catch (e) {
+        console.warn("[ShaderPrewarm] Pre-warming failed:", e);
+    }
+    
     // Handle continuous basic attack (mousedown/mouseup tracking) — ONLY allowed when pointer is locked
     let isShooting = false;
     window.addEventListener('mousedown', (e) => {
@@ -149,6 +167,11 @@ export function createHero(
                         : undefined
                 });
             }
+
+            // Notify main.ts to broadcast this cast to the multiplayer server
+            window.dispatchEvent(new CustomEvent('network_skill_cast', {
+                detail: { skillId: e.code, originX, originZ }
+            }));
         }
     });
 

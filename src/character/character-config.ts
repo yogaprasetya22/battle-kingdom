@@ -33,7 +33,7 @@ export const CHARACTER_CONFIG = {
   // Skills configs
   skills: {
     tornado: {
-      cooldown: 0,             // Cooldown in seconds (disesuaikan)
+      cooldown: 12.0,             // Cooldown in seconds (disesuaikan)
       key: 'Digit3',
       hudColor: '#00d2ff',       // Cyan/Blue border color for tornado
       damage: 180000,              // AoE damage
@@ -41,7 +41,7 @@ export const CHARACTER_CONFIG = {
       activeDuration: 13.5,        // Duration of the tornado (seconds)
     },
     gasExplosion: {
-      cooldown: 0,             // Cooldown in seconds (disesuaikan)
+      cooldown: 6.0,             // Cooldown in seconds (disesuaikan)
       key: 'Digit1',
       forwardOffset: 4.0,        // Distance in front of character to spawn explosion
       hudColor: '#00ffaa',       // Bright Teal/Green for gas explosion
@@ -49,7 +49,7 @@ export const CHARACTER_CONFIG = {
       radius: 5.0,               // AoE radius
     },
     flamethrower: {
-      cooldown: 0,             // Cooldown in seconds (disesuaikan)
+      cooldown: 18.0,             // Cooldown in seconds (disesuaikan)
       key: 'Digit2',
       forwardOffset: 1.5,        // Distance offset
       activeDuration: 12.0,      // Duration of the flamethrower spray (seconds)

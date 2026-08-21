@@ -30,7 +30,7 @@ import {
 
 import type { UnitVisual } from "./types";
 import type { IUnitVisual } from "../units/base/IUnitVisual";
-import { scene, camera, gltfLoader } from "./scene";
+import { scene, camera, renderer, gltfLoader } from "./scene";
 import { soundFX } from "./SoundFX";
 import {
     hpBarsBg,
@@ -136,6 +136,7 @@ const units: UnitVisual[] = [];
 const unitInstances: (IUnitVisual | null)[] = [];
 let modelLoaded = false;
 let isCurrentModelSkeleton = false;
+let activeLoadId = 0;
 
 
 // ponytail: Movement recording removed to eliminate GC overhead and optimize frame times.
@@ -205,6 +206,8 @@ export function changeModel(
     onLoadComplete?: () => void,
     onError?: () => void,
 ) {
+    activeLoadId++;
+    const currentLoadId = activeLoadId;
     modelLoaded = false;
     isCurrentModelSkeleton = modelName.toLowerCase().includes("skeleton");
 
@@ -304,6 +307,10 @@ export function changeModel(
                 animTools,
                 gltfKnight,
             ]) => {
+                if (currentLoadId !== activeLoadId) {
+                    logDiag("Discarding outdated model load result.");
+                    return;
+                }
                 // Build anim rig lookup by type
                 const animRigs: Record<string, THREE.AnimationClip[]> = {
                     General: animGeneral.animations,
@@ -626,6 +633,11 @@ export function changeModel(
                         // Fix #3: register ke AnimationClockManager global.
                         animationClockManager.registerMixer(i, unitVis.mixer, false);
                     }
+
+                    // Pre-compile all shaders/materials currently in the scene to prevent dynamic compilation stalls
+                    logDiag("Pre-compilasi model & senjata dimulai...");
+                    renderer.compile(scene, camera);
+                    logDiag("Pre-compilasi model & senjata selesai!");
 
                     modelLoaded = true;
                     logDiag(`Sukses menginisialisasi ${UNIT_COUNT} unit!`);

@@ -339,6 +339,23 @@ export class SkillsSystem {
     this.cdIndicator.style.display = visible ? 'flex' : 'none';
   }
 
+  public triggerNetworkVFX(skillId: string, x: number, z: number, targetMesh?: THREE.Object3D) {
+    const skill = this.skills[skillId];
+    if (skill) {
+      const floorY = getTerrainHeight(x, z);
+      const spawnY = Math.max(0, floorY) + 0.1;
+      
+      if (skillId === CHARACTER_CONFIG.skills.flamethrower.key) {
+        skill.vfx.spawn(x, spawnY + 1.0, z, targetMesh, CHARACTER_CONFIG.skills.flamethrower.activeDuration);
+      } else if (skillId === CHARACTER_CONFIG.skills.tornado.key) {
+        // Tornado spawns at coordinates, do not anchor to caster (targetMesh)
+        skill.vfx.spawn(x, spawnY, z, undefined);
+      } else {
+        skill.vfx.spawn(x, spawnY, z);
+      }
+    }
+  }
+
   public handleInput(code: string, playerPos: THREE.Vector3, forward: THREE.Vector3, character?: any) {
     const skill = this.skills[code];
     if (skill && skill.currentCD <= 0) {
