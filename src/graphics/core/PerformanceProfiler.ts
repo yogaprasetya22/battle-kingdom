@@ -127,13 +127,6 @@ class PerformanceProfiler {
     }
 
     public endFrame() {
-        // Periodically log profiling breakdown (every 300 frames ~ 5 seconds)
-        this.logCounter++;
-        if (this.logCounter >= 300) {
-            this.logCounter = 0;
-            this.printProfilingBreakdown();
-        }
-
         // Reset system times for next frame
         this.systemTimes.animations = 0;
         this.systemTimes.billboards = 0;
@@ -207,31 +200,6 @@ class PerformanceProfiler {
         let sum = 0;
         for (let i = 0; i < n; i++) sum += this.frameTimes[i];
         return 1000 / (sum / n);
-    }
-
-    private printProfilingBreakdown() {
-        const totalMeasured = 
-            this.systemTimes.workerComm +
-            this.systemTimes.workerMsg +
-            this.systemTimes.netSync +
-            this.systemTimes.render +
-            this.systemTimes.animations;
-
-        if (totalMeasured <= 0) return;
-
-        const pWorkerComm = (this.systemTimes.workerComm / totalMeasured) * 100;
-        const pWorkerMsg = (this.systemTimes.workerMsg / totalMeasured) * 100;
-        const pNetSync = (this.systemTimes.netSync / totalMeasured) * 100;
-        const pRender = (this.systemTimes.render / totalMeasured) * 100;
-        const pAnim = (this.systemTimes.animations / totalMeasured) * 100;
-
-        console.log(`%c[PerfProfiler] FRAME TIME BREAKDOWN (Total CPU/Render: ${totalMeasured.toFixed(2)}ms)
-  - Worker postMessage (Tick Dispatch): ${this.systemTimes.workerComm.toFixed(2)}ms (${pWorkerComm.toFixed(1)}%)
-  - Worker onMessage (Response Handling): ${this.systemTimes.workerMsg.toFixed(2)}ms (${pWorkerMsg.toFixed(1)}%)
-  - Network state sync: ${this.systemTimes.netSync.toFixed(2)}ms (${pNetSync.toFixed(1)}%)
-  - GPU Render: ${this.systemTimes.render.toFixed(2)}ms (${pRender.toFixed(1)}%)
-  - Skeletal Animations LOD / Blend: ${this.systemTimes.animations.toFixed(2)}ms (${pAnim.toFixed(1)}%)
-  - Live FPS: ${this.getLiveFps()} FPS`, "color: #00dfff; font-weight: bold;");
     }
 }
 

@@ -1,6 +1,7 @@
 // Total units per team
-export const TEAM_SIZE = 50;
-export const UNIT_COUNT = TEAM_SIZE * 2; // 100 total
+export const TEAM_SIZE = 25;
+export const UNIT_COUNT = TEAM_SIZE * 2; // 50 total
+
 
 
 

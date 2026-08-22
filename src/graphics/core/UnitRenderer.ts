@@ -1237,7 +1237,12 @@ export function updateFrame(data: Float32Array, delta: number) {
                     lastState.z !== meshZ ||
                     lastState.showBillboard !== showBillboard;
 
-                if (cameraMoved || stateChanged) {
+                // Throttling: if camera moves, only update billboards for distant units on alternate frames
+                const shouldUpdateBB = cameraMoved 
+                    ? (distSq < 900 || animFrameCount % 2 === 0) 
+                    : stateChanged;
+
+                if (shouldUpdateBB || stateChanged) {
                     billboardUpdatedThisFrame = true;
                     if (!lastState) {
                         (unit as any)._lastBBState = {

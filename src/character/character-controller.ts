@@ -243,8 +243,8 @@ export class CharacterController {
       // Enable casting/receiving shadows and set hero layer for player meshes
       this.playerMesh.traverse((child) => {
         if ((child as THREE.Mesh).isMesh) {
-          child.castShadow = true;
-          child.receiveShadow = true;
+          child.castShadow = false;
+          child.receiveShadow = false;
           child.layers.enable(1); // Enable hero lighting layer
         }
       });
@@ -444,8 +444,8 @@ export class CharacterController {
 
     weaponClone.traverse((child) => {
       if ((child as THREE.Mesh).isMesh) {
-        child.castShadow = true;
-        child.receiveShadow = true;
+        child.castShadow = false;
+        child.receiveShadow = false;
         child.layers.enable(1); // Enable hero lighting layer for weapons
       }
     });

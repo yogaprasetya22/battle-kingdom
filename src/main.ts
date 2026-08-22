@@ -1314,18 +1314,36 @@ async function initMultiplayer() {
 }
 initMultiplayer();
 
-// ── Unit state replication: runs at 10Hz outside render loop to avoid frame drops ──
-// SharedArrayBuffer cannot be sent over WebSocket, so we use a compact regular Float32Array copy.
+// ── Unit state replication: runs at ~6Hz (160ms) to avoid CPU GC pauses under network lag ──
+let lastSyncSnapshot: Float32Array | null = null;
 window.setInterval(() => {
     if (!colyseusRoom || !colyseusRoom.connection.isOpen) return;
     if (isLocalPlayerHost && isRunning) {
-        // ponytail: update hero position for AoI filter before building snapshot
         _heroX = heroCtrl.position.x;
         _heroZ = heroCtrl.position.z;
         buildCompactSnapshot();
-        colyseusRoom.send("syncUnits", compactSnapshot.buffer);
+
+        // ponytail: skip network send if state has not changed (saves server bandwidth and client deserialization cpu)
+        let isDirty = !lastSyncSnapshot;
+        if (lastSyncSnapshot) {
+            for (let k = 0; k < compactSnapshot.length; k++) {
+                // Ignore tiny float variations below 0.01 to prevent jitter-induced updates
+                if (Math.abs(compactSnapshot[k] - lastSyncSnapshot[k]) > 0.01) {
+                    isDirty = true;
+                    break;
+                }
+            }
+        }
+
+        if (isDirty) {
+            if (!lastSyncSnapshot) {
+                lastSyncSnapshot = new Float32Array(compactSnapshot.length);
+            }
+            lastSyncSnapshot.set(compactSnapshot);
+            colyseusRoom.send("syncUnits", compactSnapshot.buffer);
+        }
     }
-}, 100); // 10Hz
+}, 160); // 6Hz (perfectly smoothed by client lerp)
 
 // ── FX replication: batch send visual/sound events at 10Hz to prevent network overload ──
 window.setInterval(() => {
@@ -1651,17 +1669,17 @@ function applyPreset(presetA: number[], presetB: number[]) {
 }
 
 presetBalanced.addEventListener("click", () =>
-    // Scaled preset to total 50: [tank, knight, archer, mage, healer, gunslinger, assassin, ...skel]
-    applyPreset([3, 5, 10, 10, 2, 10, 10, 0, 0, 0, 0, 0, 0], [3, 5, 10, 10, 2, 10, 10, 0, 0, 0, 0, 0, 0]),
+    // Scaled preset to total 25: [tank, knight, archer, mage, healer, gunslinger, assassin, ...skel]
+    applyPreset([2, 3, 5, 5, 1, 4, 5, 0, 0, 0, 0, 0, 0], [2, 3, 5, 5, 1, 4, 5, 0, 0, 0, 0, 0, 0]),
 );
 presetMagic.addEventListener("click", () =>
-    applyPreset([0, 0, 0, 40, 10, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 40, 10, 0, 0, 0, 0, 0, 0, 0, 0]),
+    applyPreset([0, 0, 0, 20, 5, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 20, 5, 0, 0, 0, 0, 0, 0, 0, 0]),
 );
 presetDefense.addEventListener("click", () =>
-    applyPreset([15, 15, 5, 5, 5, 5, 0, 0, 0, 0, 0, 0, 0], [15, 15, 5, 5, 5, 5, 0, 0, 0, 0, 0, 0, 0]),
+    applyPreset([8, 7, 3, 3, 2, 2, 0, 0, 0, 0, 0, 0, 0], [8, 7, 3, 3, 2, 2, 0, 0, 0, 0, 0, 0, 0]),
 );
 presetStealth.addEventListener("click", () =>
-    applyPreset([0, 0, 10, 0, 0, 15, 25, 0, 0, 0, 0, 0, 0], [0, 0, 10, 0, 0, 15, 25, 0, 0, 0, 0, 0, 0]),
+    applyPreset([0, 0, 5, 0, 0, 8, 12, 0, 0, 0, 0, 0, 0], [0, 0, 5, 0, 0, 8, 12, 0, 0, 0, 0, 0, 0]),
 );
 
 classes.forEach((cls) => {

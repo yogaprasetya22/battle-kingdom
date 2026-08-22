@@ -19,6 +19,10 @@ export class NetworkPlayer {
   // Target position and rotation for interpolation
   public targetPosition = new THREE.Vector3();
   public targetRotationY = 0;
+  
+  // Ghost trail for dodge visual effects
+  private activeGhosts: Array<{ ghost: THREE.Object3D; materials: THREE.Material[]; update: (delta: number) => boolean }> = [];
+  private ghostSpawnTimer = 0;
 
   constructor(scene: THREE.Scene, id: string) {
     this.scene = scene;
@@ -265,8 +269,13 @@ export class NetworkPlayer {
       this.mixer.update(delta);
     }
 
-    // Smoothly interpolate position (entity interpolation)
-    this.playerGroup.position.lerp(this.targetPosition, 0.15);
+    // Smoothly interpolate position (entity interpolation) - responsive speed for high ping
+    const distSq = this.playerGroup.position.distanceToSquared(this.targetPosition);
+    if (distSq > 36) { // Teleport instantly if client is > 6 meters away from server state
+      this.playerGroup.position.copy(this.targetPosition);
+    } else {
+      this.playerGroup.position.lerp(this.targetPosition, 0.35); // Snappier interpolator
+    }
     
     // Interpolate rotation on the playerMesh (which holds character orientation)
     if (this.playerMesh) {
@@ -274,7 +283,7 @@ export class NetworkPlayer {
       let diff = this.targetRotationY - currentRotation;
       // Normalize to -PI to PI range
       diff = Math.atan2(Math.sin(diff), Math.cos(diff));
-      this.playerMesh.rotation.y += diff * 0.15;
+      this.playerMesh.rotation.y += diff * 0.35; // Matches position snap rate
     }
 
     // Update weapon visibility based on action state
@@ -284,9 +293,84 @@ export class NetworkPlayer {
       const isAttacking = this.currentActionName === 'attack';
       this.bowMesh.visible = (!isRunning && !isAirborne) || isAttacking;
     }
+
+    // Update dodge ghost trails
+    const isDodging = this.currentActionName.startsWith('dodge');
+    if (isDodging) {
+      this.ghostSpawnTimer -= delta;
+      if (this.ghostSpawnTimer <= 0) {
+        this.ghostSpawnTimer = 0.05;
+        this.spawnGhostTrail();
+      }
+    }
+
+    // Process active ghosts update and garbage collection
+    for (let i = this.activeGhosts.length - 1; i >= 0; i--) {
+      const alive = this.activeGhosts[i].update(delta);
+      if (!alive) {
+        this.activeGhosts.splice(i, 1);
+      }
+    }
+  }
+
+  private spawnGhostTrail() {
+    if (!this.playerMesh) return;
+    const ghost = SkeletonUtils.clone(this.playerMesh);
+    ghost.position.copy(this.playerGroup.position);
+    ghost.rotation.copy(this.playerMesh.rotation);
+    this.scene.add(ghost);
+
+    const materials: THREE.Material[] = [];
+    ghost.traverse((child) => {
+      if ((child as THREE.Mesh).isMesh) {
+        const mesh = child as THREE.Mesh;
+        const ghostMat = new THREE.MeshBasicMaterial({
+          color: 0x00dfff,
+          transparent: true,
+          opacity: 0.35,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+        });
+        mesh.material = ghostMat;
+        materials.push(ghostMat);
+      }
+    });
+
+    let age = 0;
+    const duration = 0.38;
+    const scene = this.scene;
+    this.activeGhosts.push({
+      ghost,
+      materials,
+      update(delta: number) {
+        age += delta;
+        const t = age / duration;
+        if (t >= 1) {
+          scene.remove(ghost);
+          materials.forEach(m => m.dispose());
+          ghost.traverse(c => {
+            if ((c as THREE.Mesh).isMesh) (c as THREE.Mesh).geometry.dispose();
+          });
+          return false;
+        }
+        materials.forEach(m => {
+          m.opacity = 0.35 * (1.0 - t);
+        });
+        return true;
+      }
+    });
   }
 
   public destroy() {
+    // Cleanup any lingering ghosts
+    this.activeGhosts.forEach(g => {
+      this.scene.remove(g.ghost);
+      g.materials.forEach(m => m.dispose());
+      g.ghost.traverse(c => {
+        if ((c as THREE.Mesh).isMesh) (c as THREE.Mesh).geometry.dispose();
+      });
+    });
+    this.activeGhosts = [];
     this.scene.remove(this.playerGroup);
   }
 }
