@@ -990,11 +990,10 @@ window.addEventListener('projectile_hit', (e: any) => {
 scoreA.textContent = TEAM_SIZE.toString();
 scoreB.textContent = TEAM_SIZE.toString();
 
-// ---- Colyseus Connection Disabled ----
+// ---- Connection Disabled ----
 const roomHostId = "local_host";
 const isLocalPlayerHost = true;
 let colyseusRoom: any = null;
-const networkPlayers = new Map<string, NetworkPlayer>();
 const networkProjectiles = new ProjectileSystem(scene);
 const networkHitVFX = new CartoonBlueGasExplosionNativeVFX(scene, camera);
 let lastNetworkSendTime = 0;
@@ -1048,7 +1047,7 @@ setBeforeRenderCb((_timestamp: number, delta: number) => {
     // Feed dynamic metadata context for perf recording
     frameSpy.isHost = isLocalPlayerHost;
     frameSpy.activeProjectilesCount = networkProjectiles.getActiveCount();
-    frameSpy.networkPlayersCount = networkPlayers.size;
+    frameSpy.networkPlayersCount = 0;
 
     frameSpy.beginFrame();
 
