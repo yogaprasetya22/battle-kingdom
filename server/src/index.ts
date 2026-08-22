@@ -15,6 +15,7 @@ const server = createServer(app);
 const gameServer = new Server({
   transport: new WebSocketTransport({
     server,
+    maxPayloadLength: 1024 * 1024 * 8, // Set max payload length to 8MB to prevent configuration sync crash
   })
 });
 
