@@ -384,8 +384,10 @@ export const DRUID_SKILLS = {
     },
 };
 
+import { CHARACTER_CONFIG } from "../character/character-config";
+
 // ============ HERO STATS ============
 export const HERO_STATS = {
-    critChance: 0.60,
-    critDamage: 2.0,
+    critChance: CHARACTER_CONFIG.combat.critChance,
+    critDamage: CHARACTER_CONFIG.combat.critDamage,
 };

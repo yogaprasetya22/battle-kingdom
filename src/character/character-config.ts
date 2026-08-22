@@ -16,8 +16,8 @@ export const CHARACTER_CONFIG = {
     autoAimRange: 30.0,          // Auto-aim dummy search range limit (meters)
     attackAnimScale: 12.0,       // Speed multiplier for basic attack animation clip
     attackLockDuration: 0.03,    // Animation lock duration for basic attacks (seconds)
-    damage: 18000,                 // Damage for basic attack arrow
-    critChance: 0.60,            // Hero critical strike chance (60%)
+    damage: 10000,                 // Damage for basic attack arrow
+    critChance: 0.90,            // Hero critical strike chance (90%)
     critDamage: 2.0,             // Hero critical strike multiplier (2.0x)
   },
 
