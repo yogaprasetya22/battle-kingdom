@@ -14,10 +14,7 @@ export class NetworkPlayer {
   private scene: THREE.Scene;
   private bowMesh: THREE.Group | null = null;
   
-  // Dodge VFX & State
-  private isDodging = false;
-  private ghostSpawnTimer = 0;
-  private activeGhosts: Array<{ ghost: THREE.Group; materials: THREE.Material[]; update: (delta: number) => boolean }> = [];
+
 
   // Target position and rotation for interpolation
   public targetPosition = new THREE.Vector3();
@@ -53,9 +50,17 @@ export class NetworkPlayer {
       ]);
 
       // Remove placeholder
-      const placeholder = this.playerGroup.getObjectByName("placeholder");
+      const placeholder = this.playerGroup.getObjectByName("placeholder") as THREE.Mesh;
       if (placeholder) {
         this.playerGroup.remove(placeholder);
+        if (placeholder.geometry) placeholder.geometry.dispose();
+        if (placeholder.material) {
+          if (Array.isArray(placeholder.material)) {
+            placeholder.material.forEach((m) => m.dispose());
+          } else {
+            placeholder.material.dispose();
+          }
+        }
       }
 
       this.playerMesh = SkeletonUtils.clone(charGLTF.scene);
@@ -64,8 +69,9 @@ export class NetworkPlayer {
 
       this.playerMesh.traverse((child) => {
         if ((child as THREE.Mesh).isMesh) {
-          child.castShadow = true;
-          child.receiveShadow = true;
+          child.castShadow = false;
+          child.receiveShadow = false;
+          child.frustumCulled = true;
         }
       });
 
@@ -247,91 +253,16 @@ export class NetworkPlayer {
     targetAction.play();
 
     if (currentAction) {
-      currentAction.crossFadeTo(targetAction, 0.15, true);
+      // ponytail: use very short crossfade (20ms) for fast animations to prevent overlapping blend weight calculations
+      const crossfadeDuration = (name === 'attack' || name.startsWith('dodge')) ? 0.02 : 0.15;
+      currentAction.crossFadeTo(targetAction, crossfadeDuration, true);
     }
     this.currentActionName = name;
-
-    // Handle dodge state change
-    if (name.startsWith('dodge')) {
-      this.isDodging = true;
-      this.ghostSpawnTimer = 0.05;
-      this.spawnGhostTrail();
-    } else {
-      this.isDodging = false;
-    }
-  }
-
-  private spawnGhostTrail() {
-    if (!this.playerMesh) return;
-    const ghost = SkeletonUtils.clone(this.playerMesh) as THREE.Group;
-    ghost.position.copy(this.playerGroup.position);
-    ghost.rotation.copy(this.playerMesh.rotation);
-    this.scene.add(ghost);
-
-    const materials: THREE.Material[] = [];
-    ghost.traverse((child) => {
-      if ((child as THREE.Mesh).isMesh) {
-        const mesh = child as THREE.Mesh;
-        const ghostMat = new THREE.MeshBasicMaterial({
-          color: 0x00dfff,
-          transparent: true,
-          opacity: 0.35,
-          blending: THREE.AdditiveBlending,
-          depthWrite: false,
-        });
-        mesh.material = ghostMat;
-        materials.push(ghostMat);
-      }
-    });
-
-    let age = 0;
-    const duration = 0.38;
-    const scene = this.scene;
-    this.activeGhosts.push({
-      ghost,
-      materials,
-      update(delta: number) {
-        age += delta;
-        const t = age / duration;
-        if (t >= 1) {
-          scene.remove(ghost);
-          materials.forEach(m => m.dispose());
-          ghost.traverse(c => {
-            if ((c as THREE.Mesh).isMesh) (c as THREE.Mesh).geometry.dispose();
-          });
-          return false;
-        }
-        materials.forEach(m => {
-          m.opacity = 0.35 * (1.0 - t);
-        });
-        return true;
-      }
-    });
   }
 
   public update(delta: number) {
     if (this.mixer) {
       this.mixer.update(delta);
-    }
-
-    // Update active ghost trails
-    for (let i = this.activeGhosts.length - 1; i >= 0; i--) {
-      if (!this.activeGhosts[i].update(delta)) {
-        this.activeGhosts.splice(i, 1);
-      }
-    }
-
-    // Handle continuous ghost trail spawning during dodge animations
-    if (this.isDodging) {
-      if (!this.currentActionName.startsWith('dodge')) {
-        this.isDodging = false;
-      } else {
-        this.ghostSpawnTimer -= delta;
-        if (this.ghostSpawnTimer <= 0) {
-          this.spawnGhostTrail();
-          this.ghostSpawnTimer = 0.05;
-        }
-      }
     }
 
     // Smoothly interpolate position (entity interpolation)
@@ -356,13 +287,6 @@ export class NetworkPlayer {
   }
 
   public destroy() {
-    this.activeGhosts.forEach(g => {
-      this.scene.remove(g.ghost);
-      g.materials.forEach(m => m.dispose());
-      g.ghost.traverse(c => {
-        if ((c as THREE.Mesh).isMesh) (c as THREE.Mesh).geometry.dispose();
-      });
-    });
     this.scene.remove(this.playerGroup);
   }
 }

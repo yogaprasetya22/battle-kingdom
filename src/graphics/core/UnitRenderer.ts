@@ -616,6 +616,8 @@ export function changeModel(
                         });
 
                         unitVis.root.userData.unitIndex = i;
+                        unitVis.root.matrixAutoUpdate = false;
+                        unitVis.root.updateMatrix();
 
                         units.push({
                             root: unitVis.root,
@@ -723,7 +725,9 @@ export function updateFrame(data: Float32Array, delta: number) {
 
     animFrameCount++;
     let mixerUpdatesThisFrame = 0;
-    const MAX_MIXER_UPDATES_PER_FRAME = 20;
+    const MAX_MIXER_UPDATES_PER_FRAME = 16; // Balanced animation budget
+
+
 
     const cameraMoved = !_lastCameraMatrix.equals(camera.matrixWorld);
     if (cameraMoved) {
@@ -861,17 +865,20 @@ export function updateFrame(data: Float32Array, delta: number) {
             // Fix #1: real frustum culling — skip CPU+GPU work for off-screen units.
             // ponytail: sphere radius 1.5 covers all unit types. Ceiling: per-class bounding sphere if giant boss units added.
             const inView = _frustum.intersectsSphere(_unitSphere);
-            unit.root.visible = inView;
+            
+            // Hard LOD mesh culling: hide whole mesh if extremely far (distSq > 22500 / 150m)
+            const isTooFar = distSq > 22500;
+            unit.root.visible = inView && !isTooFar;
 
-            const showMesh = true; // always show mesh, Three.js handles its own culling
+            const showMesh = true;
 
             for (let m = 0; m < unit.meshes.length; m++) {
                 unit.meshes[m].visible = true;
             }
 
             // Fast path for weapon LOD
-            const weaponLodDist = WEAPON_LOD_DIST_SQ;
-            const showWeapons = distSq < weaponLodDist;
+            const showWeapons = distSq < 10000; // 100m radius limits for weapons
+
 
             if (unit.weapons && unit.weapons.length > 0) {
                 for (let w = 0; w < unit.weapons.length; w++) {
@@ -934,6 +941,8 @@ export function updateFrame(data: Float32Array, delta: number) {
                     unit.root.scale.setScalar(scale * (1.0 - t));
                 } else {
                     if (inView) {
+                        const oldX = unit.root.position.x;
+                        const oldZ = unit.root.position.z;
                         unit.root.position.x +=
                             (x - unit.root.position.x) *
                             Math.min(1, LERP_SPEED * delta);
@@ -943,13 +952,25 @@ export function updateFrame(data: Float32Array, delta: number) {
                         unit.root.position.z +=
                             (z - unit.root.position.z) *
                             Math.min(1, LERP_SPEED * delta);
+                        
+                        // Only force update of Three.js world matrix if position actually shifted
+                        const dx = unit.root.position.x - oldX;
+                        const dz = unit.root.position.z - oldZ;
+                        if (dx * dx + dz * dz > 0.0001) {
+                            unit.root.updateMatrix();
+                            unit.root.matrixWorldNeedsUpdate = true;
+                        }
                     } else {
                         unit.root.position.set(x, y, z);
+                        unit.root.updateMatrix();
+                        unit.root.matrixWorldNeedsUpdate = true;
                     }
                     unit.root.scale.setScalar(scale);
                 }
             } else {
                 if (inView) {
+                    const oldX = unit.root.position.x;
+                    const oldZ = unit.root.position.z;
                     unit.root.position.x +=
                         (x - unit.root.position.x) *
                         Math.min(1, LERP_SPEED * delta);
@@ -959,8 +980,17 @@ export function updateFrame(data: Float32Array, delta: number) {
                     unit.root.position.z +=
                         (z - unit.root.position.z) *
                         Math.min(1, LERP_SPEED * delta);
+
+                    const dx = unit.root.position.x - oldX;
+                    const dz = unit.root.position.z - oldZ;
+                    if (dx * dx + dz * dz > 0.0001) {
+                        unit.root.updateMatrix();
+                        unit.root.matrixWorldNeedsUpdate = true;
+                    }
                 } else {
                     unit.root.position.set(x, y, z);
+                    unit.root.updateMatrix();
+                    unit.root.matrixWorldNeedsUpdate = true;
                 }
                 unit.root.scale.setScalar(scale);
             }
@@ -1161,21 +1191,26 @@ export function updateFrame(data: Float32Array, delta: number) {
             if (shouldUpdateMixer) {
                 unit.accumulatedDelta += delta;
                 
-                // Jarak ke kamera menentukan frame-skip untuk update skeletal anim (P2 LOD Tiers)
                 let isMyFrame = true;
-                if (distSq > 4900) { // Jauh (> 70 unit): update tiap 8 frame (~7.5fps anim)
-                    isMyFrame = (animFrameCount + i) % 8 === 0;
-                } else if (distSq > 2500) { // Sedang-jauh (50-70 unit): update tiap 4 frame (~15fps anim)
-                    isMyFrame = (animFrameCount + i) % 4 === 0;
-                } else if (distSq > 900) { // Sedang (30-50 unit): update tiap 2 frame (~30fps anim)
-                    isMyFrame = (animFrameCount + i) % 2 === 0;
+                const isClose = distSq <= 900; // 30m radius close range
+
+                if (!isClose) {
+                    if (distSq > 4900) { // Jauh (> 70 unit): update tiap 8 frame (~7.5fps anim)
+                        isMyFrame = (animFrameCount + i) % 8 === 0;
+                    } else if (distSq > 2500) { // Sedang-jauh (50-70 unit): update tiap 4 frame (~15fps anim)
+                        isMyFrame = (animFrameCount + i) % 4 === 0;
+                    } else if (distSq > 900) { // Sedang (30-50 unit): update tiap 2 frame (~30fps anim)
+                        isMyFrame = (animFrameCount + i) % 2 === 0;
+                    }
                 }
 
-                // P0 - Batasi jumlah update mixer per frame ke maks 20 unit terdekat
-                if (isMyFrame && mixerUpdatesThisFrame < MAX_MIXER_UPDATES_PER_FRAME) {
+                // Close units always update; distant units are capped by budget
+                if (isClose || (isMyFrame && mixerUpdatesThisFrame < MAX_MIXER_UPDATES_PER_FRAME)) {
                     unit.mixer.update(unit.accumulatedDelta);
                     unit.accumulatedDelta = 0;
-                    mixerUpdatesThisFrame++;
+                    if (!isClose) {
+                        mixerUpdatesThisFrame++;
+                    }
                 }
             } else {
                 unit.accumulatedDelta = 0;
@@ -1186,7 +1221,7 @@ export function updateFrame(data: Float32Array, delta: number) {
             const meshX = unit.root.position.x;
             const meshZ = unit.root.position.z;
 
-            const tooFar = distSq > 90000;
+            const tooFar = distSq > 10000; // Generous 100m radius for name tag culling
             const showBillboard = hp > 0 && !tooFar && inView;
             const maxHp = data[base + IDX_MAX_HP];
             const hpRatio = maxHp > 0 ? hp / maxHp : 0;

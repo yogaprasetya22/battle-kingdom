@@ -1,6 +1,8 @@
 // Total units per team
-export const TEAM_SIZE = 20;
+export const TEAM_SIZE = 50;
 export const UNIT_COUNT = TEAM_SIZE * 2; // 100 total
+
+
 
 // Flat ECS layout per unit (15 floats = 60 bytes each)
 // [x, y, z, hp, targetIdx, teamId, animState, type, skill1Cd, skill2Cd, skill3Cd, maxHp, attackCd, effectState, immuneCd]

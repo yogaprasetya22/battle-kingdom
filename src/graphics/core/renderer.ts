@@ -60,7 +60,8 @@ export function spawnSkillFX(event: { skill: string; [key: string]: any }) {
         return;
     }
 
-    // Resolve team dynamically if not provided (worker event omission fallback)
+    // Resolve team dynamically only if not already provided by worker (O(100) fallback scan)
+    // Most events from CombatSystem already embed team — this loop is skipped in that case.
     if (event.team === undefined && sharedData) {
         const sx = event.fx !== undefined ? event.fx : event.x;
         const sz = event.fz !== undefined ? event.fz : event.z;

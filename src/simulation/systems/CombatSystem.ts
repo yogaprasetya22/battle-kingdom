@@ -212,6 +212,8 @@ export function applyDamage(
         skill: "damage",
         value: finalDamage,
         position: [tx, ty, tz],
+        // Embed team here so main thread skips O(100) sharedData scan in spawnSkillFX
+        team: d[tBase + IDX_TEAM],
         isCrit,
         isMagic,
         isTurret,

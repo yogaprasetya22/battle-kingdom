@@ -786,21 +786,19 @@ self.onmessage = (e: MessageEvent) => {
         self.postMessage({ type: "ready" });
     }
 
-    // Worker-Bypass: terima skill damage dari main thread, eksekusi AoE di sini.
+    // Worker-Bypass: terima skill damage dari main thread, eksekusi di sini.
     // HP dikurangi di worker agar tidak ada race condition dengan logik combat existing.
     if (type === "PLAYER_SKILL_CAST" && data) {
         const { skillId, originX, originZ, radius, damage, targetTeam } = e.data;
-        const r2 = (radius ?? 5) * (radius ?? 5);
         const dmg = damage ?? 0;
         const enemyTeam = targetTeam ?? TEAM_B;
 
         // Tornado (Digit3): Register AoE DoT dengan durasi dinamis dari config
         if (skillId === 'Digit3' || skillId === 'tornado') {
             const durationSec = e.data.activeDuration ?? 3.5;
-            const totalDurationTicks = Math.round(durationSec * 60); // duration * 60 FPS
-            const tickInterval = 15; // Damage terpicu setiap 15 ticks (~0.25s)
+            const totalDurationTicks = Math.round(durationSec * 60);
+            const tickInterval = 15;
             const hitCount = Math.max(1, Math.floor(totalDurationTicks / tickInterval));
-            
             activeAoes.push({
                 originX,
                 originZ,
@@ -811,12 +809,25 @@ self.onmessage = (e: MessageEvent) => {
                 targetTeam: enemyTeam,
                 targetIdx: e.data.targetIdx
             });
+        } else if (skillId === 'basic_attack' && e.data.targetIdx !== undefined) {
+            // ── Single-target direct path: O(1), no loop ──
+            const tIdx: number = e.data.targetIdx;
+            // Only process if this worker owns the target index slice
+            if (tIdx >= startIndex && tIdx < endIndex) {
+                clearSkillFXBatch();
+                if (data[tIdx * STRIDE + IDX_HP] > 0) {
+                    applyDamage(data, tIdx, dmg, HERO_UNIT_INDEX);
+                    if (skillFXBatch.length > 0) {
+                        self.postMessage({ type: "skillFXBatch", events: skillFXBatch });
+                        clearSkillFXBatch();
+                    }
+                }
+            }
         } else {
-            // Skill Instant Lainnya (Gas Explosion, Flamethrower, dll.)
+            // Skill AoE Instant (Gas Explosion, Flamethrower, dll.) — loop needed
+            const r2 = (radius ?? 5) * (radius ?? 5);
             clearSkillFXBatch();
             let hitAny = false;
-            
-            // Hanya proses index unit yang berada di slice/rentang worker ini
             for (let i = startIndex; i < endIndex; i++) {
                 if (i === HERO_UNIT_INDEX) continue;
                 const base = i * STRIDE;
@@ -829,12 +840,8 @@ self.onmessage = (e: MessageEvent) => {
                     hitAny = true;
                 }
             }
-            
             if (hitAny && skillFXBatch.length > 0) {
-                self.postMessage({
-                    type: "skillFXBatch",
-                    events: skillFXBatch
-                });
+                self.postMessage({ type: "skillFXBatch", events: skillFXBatch });
                 clearSkillFXBatch();
             }
         }

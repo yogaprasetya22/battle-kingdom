@@ -10,6 +10,7 @@ import {
     easeOutCubic,
     easeOutQuad,
     pooledPlane,
+    pooledCylinder,
     starTex,
     sparkTex,
     smokeTex,
@@ -23,6 +24,26 @@ import {
     releasePooledMaterial,
 } from "./FXCore";
 import { soundFX } from "../core/SoundFX";
+
+// ponytail: Pre-allocated shared geometries for basic attacks to avoid GC/WebGL allocation overhead.
+const sharedArcherArrowGeo = new THREE.CylinderGeometry(0.06, 0.06, 0.7, 5);
+sharedArcherArrowGeo.rotateX(Math.PI / 2);
+
+const sharedMageSphereGeo = new THREE.SphereGeometry(0.15, 6, 6);
+
+const sharedGunslingerTrailGeo = new THREE.CylinderGeometry(0.04, 0.04, 1.0, 4);
+sharedGunslingerTrailGeo.rotateX(Math.PI / 2);
+
+// Pre-created materials to avoid compiling new shaders constantly
+const matArcherBlue = new THREE.MeshBasicMaterial({ color: 0x88ccff, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending, depthWrite: false });
+const matArcherOrange = new THREE.MeshBasicMaterial({ color: 0xffeaad, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending, depthWrite: false });
+const matMageBlue = new THREE.MeshBasicMaterial({ color: 0x00dfff, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false });
+const matMageOrange = new THREE.MeshBasicMaterial({ color: 0x88e0ff, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false });
+const matGunslingerBlue = new THREE.MeshBasicMaterial({ color: 0x00dfff, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false });
+const matGunslingerOrange = new THREE.MeshBasicMaterial({ color: 0xffcc44, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false });
+
+// ponytail: Pre-allocated shared geometries for other misc effects
+const sharedDodecahedronGeo = new THREE.DodecahedronGeometry(0.08);
 
 export function spawnBasicAttackFX(
     scene: THREE.Scene,
@@ -48,32 +69,20 @@ export function spawnBasicAttackFX(
         let age = 0;
         const flight = 0.24;
         let mesh: THREE.Mesh | null = null;
-        let mat: THREE.MeshBasicMaterial | null = null;
 
         activeFX.push({
             update(delta) {
                 age += delta;
                 if (!mesh) {
-                    const geo = new THREE.CylinderGeometry(0.06, 0.06, 0.7, 5);
-                    mat = new THREE.MeshBasicMaterial({
-                        color: isBlue ? 0x88ccff : 0xffeaad,
-                        transparent: true,
-                        opacity: 0.8,
-                        blending: THREE.AdditiveBlending,
-                        depthWrite: false,
-                    });
-                    mesh = new THREE.Mesh(geo, mat);
+                    mesh = new THREE.Mesh(sharedArcherArrowGeo, isBlue ? matArcherBlue : matArcherOrange);
                     mesh.frustumCulled = false;
                     mesh.position.copy(start);
                     mesh.lookAt(end);
-                    mesh.rotateX(Math.PI / 2);
                     scene.add(mesh);
                 }
                 const t = Math.min(1, age / flight);
                 if (t >= 1) {
                     scene.remove(mesh!);
-                    mesh!.geometry.dispose();
-                    mat!.dispose();
                     spawnExplosion(scene, end, isBlue ? 0x00aaff : 0xffbb44, 4, 0.1);
                     return false;
                 }
@@ -86,21 +95,12 @@ export function spawnBasicAttackFX(
         let age = 0;
         const flight = 0.35;
         let mesh: THREE.Mesh | null = null;
-        let mat: THREE.MeshBasicMaterial | null = null;
 
         activeFX.push({
             update(delta) {
                 age += delta;
                 if (!mesh) {
-                    const geo = new THREE.SphereGeometry(0.15, 6, 6);
-                    mat = new THREE.MeshBasicMaterial({
-                        color: isBlue ? 0x00dfff : 0x88e0ff,
-                        transparent: true,
-                        opacity: 0.9,
-                        blending: THREE.AdditiveBlending,
-                        depthWrite: false,
-                    });
-                    mesh = new THREE.Mesh(geo, mat);
+                    mesh = new THREE.Mesh(sharedMageSphereGeo, isBlue ? matMageBlue : matMageOrange);
                     mesh.frustumCulled = false;
                     mesh.position.copy(start);
                     scene.add(mesh);
@@ -108,8 +108,6 @@ export function spawnBasicAttackFX(
                 const t = Math.min(1, age / flight);
                 if (t >= 1) {
                     scene.remove(mesh!);
-                    mesh!.geometry.dispose();
-                    mat!.dispose();
                     spawnExplosion(scene, end, isBlue ? 0x0088ff : 0x44ccff, 6, 0.1);
                     return false;
                 }
@@ -122,37 +120,20 @@ export function spawnBasicAttackFX(
         let age = 0;
         const flight = 0.15;
         let trail: THREE.Mesh | null = null;
-        let trailMat: THREE.MeshBasicMaterial | null = null;
 
         activeFX.push({
             update(delta) {
                 age += delta;
                 if (!trail) {
-                    const trailGeo = new THREE.CylinderGeometry(
-                        0.04,
-                        0.04,
-                        1.0,
-                        4,
-                    );
-                    trailMat = new THREE.MeshBasicMaterial({
-                        color: isBlue ? 0x00dfff : 0xffcc44,
-                        transparent: true,
-                        opacity: 0.95,
-                        blending: THREE.AdditiveBlending,
-                        depthWrite: false,
-                    });
-                    trail = new THREE.Mesh(trailGeo, trailMat);
+                    trail = new THREE.Mesh(sharedGunslingerTrailGeo, isBlue ? matGunslingerBlue : matGunslingerOrange);
                     trail.frustumCulled = false;
                     trail.position.copy(start);
                     trail.lookAt(end);
-                    trail.rotateX(Math.PI / 2);
                     scene.add(trail);
                 }
                 const t = Math.min(1, age / flight);
                 if (t >= 1) {
                     scene.remove(trail!);
-                    trail!.geometry.dispose();
-                    trailMat!.dispose();
                     spawnExplosion(scene, end, isBlue ? 0x0088ff : 0xffaa22, 10, 0.12);
                     return false;
                 }
@@ -172,7 +153,7 @@ export function spawnBasicAttackFX(
                 age += delta;
                 const t = age / slashLife;
                 if (t < 0.03) {
-                    const arcGeo = new THREE.PlaneGeometry(1.4, 0.3);
+                    const arcGeo = pooledPlane(1.4, 0.3);
                     const arcMat = new THREE.MeshBasicMaterial({
                         color: isBlue ? 0x00aaff : 0xff5533,
                         transparent: true,
@@ -194,7 +175,6 @@ export function spawnBasicAttackFX(
                             const at = arcAge / 0.16;
                             if (at >= 1) {
                                 scene.remove(arcMesh);
-                                arcMesh.geometry.dispose();
                                 arcMat.dispose();
                                 return false;
                             }
@@ -223,7 +203,7 @@ export function spawnHealFX(
     const color = isRejuvenation ? 0x00ff88 : 0x33ff66;
 
     const distance = start.distanceTo(end);
-    const geo = new THREE.CylinderGeometry(0.06, 0.06, distance, 6);
+    const geo = pooledCylinder(0.06, 0.06, distance, 6);
     const mat = new THREE.MeshBasicMaterial({
         color: color,
         transparent: true,
@@ -241,7 +221,6 @@ export function spawnHealFX(
     const sparkleCount = isRejuvenation ? 18 : 10;
     const sparkles: THREE.Mesh[] = [];
 
-    const sGeo = new THREE.DodecahedronGeometry(0.08);
     const sMat = new THREE.MeshBasicMaterial({
         color: color,
         transparent: true,
@@ -251,7 +230,7 @@ export function spawnHealFX(
     });
 
     for (let i = 0; i < sparkleCount; i++) {
-        const sp = new THREE.Mesh(sGeo, sMat);
+        const sp = new THREE.Mesh(sharedDodecahedronGeo, sMat);
         sp.position.copy(end);
         scene.add(sp);
         sparkles.push(sp);
@@ -284,13 +263,11 @@ export function spawnHealFX(
 
             if (t >= 1.0) {
                 scene.remove(beam);
-                geo.dispose();
                 mat.dispose();
 
                 for (const sp of sparkles) {
                     scene.remove(sp);
                 }
-                sGeo.dispose();
                 sMat.dispose();
                 return false;
             }

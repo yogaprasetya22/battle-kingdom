@@ -514,7 +514,7 @@ export class DamageHUDBatcher {
         _up.set(0, 1, 0).applyQuaternion(camQ);
         camera.getWorldDirection(_camDir);
 
-        let anyActive = false;
+        let activeCount = 0;
 
         for (let ei = 0; ei < MAX_EVENTS; ei++) {
             const e    = this.evts[ei];
@@ -533,10 +533,12 @@ export class DamageHUDBatcher {
                 }
                 this.starMesh.setMatrixAt(ei, _hide);
                 this.sOpacity[ei] = 0;
+                this.digitMesh.instanceMatrix.needsUpdate = true;
+                this.starMesh.instanceMatrix.needsUpdate = true;
                 continue;
             }
 
-            anyActive = true;
+            activeCount++;
             const di = e.depthIdx;
 
             let scaleMultiplier = 1.0;
@@ -644,7 +646,7 @@ export class DamageHUDBatcher {
             }
         }
 
-        if (anyActive || this.hadActive) {
+        if (activeCount > 0 || this.hadActive) {
             this.digitMesh.instanceMatrix.needsUpdate = true;
             (this.digitMesh.geometry.attributes.aCharIdx as THREE.InstancedBufferAttribute).needsUpdate = true;
             (this.digitMesh.geometry.attributes.aOpacity as THREE.InstancedBufferAttribute).needsUpdate = true;
@@ -654,7 +656,7 @@ export class DamageHUDBatcher {
             this.starMesh.instanceMatrix.needsUpdate = true;
             (this.starMesh.geometry.attributes.aOpacity as THREE.InstancedBufferAttribute).needsUpdate = true;
         }
-        this.hadActive = anyActive;
+        this.hadActive = activeCount > 0;
     }
 }
 

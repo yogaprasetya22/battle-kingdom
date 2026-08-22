@@ -39,6 +39,7 @@ export function createHero(
 
     // Wire ProjectileSystem — panah ditembak saat triggerAttack() dipanggil
     const projectiles = new ProjectileSystem(scene);
+    projectiles.isLocal = true;
     ctrl.setProjectileSystem(projectiles);
 
     // Native VFX — pure Three.js, zero dependencies, main thread only
@@ -97,10 +98,29 @@ export function createHero(
         hitVFX.update(delta);
     };
 
+    // ponytail: Throttling map to limit how frequently we spawn the expensive hit VFX in same spot
+    const activeLocalHitSpawns: { x: number, z: number, time: number }[] = [];
+
     // Hubungkan hitVFX ke system proyektil
     const originalProjUpdate = projectiles.update.bind(projectiles);
     projectiles.update = (delta: number, environmentMesh: THREE.Mesh | null) => {
         originalProjUpdate(delta, environmentMesh, (pos: THREE.Vector3) => {
+            const now = performance.now();
+            // Clean old
+            for (let i = activeLocalHitSpawns.length - 1; i >= 0; i--) {
+                if (now - activeLocalHitSpawns[i].time > 80) {
+                    activeLocalHitSpawns.splice(i, 1);
+                }
+            }
+            // Check spatial duplicate within 3m
+            for (const spawn of activeLocalHitSpawns) {
+                const dx = spawn.x - pos.x;
+                const dz = spawn.z - pos.z;
+                if (dx * dx + dz * dz < 9.0) {
+                    return;
+                }
+            }
+            activeLocalHitSpawns.push({ x: pos.x, z: pos.z, time: now });
             hitVFX.spawn(pos.x, pos.y, pos.z);
         });
     };
@@ -109,7 +129,8 @@ export function createHero(
 
     window.addEventListener('keydown', (e) => {
         if (!ctrl.enabled) return;
-        skills.handleInput(e.code, ctrl.position, ctrl.getForwardVector(), ctrl);
+        const success = skills.handleInput(e.code, ctrl.position, ctrl.getForwardVector(), ctrl);
+        if (!success) return;
 
         // Ambil konfigurasi skill secara dinamis dari CHARACTER_CONFIG
         let skillConf: { damage: number; radius: number } | null = null;

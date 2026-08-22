@@ -29,7 +29,9 @@ import { GameState } from "./net/schema";
 import { CartoonBlueGasExplosionNativeVFX } from "./vfx/cartoon-blue-gas-explosion/Native";
 import { ProjectileSystem } from "./character/projectile-system";
 import { CHARACTER_CONFIG } from "./character/character-config";
+import { frameSpy } from "./debug/FrameDropSpy";
 import * as THREE from "three";
+
 
 // ---- Shared Buffer (bridge antara main thread & worker) ----
 // Fallback to ArrayBuffer if SharedArrayBuffer is blocked by security extensions (e.g. Cyber Protect)
@@ -79,14 +81,29 @@ const workerTicks = document.getElementById("worker-ticks") as HTMLSpanElement;
 const COMPACT_FIELDS = 7;
 const compactSnapshot = new Float32Array(UNIT_COUNT * COMPACT_FIELDS); // pre-allocated, no GC
 
+// ponytail: AoI filter — only broadcast units within 80m of hero. Halves packet size in dense battles.
+// ceiling: upgrade to per-guest AoI when >4 players share the same host.
+const AOI_RADIUS_SQ = 80 * 80;
+let _heroX = 0, _heroZ = 0; // updated each sync tick from heroCtrl
+
 function buildCompactSnapshot(): Float32Array {
     for (let i = 0; i < UNIT_COUNT; i++) {
         const base = i * STRIDE;
         const cBase = i * COMPACT_FIELDS;
-        compactSnapshot[cBase]     = sharedData[base + IDX_X];
+        const ux = sharedData[base + IDX_X];
+        const uz = sharedData[base + IDX_Z];
+        const dx = ux - _heroX, dz = uz - _heroZ;
+        // Always include dead/unspawned sentinel so Guest can hide them; skip far alive units
+        const hp = sharedData[base + IDX_HP];
+        if (hp > 0 && (dx * dx + dz * dz) > AOI_RADIUS_SQ) {
+            // Mark as outside AoI: preserve existing snapshot data (don't thrash if just gone out of range)
+            // Use NaN-safe sentinel: keep old snapshot value so guest interpolation stays smooth
+            continue;
+        }
+        compactSnapshot[cBase]     = ux;
         compactSnapshot[cBase + 1] = sharedData[base + IDX_Y];
-        compactSnapshot[cBase + 2] = sharedData[base + IDX_Z];
-        compactSnapshot[cBase + 3] = sharedData[base + IDX_HP];
+        compactSnapshot[cBase + 2] = uz;
+        compactSnapshot[cBase + 3] = hp;
         compactSnapshot[cBase + 4] = sharedData[base + IDX_ANIM];
         compactSnapshot[cBase + 5] = sharedData[base + IDX_TARGET];
         compactSnapshot[cBase + 6] = sharedData[base + IDX_TEAM];
@@ -646,7 +663,12 @@ for (let i = 0; i < NUM_WORKERS; i++) {
         }
 
         if (type === "skillFX") {
-            spawnSkillFX(e.data);
+            // Route non-visual damage/heal floaters through ring buffer to rate-limit them
+            if (e.data.skill === "damage" || e.data.skill === "heal" || e.data.skill === "miss") {
+                fxRingPush(e.data);
+            } else {
+                spawnSkillFX(e.data);
+            }
             if (isLocalPlayerHost && colyseusRoom && colyseusRoom.connection.isOpen) {
                 pendingUnitFXEvents.push(e.data);
             }
@@ -658,13 +680,14 @@ for (let i = 0; i < NUM_WORKERS; i++) {
                 for (let k = 0; k < events.length; k++) {
                     const ev = events[k];
                     if (ev.type === "turretDamage") {
+                        // turretDamage mutates game state — must stay synchronous
                         const isDestroyed = world.turrets.takeDamage(ev.team, ev.damage);
                         if (isDestroyed && isRunning) {
-                            // If Tim A's turret is destroyed (team === 0), Tim B wins. Otherwise Tim A wins.
                             triggerBattleEnd(ev.team === 0 ? "B" : "A");
                         }
                     } else {
                         if (ev.skill === "turretShoot") {
+                            // turretShoot needs muzzle pos injected before queuing
                             world.turrets.shoot(ev.team, ev.tx, ev.ty, ev.tz);
                             const muzzlePos = world.turrets.getMuzzlePosition(ev.team);
                             if (muzzlePos) {
@@ -673,7 +696,8 @@ for (let i = 0; i < NUM_WORKERS; i++) {
                                 ev.fz = muzzlePos.z;
                             }
                         }
-                        spawnSkillFX(ev);
+                        // Push all visual FX events into ring buffer — rate-limited to 8/frame
+                        fxRingPush(ev);
                         if (isLocalPlayerHost && colyseusRoom && colyseusRoom.connection.isOpen) {
                             pendingUnitFXEvents.push(ev);
                         }
@@ -880,24 +904,52 @@ setSharedData(sharedData);
 const { ctrl: heroCtrl, skills } = createHero(scene, camera, workers);
 setHeroActive(true);
 
+// Throttling map to limit how frequently we spawn the expensive hit VFX at/near similar positions
+const activeVFXSpawns: { x: number, z: number, time: number }[] = [];
+
+function throttleSpawnHitVFX(x: number, y: number, z: number, vfxSystem: { spawn: (x: number, y: number, z: number) => void }) {
+    const now = performance.now();
+    for (let i = activeVFXSpawns.length - 1; i >= 0; i--) {
+        if (now - activeVFXSpawns[i].time > 80) {
+            activeVFXSpawns.splice(i, 1);
+        }
+    }
+    for (const spawn of activeVFXSpawns) {
+        const dx = spawn.x - x;
+        const dz = spawn.z - z;
+        if (dx * dx + dz * dz < 9.0) { // 3m radius
+            return;
+        }
+    }
+    activeVFXSpawns.push({ x, z, time: now });
+    vfxSystem.spawn(x, y, z);
+}
+
 // Tangani event hit proyektil (panah mengenai unit musuh)
 window.addEventListener('projectile_hit', (e: any) => {
     const { targetIdx, damage } = e.detail;
+
+    // ponytail: we let the authoritative host/server broadcast hits via unitFXSynced
+    // to prevent double spawning and GC memory pressure on clients.
+    // Client-side visual hit VFX (sparks/flashes) is still handled instantly by the projectile system itself.
+
     if (isLocalPlayerHost) {
         // Tentukan worker mana yang mengurus unit target ini
         const targetWorkerIdx = Math.floor(targetIdx / Math.ceil(UNIT_COUNT / NUM_WORKERS));
         const targetWorker = workers[targetWorkerIdx];
         if (targetWorker) {
-            // Baca posisi unit target dari SAB (bukan posisi hero) agar radius 0.8m tepat sasaran
-            const base = targetIdx * 15; // STRIDE = 15
-            const unitX = sharedData[base + 0]; // IDX_X = 0
-            const unitZ = sharedData[base + 2]; // IDX_Z = 2
+            // Baca posisi unit target dari SAB
+            const base = targetIdx * STRIDE;
+            const unitX = sharedData[base + IDX_X];
+            const unitZ = sharedData[base + IDX_Z];
             targetWorker.postMessage({
                 type: 'PLAYER_SKILL_CAST',
                 skillId: 'basic_attack',
-                originX: unitX,   // pusat AoE = posisi unit target
+                // targetIdx enables O(1) direct-damage path in worker (no AoE loop)
+                targetIdx,
+                originX: unitX,
                 originZ: unitZ,
-                radius: 1.5,      // radius cukup besar untuk tangkap unit tepat
+                radius: 0.01,
                 damage: damage,
                 targetTeam: targetIdx < TEAM_SIZE ? 0 : 1
             });
@@ -926,7 +978,33 @@ const networkProjectiles = new ProjectileSystem(scene);
 const networkHitVFX = new CartoonBlueGasExplosionNativeVFX(scene, camera);
 let lastNetworkSendTime = 0;
 let pendingUnitFXEvents: any[] = [];
-let incomingFXQueue: any[] = [];
+// Ring buffer for incoming FX events from host — avoids O(n) array.shift() and unbounded growth
+const FX_RING_SIZE = 128;
+const fxRingBuf: (any | null)[] = new Array(FX_RING_SIZE).fill(null);
+let fxRingHead = 0; // read pointer
+let fxRingTail = 0; // write pointer
+
+function fxRingPush(ev: any) {
+    fxRingBuf[fxRingTail] = ev;
+    fxRingTail = (fxRingTail + 1) % FX_RING_SIZE;
+    // If full, advance head (drop oldest)
+    if (fxRingTail === fxRingHead) {
+        fxRingHead = (fxRingHead + 1) % FX_RING_SIZE;
+    }
+}
+
+function fxRingShift(): any | null {
+    if (fxRingHead === fxRingTail) return null;
+    const ev = fxRingBuf[fxRingHead];
+    fxRingBuf[fxRingHead] = null;
+    fxRingHead = (fxRingHead + 1) % FX_RING_SIZE;
+    return ev;
+}
+
+function fxRingLength(): number {
+    return (fxRingTail - fxRingHead + FX_RING_SIZE) % FX_RING_SIZE;
+}
+
 let guestCustomClasses: number[] = [0, 1, 2, 3, 4, 5];
 
 let roomHostId = "";
@@ -1061,6 +1139,35 @@ async function initMultiplayer() {
             if (p.id === colyseusRoom?.sessionId) return;
             const np = networkPlayers.get(p.id);
             skills.triggerNetworkVFX(p.skillId, p.originX, p.originZ, np?.playerMesh || undefined);
+
+            // ponytail: Host must apply Guest's skill casts to the physics simulation so they deal damage
+            if (isLocalPlayerHost) {
+                let skillConf: { damage: number; radius: number; activeDuration?: number } | null = null;
+                if (p.skillId === CHARACTER_CONFIG.skills.gasExplosion.key || p.skillId === 'Digit1') {
+                    skillConf = CHARACTER_CONFIG.skills.gasExplosion;
+                } else if (p.skillId === CHARACTER_CONFIG.skills.flamethrower.key || p.skillId === 'Digit2') {
+                    skillConf = CHARACTER_CONFIG.skills.flamethrower;
+                } else if (p.skillId === CHARACTER_CONFIG.skills.tornado.key || p.skillId === 'Digit3') {
+                    skillConf = CHARACTER_CONFIG.skills.tornado;
+                }
+
+                if (skillConf) {
+                    // Caster is Guest (TEAM_B), target team is TEAM_A (0)
+                    const targetTeam = 0; 
+                    for (const w of workers) {
+                        w.postMessage({
+                            type: 'PLAYER_SKILL_CAST',
+                            skillId: p.skillId,
+                            originX: p.originX,
+                            originZ: p.originZ,
+                            radius: skillConf.radius,
+                            damage: skillConf.damage,
+                            targetTeam: targetTeam,
+                            activeDuration: skillConf.activeDuration
+                        });
+                    }
+                }
+            }
         });
 
         // 6. Listen to local skill casts and forward to Colyseus server
@@ -1076,7 +1183,26 @@ async function initMultiplayer() {
             const startPos = new THREE.Vector3(p.x, p.y, p.z);
             const dir = new THREE.Vector3(p.dx, p.dy, p.dz);
             const casterTeam = (p.id === roomHostId) ? TEAM_A : TEAM_B;
-            networkProjectiles.spawn(startPos, dir, CHARACTER_CONFIG.projectiles.speed, null, casterTeam);
+
+            // Find closest opposing unit to direct the homing projectile toward
+            const opponentTeam = casterTeam === TEAM_A ? TEAM_B : TEAM_A;
+            const units = getUnits();
+            let homingTarget: THREE.Object3D | null = null;
+            let minAngle = 0.85; // Allow homing if within ~30 degrees cone of the shot direction
+
+            for (let i = 0; i < units.length; i++) {
+                const u = units[i];
+                if (u && u.root && u.team === opponentTeam) {
+                    const toUnit = new THREE.Vector3().copy(u.root.position).sub(startPos).normalize();
+                    const dot = toUnit.dot(dir);
+                    if (dot > minAngle) {
+                        minAngle = dot;
+                        homingTarget = u.root;
+                    }
+                }
+            }
+
+            networkProjectiles.spawn(startPos, dir, CHARACTER_CONFIG.projectiles.speed, homingTarget, casterTeam);
         });
 
         // 8. Listen to local attacks and forward to Colyseus server
@@ -1154,15 +1280,17 @@ async function initMultiplayer() {
                 const targetWorkerIdx = Math.floor(targetIdx / Math.ceil(UNIT_COUNT / NUM_WORKERS));
                 const targetWorker = workers[targetWorkerIdx];
                 if (targetWorker) {
-                    const base = targetIdx * 15;
-                    const unitX = sharedData[base + 0];
-                    const unitZ = sharedData[base + 2];
+                    const base = targetIdx * STRIDE;
+                    const unitX = sharedData[base + IDX_X];
+                    const unitZ = sharedData[base + IDX_Z];
                     targetWorker.postMessage({
                         type: 'PLAYER_SKILL_CAST',
                         skillId: 'basic_attack',
+                        // targetIdx enables O(1) direct-damage path in worker (no AoE loop)
+                        targetIdx,
                         originX: unitX,
                         originZ: unitZ,
-                        radius: 1.5,
+                        radius: 0.01,
                         damage: damage,
                         targetTeam: targetIdx < TEAM_SIZE ? 0 : 1
                     });
@@ -1174,9 +1302,9 @@ async function initMultiplayer() {
         colyseusRoom.onMessage("unitFXSynced", (data: { type: "single" | "batch", event?: any, events?: any[] }) => {
             if (!isLocalPlayerHost) {
                 if (data.type === "single" && data.event) {
-                    incomingFXQueue.push(data.event);
+                    fxRingPush(data.event);
                 } else if (data.type === "batch" && data.events) {
-                    incomingFXQueue.push(...data.events);
+                    for (let _i = 0; _i < data.events.length; _i++) fxRingPush(data.events[_i]);
                 }
             }
         });
@@ -1191,9 +1319,11 @@ initMultiplayer();
 window.setInterval(() => {
     if (!colyseusRoom || !colyseusRoom.connection.isOpen) return;
     if (isLocalPlayerHost && isRunning) {
+        // ponytail: update hero position for AoI filter before building snapshot
+        _heroX = heroCtrl.position.x;
+        _heroZ = heroCtrl.position.z;
         buildCompactSnapshot();
-        // slice() creates a new regular ArrayBuffer from pre-allocated Float32Array (WebSocket-safe)
-        colyseusRoom.send("syncUnits", compactSnapshot.slice().buffer);
+        colyseusRoom.send("syncUnits", compactSnapshot.buffer);
     }
 }, 100); // 10Hz
 
@@ -1207,29 +1337,49 @@ window.setInterval(() => {
 }, 100); // 10Hz
 
 // Inject worker tick dispatch into render loop (eliminates separate rAF)
+let targetUpdateFrameCount = 0;
+const _tickMsg = { type: "tick", tickId: 0 };
 setBeforeRenderCb((_timestamp: number, delta: number) => {
-    // Process a limited number of incoming network FX events per frame to prevent CPU spikes on guests
-    if (incomingFXQueue.length > 0) {
-        const limit = Math.min(incomingFXQueue.length, 3); // Max 3 per frame
+    // Feed dynamic metadata context for perf recording
+    frameSpy.isHost = isLocalPlayerHost;
+    frameSpy.activeProjectilesCount = networkProjectiles.getActiveCount();
+    frameSpy.networkPlayersCount = networkPlayers.size;
+
+    frameSpy.beginFrame();
+
+    // Drain ring buffer — O(1) dequeue, bounded by ring size (max 128 events), no GC
+    let t0 = frameSpy.mark();
+    const fxCount = fxRingLength();
+    if (fxCount > 0) {
+        const limit = Math.min(fxCount, 8); // drain up to 8 per frame
         for (let i = 0; i < limit; i++) {
-            const ev = incomingFXQueue.shift();
-            if (ev) {
-                if (ev.skill === "turretShoot") {
-                    world.turrets.shoot(ev.team, ev.tx, ev.ty, ev.tz);
-                }
-                spawnSkillFX(ev);
+            const ev = fxRingShift();
+            if (!ev) break;
+            if (ev.skill === "turretShoot") {
+                world.turrets.shoot(ev.team, ev.tx, ev.ty, ev.tz);
             }
+            spawnSkillFX(ev);
         }
     }
+    frameSpy.end('fxRingDrain', t0);
 
     // Update network players and network projectiles
+    t0 = frameSpy.mark();
     networkPlayers.forEach((np) => np.update(delta));
+    frameSpy.end('networkPlayers.update', t0);
+
+    t0 = frameSpy.mark();
     networkHitVFX.update(delta);
+    frameSpy.end('networkHitVFX.update', t0);
+
+    t0 = frameSpy.mark();
     networkProjectiles.update(delta, null, (pos: THREE.Vector3) => {
         networkHitVFX.spawn(pos.x, pos.y, pos.z);
     });
+    frameSpy.end('networkProjectiles.update', t0);
 
     // Send local player state to Colyseus server (rate-limited to 20Hz / 50ms)
+    t0 = frameSpy.mark();
     const tStartNet = performance.now();
     const nowMs = performance.now();
     if (nowMs - lastNetworkSendTime >= 50) {
@@ -1247,37 +1397,41 @@ setBeforeRenderCb((_timestamp: number, delta: number) => {
     }
     const tDurationNet = performance.now() - tStartNet;
     perfProfiler.trackSystemTime("netSync", tDurationNet);
+    frameSpy.end('netSync', t0);
 
     // ── Worker-Bypass: update hero tiap frame (zero input lag) ──
-    // Mapping target unit THREE.Object3D ke character-controller untuk auto-aim
-    const activeUnits = getUnits();
-    const targets: any[] = [];
-    // ponytail: use imported constants — local shadows caused IDX_TEAM=4 bug (real value=5)
-    
-    // Dapatkan tim dari hero (index 0) berdasarkan status host/guest
     const heroTeam = isLocalPlayerHost ? TEAM_A : TEAM_B;
     sharedData[HERO_UNIT_INDEX * STRIDE + IDX_TEAM] = heroTeam;
     heroCtrl.teamId = heroTeam;
 
-    for (let i = 0; i < activeUnits.length; i++) {
-        const u = activeUnits[i];
-        if (u && i !== HERO_UNIT_INDEX && u.root) {
-            // Hanya targetkan unit yang masih hidup (HP > 0)
-            const hp = sharedData[i * STRIDE + IDX_HP];
-            if (hp <= 0) continue;
-
-            // Hanya targetkan unit yang memiliki tim BERBEDA dengan hero
-            const unitTeam = sharedData[i * STRIDE + IDX_TEAM];
-            if (unitTeam !== heroTeam) {
-                targets.push(u.root);
+    t0 = frameSpy.mark();
+    targetUpdateFrameCount++;
+    if (targetUpdateFrameCount % 10 === 0) {
+        const activeUnits = getUnits();
+        const targets: any[] = [];
+        for (let i = 0; i < activeUnits.length; i++) {
+            const u = activeUnits[i];
+            if (u && i !== HERO_UNIT_INDEX && u.root) {
+                const hp = sharedData[i * STRIDE + IDX_HP];
+                if (hp <= 0) continue;
+                const unitTeam = sharedData[i * STRIDE + IDX_TEAM];
+                if (unitTeam !== heroTeam) {
+                    targets.push(u.root);
+                }
             }
         }
+        heroCtrl.setTargets(targets);
     }
-    heroCtrl.setTargets(targets);
+    frameSpy.end('targetUpdate', t0);
 
-    heroCtrl.update(delta);                                      // fisika + input + kamera
-    syncHeroToBuffer(heroCtrl, sharedData, HERO_UNIT_INDEX);     // tulis x,y,z ke SAB
-    skills.update(delta, heroCtrl);                                        // tick cooldown VFX partikel
+    t0 = frameSpy.mark();
+    heroCtrl.update(delta);
+    syncHeroToBuffer(heroCtrl, sharedData, HERO_UNIT_INDEX);
+    frameSpy.end('heroCtrl.update', t0);
+
+    t0 = frameSpy.mark();
+    skills.update(delta, heroCtrl);
+    frameSpy.end('skills.update', t0);
 
     if (!isRunning) return;
 
@@ -1304,16 +1458,21 @@ setBeforeRenderCb((_timestamp: number, delta: number) => {
                 }
             }
 
-            // Dispatch tick to all workers
+            // Dispatch tick to all workers using pre-allocated object to avoid per-frame allocations
             const tStartWorker = performance.now();
+            t0 = frameSpy.mark();
+            _tickMsg.tickId = globalTickId;
             for (let i = 0; i < NUM_WORKERS; i++) {
-                workers[i].postMessage({ type: "tick", tickId: globalTickId });
+                workers[i].postMessage(_tickMsg);
             }
             const tDurationWorker = performance.now() - tStartWorker;
             perfProfiler.trackSystemTime("workerComm", tDurationWorker);
+            frameSpy.end('workerTick.dispatch', t0);
             lastTime = now - (deltaTime % 15);
         }
     }
+
+    frameSpy.endFrame();
 });
 
 startRenderLoop();
@@ -1492,17 +1651,17 @@ function applyPreset(presetA: number[], presetB: number[]) {
 }
 
 presetBalanced.addEventListener("click", () =>
-    // Scaled preset to total 20: [tank, knight, archer, mage, healer, gunslinger, assassin, ...skel]
-    applyPreset([1, 2, 4, 4, 1, 4, 4, 0, 0, 0, 0, 0, 0], [1, 2, 4, 4, 1, 4, 4, 0, 0, 0, 0, 0, 0]),
+    // Scaled preset to total 50: [tank, knight, archer, mage, healer, gunslinger, assassin, ...skel]
+    applyPreset([3, 5, 10, 10, 2, 10, 10, 0, 0, 0, 0, 0, 0], [3, 5, 10, 10, 2, 10, 10, 0, 0, 0, 0, 0, 0]),
 );
 presetMagic.addEventListener("click", () =>
-    applyPreset([0, 0, 0, 16, 4, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 16, 4, 0, 0, 0, 0, 0, 0, 0, 0]),
+    applyPreset([0, 0, 0, 40, 10, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 40, 10, 0, 0, 0, 0, 0, 0, 0, 0]),
 );
 presetDefense.addEventListener("click", () =>
-    applyPreset([6, 6, 2, 2, 2, 2, 0, 0, 0, 0, 0, 0, 0], [6, 6, 2, 2, 2, 2, 0, 0, 0, 0, 0, 0, 0]),
+    applyPreset([15, 15, 5, 5, 5, 5, 0, 0, 0, 0, 0, 0, 0], [15, 15, 5, 5, 5, 5, 0, 0, 0, 0, 0, 0, 0]),
 );
 presetStealth.addEventListener("click", () =>
-    applyPreset([0, 0, 4, 0, 0, 6, 10, 0, 0, 0, 0, 0, 0], [0, 0, 4, 0, 0, 6, 10, 0, 0, 0, 0, 0, 0]),
+    applyPreset([0, 0, 10, 0, 0, 15, 25, 0, 0, 0, 0, 0, 0], [0, 0, 10, 0, 0, 15, 25, 0, 0, 0, 0, 0, 0]),
 );
 
 classes.forEach((cls) => {

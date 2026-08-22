@@ -13,6 +13,10 @@ const _scratchTargetPos = new THREE.Vector3();
 const _scratchSpawnPos = new THREE.Vector3();
 const _scratchDir = new THREE.Vector3();
 const _upVec = new THREE.Vector3(0, 1, 0);
+const _weaponPos = new THREE.Vector3();
+const _fallbackOffset = new THREE.Vector3();
+const _forwardVec = new THREE.Vector3();
+const _upAxis = new THREE.Vector3(0, 1, 0);
 
 
 export class CharacterController {
@@ -806,13 +810,14 @@ export class CharacterController {
     let minDist = Infinity;
     const playerPos = this.position;
     const range = CHARACTER_CONFIG.combat.autoAimRange;
+    const rangeSq = range * range;
 
     for (let i = 0; i < this.targets.length; i++) {
       const target = this.targets[i];
-      target.getWorldPosition(_scratchTargetPos); // no alloc
-      const dist = playerPos.distanceTo(_scratchTargetPos);
-      if (dist < range && dist < minDist) {
-        minDist = dist;
+      _scratchTargetPos.copy(target.position);
+      const distSq = playerPos.distanceToSquared(_scratchTargetPos);
+      if (distSq < rangeSq && distSq < minDist) {
+        minDist = distSq;
         nearest = target;
       }
     }
@@ -829,7 +834,7 @@ export class CharacterController {
     const target = this.getNearestTarget();
 
     if (target && this.playerMesh) {
-      target.getWorldPosition(_scratchTargetPos); // no alloc
+      _scratchTargetPos.copy(target.position);
       const dx = _scratchTargetPos.x - this.position.x;
       const dz = _scratchTargetPos.z - this.position.z;
       this.playerMesh.rotation.y = Math.atan2(dx, dz);
@@ -843,7 +848,7 @@ export class CharacterController {
       const spawnPos = this.getWeaponWorldPosition('hand_l', 1.0); // uses scratch internally
       let dx = 0, dy = 0, dz = 1;
       if (target) {
-        target.getWorldPosition(_scratchTargetPos); // no alloc
+        _scratchTargetPos.copy(target.position);
         _scratchTargetPos.y += 0.5;
         _scratchDir.copy(_scratchTargetPos).sub(spawnPos).normalize();
         dx = _scratchDir.x; dy = _scratchDir.y; dz = _scratchDir.z;
@@ -861,22 +866,23 @@ export class CharacterController {
   }
 
   public getForwardVector(): THREE.Vector3 {
-    const forward = new THREE.Vector3();
+    const forward = _forwardVec;
     if (this.playerMesh) {
       this.playerMesh.getWorldDirection(forward);
     } else {
-      forward.set(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), this.cameraTargetRotation.y);
+      forward.set(0, 0, -1).applyAxisAngle(_upAxis, this.cameraTargetRotation.y);
     }
     return forward.normalize();
   }
 
   public getWeaponWorldPosition(handPattern: string, fallbackOffset = 1.1): THREE.Vector3 {
-    const pos = new THREE.Vector3();
+    const pos = _weaponPos;
     const bone = this.playerMesh ? this.findBone(this.playerMesh, handPattern) : null;
     if (bone) {
       bone.getWorldPosition(pos);
     } else {
-      pos.copy(this.position).add(new THREE.Vector3(0, fallbackOffset, 0));
+      _fallbackOffset.set(0, fallbackOffset, 0);
+      pos.copy(this.position).add(_fallbackOffset);
     }
     return pos;
   }

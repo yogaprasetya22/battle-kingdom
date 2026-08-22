@@ -21,12 +21,19 @@ const _targetLook = new THREE.Vector3();
 const _tPos = new THREE.Vector3();
 const _rayOrigin = new THREE.Vector3(); // pre-alloc: was `new THREE.Vector3(oldX,...)` per frame
 const _raycaster = new THREE.Raycaster(); // pre-alloc: was `new THREE.Raycaster(...)` per frame
+const _targetLookAt = new THREE.Vector3();
 
 export class ProjectileSystem {
   private scene: THREE.Scene;
   private projectiles: Projectile[] = [];
   private arrowGeometry: THREE.CylinderGeometry;
   private arrowMaterial: THREE.ShaderMaterial;
+  private meshPool: THREE.Mesh[] = []; // ponytail: object pool to prevent dynamic THREE.Mesh allocation & GC pauses
+  public isLocal = false; // ponytail: only local/owned projectile systems report hits to the damage pipeline
+
+  public getActiveCount(): number {
+    return this.projectiles.length;
+  }
 
   constructor(scene: THREE.Scene) {
     this.scene = scene;
@@ -66,15 +73,25 @@ export class ProjectileSystem {
   }
 
   public spawn(startPosition: THREE.Vector3, direction: THREE.Vector3, speed = CHARACTER_CONFIG.projectiles.speed, target: THREE.Object3D | null = null, ownerTeam = -1) {
-    const arrowMesh = new THREE.Mesh(this.arrowGeometry, this.arrowMaterial);
+    let arrowMesh: THREE.Mesh;
+    if (this.meshPool.length > 0) {
+      arrowMesh = this.meshPool.pop()!;
+      arrowMesh.visible = true;
+    } else {
+      arrowMesh = new THREE.Mesh(this.arrowGeometry, this.arrowMaterial);
+      arrowMesh.frustumCulled = false;
+      arrowMesh.castShadow = false;
+      arrowMesh.receiveShadow = false;
+      arrowMesh.userData.velocity = new THREE.Vector3();
+      this.scene.add(arrowMesh);
+    }
     arrowMesh.position.copy(startPosition);
 
-    const targetLookAt = startPosition.clone().add(direction);
-    arrowMesh.lookAt(targetLookAt);
+    _targetLookAt.copy(startPosition).add(direction);
+    arrowMesh.lookAt(_targetLookAt);
 
-    this.scene.add(arrowMesh);
-
-    const velocity = direction.clone().normalize().multiplyScalar(speed);
+    const velocity = arrowMesh.userData.velocity as THREE.Vector3;
+    velocity.copy(direction).normalize().multiplyScalar(speed);
 
     this.projectiles.push({
       mesh: arrowMesh,
@@ -91,26 +108,6 @@ export class ProjectileSystem {
       const p = this.projectiles[i];
       p.age += delta;
 
-      // 1. Auto-Aim Homing / Target Seeking steering
-      if (p.target) {
-        p.target.getWorldPosition(_targetPos);
-        _targetPos.y += 1.0; // Aim at target center/chest height
-
-        // Vector pointing directly from projectile to target center
-        _toTarget.copy(_targetPos).sub(p.mesh.position).normalize();
-        const currentSpeed = p.velocity.length();
-        _toTarget.multiplyScalar(currentSpeed);
-
-        // Interpolate velocity towards target direction using configured steer force
-        p.velocity.lerp(_toTarget, CHARACTER_CONFIG.projectiles.homingSteerForce * delta);
-      } else {
-        // Apply normal gravity drop if no active target
-        p.velocity.addScaledVector(_gravity, delta);
-      }
-
-      // Record old position for collision raycast
-      const oldX = p.mesh.position.x, oldY = p.mesh.position.y, oldZ = p.mesh.position.z;
-
       // Move forward
       p.mesh.position.addScaledVector(p.velocity, delta);
 
@@ -118,57 +115,93 @@ export class ProjectileSystem {
       _targetLook.copy(p.mesh.position).add(p.velocity);
       p.mesh.lookAt(_targetLook);
 
+      // ─── REMOTE projectile fast path ─────────────────────────────────────────
+      // Host handles hit registration — remote arrows are visual only.
+      // We apply simple homing steering (lerp velocity to target) so they visually track targets, 
+      // but skip ALL expensive collision scanning and raycasts.
+      if (!this.isLocal) {
+        let remoteCollided = false;
+        if (p.target) {
+          _targetPos.copy(p.target.position);
+          _targetPos.y += 1.0;
+          _toTarget.copy(_targetPos).sub(p.mesh.position).normalize();
+          const speed = p.velocity.length();
+          _toTarget.multiplyScalar(speed);
+          p.velocity.lerp(_toTarget, CHARACTER_CONFIG.projectiles.homingSteerForce * delta);
+
+          // Explode if close to target center (0.7m radius = 0.49 distance squared)
+          _tPos.copy(p.target.position);
+          _tPos.y += 0.5;
+          if (p.mesh.position.distanceToSquared(_tPos) < 0.81) { // 0.9m tolerance
+            remoteCollided = true;
+          }
+        }
+        if (remoteCollided || p.age >= p.maxAge) {
+          // Trigger visual hit VFX at final position before recycling
+          if (spawnVFXCallback) spawnVFXCallback(p.mesh.position);
+          p.mesh.visible = false;
+          this.meshPool.push(p.mesh);
+          this.projectiles[i] = this.projectiles[this.projectiles.length - 1];
+          this.projectiles.length--;
+        }
+        continue;
+      }
+
+      // ─── LOCAL projectile full path ───────────────────────────────────────────
+      // Homing / Target Seeking steering
+      if (p.target) {
+        _targetPos.copy(p.target.position);
+        _targetPos.y += 1.0;
+        _toTarget.copy(_targetPos).sub(p.mesh.position).normalize();
+        _toTarget.multiplyScalar(p.velocity.length());
+        p.velocity.lerp(_toTarget, CHARACTER_CONFIG.projectiles.homingSteerForce * delta);
+      } else {
+        p.velocity.addScaledVector(_gravity, delta);
+      }
+
+      const oldX = p.mesh.position.x, oldY = p.mesh.position.y, oldZ = p.mesh.position.z;
       let collided = false;
 
-      // Direct Target/Unit Collision Check
       if (p.target) {
-        p.target.getWorldPosition(_tPos);
+        // Homing: check only against pinned target — O(1)
+        _tPos.copy(p.target.position);
         _tPos.y += 0.5;
-        const distToTarget = p.mesh.position.distanceTo(_tPos);
-        if (distToTarget < 0.7) {
+        if (p.mesh.position.distanceToSquared(_tPos) < 0.49) { // 0.7m radius
           collided = true;
           if (spawnVFXCallback) spawnVFXCallback(p.mesh.position);
           const targetIndexAttr = p.target.userData.unitIndex ?? p.target.name;
           const targetIdx = parseInt(targetIndexAttr);
           if (!isNaN(targetIdx)) {
-             window.dispatchEvent(new CustomEvent('projectile_hit', {
-                detail: { targetIdx: targetIdx, damage: CHARACTER_CONFIG.combat.damage }
-             }));
+            window.dispatchEvent(new CustomEvent('projectile_hit', {
+              detail: { targetIdx, damage: CHARACTER_CONFIG.combat.damage }
+            }));
           }
         }
       } else {
-        // No specific target (e.g. guest player attacks or blind firing). Check collision against all eligible opponent units.
+        // Blind fire: scan units — O(n) but only for local projectiles
         const units = getUnits();
         const ownerTeam = p.ownerTeam !== undefined ? p.ownerTeam : -1;
         for (let j = 0; j < units.length; j++) {
           const u = units[j];
-          if (u && u.root) {
-            // Only collide with opposing team (if ownerTeam is specified)
-            if (ownerTeam !== -1 && u.team === ownerTeam) {
-              continue;
+          if (!u || !u.root) continue;
+          if (ownerTeam !== -1 && u.team === ownerTeam) continue;
+          _tPos.copy(u.root.position);
+          _tPos.y += 0.5;
+          if (p.mesh.position.distanceToSquared(_tPos) < 0.64) { // 0.8m radius
+            collided = true;
+            if (spawnVFXCallback) spawnVFXCallback(p.mesh.position);
+            const targetIdx = u.root.userData.unitIndex;
+            if (targetIdx !== undefined && !isNaN(targetIdx)) {
+              window.dispatchEvent(new CustomEvent('projectile_hit', {
+                detail: { targetIdx, damage: CHARACTER_CONFIG.combat.damage }
+              }));
             }
-            
-            // Check distance
-            u.root.getWorldPosition(_tPos);
-            _tPos.y += 0.5;
-            const dist = p.mesh.position.distanceTo(_tPos);
-            // 0.8 meters collision radius
-            if (dist < 0.8) {
-              collided = true;
-              if (spawnVFXCallback) spawnVFXCallback(p.mesh.position);
-              const targetIdx = u.root.userData.unitIndex;
-              if (targetIdx !== undefined && !isNaN(targetIdx)) {
-                 window.dispatchEvent(new CustomEvent('projectile_hit', {
-                    detail: { targetIdx: targetIdx, damage: CHARACTER_CONFIG.combat.damage }
-                 }));
-              }
-              break; // Collided with one target, stop checking other units
-            }
+            break;
           }
         }
       }
 
-      // Collision Check against static environment BVH using Raycaster
+      // Environment BVH raycast
       if (!collided && environmentMesh && environmentMesh.geometry.boundsTree) {
         _movementVec.set(
           p.mesh.position.x - oldX,
@@ -177,9 +210,8 @@ export class ProjectileSystem {
         );
         const dist = _movementVec.length();
         if (dist > 0.001) {
-          const dir = _movementVec.normalize();
           _rayOrigin.set(oldX, oldY, oldZ);
-          _raycaster.set(_rayOrigin, dir);
+          _raycaster.set(_rayOrigin, _movementVec.normalize());
           _raycaster.near = 0;
           _raycaster.far = dist;
           const intersects = _raycaster.intersectObject(environmentMesh);
@@ -191,7 +223,7 @@ export class ProjectileSystem {
         }
       }
 
-      // Falls below terrain floor fallback
+      // Terrain floor fallback
       const floorY = getTerrainHeight(p.mesh.position.x, p.mesh.position.z);
       if (p.mesh.position.y < floorY + 0.05) {
         collided = true;
@@ -201,7 +233,8 @@ export class ProjectileSystem {
 
       // Swap-pop O(1) removal
       if (collided || p.age >= p.maxAge) {
-        this.scene.remove(p.mesh);
+        p.mesh.visible = false;
+        this.meshPool.push(p.mesh);
         this.projectiles[i] = this.projectiles[this.projectiles.length - 1];
         this.projectiles.length--;
       }

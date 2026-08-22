@@ -99,7 +99,97 @@ function rng(a: number, b: number) {
 
 // ─── VFX Class ───────────────────────────────────────────────────────────────
 
-export class CartoonBlueGasExplosionNativeVFX {
+class SingleExplosion {
+    private mesh_SparksEmitter: THREE.InstancedMesh | null = null;
+    private mesh_GlowEmitter: THREE.InstancedMesh | null = null;
+    private mesh_CloudBurstEmitter: THREE.InstancedMesh | null = null;
+    private mesh_TrailEmitter: THREE.InstancedMesh | null = null;
+    private mesh_SmokeTrailEmitter: THREE.InstancedMesh | null = null;
+    private mesh_GasExplosionBlueEmitter: THREE.InstancedMesh | null = null;
+
+    private geo_SparksEmitter: THREE.PlaneGeometry | null = null;
+    private geo_GlowEmitter: THREE.PlaneGeometry | null = null;
+    private geo_CloudBurstEmitter: THREE.PlaneGeometry | null = null;
+    private geo_TrailEmitter: THREE.PlaneGeometry | null = null;
+    private geo_SmokeTrailEmitter: THREE.PlaneGeometry | null = null;
+    private geo_GasExplosionBlueEmitter: THREE.PlaneGeometry | null = null;
+
+    private mat_SparksEmitter: THREE.ShaderMaterial | null = null;
+    private mat_GlowEmitter: THREE.ShaderMaterial | null = null;
+    private mat_CloudBurstEmitter: THREE.ShaderMaterial | null = null;
+    private mat_TrailEmitter: THREE.ShaderMaterial | null = null;
+    private mat_SmokeTrailEmitter: THREE.ShaderMaterial | null = null;
+    private mat_GasExplosionBlueEmitter: THREE.ShaderMaterial | null = null;
+
+    private origin = new THREE.Vector3();
+    private T = new THREE.Object3D();
+    private hideM = new THREE.Matrix4().makeScale(0, 0, 0);
+    private age = 0;
+
+    private life_SparksEmitter: number[] = [];
+    private maxLife_SparksEmitter: number[] = [];
+    private pos_SparksEmitter: THREE.Vector3[] = [];
+    private vel_SparksEmitter: THREE.Vector3[] = [];
+    private sz_SparksEmitter: number[] = [];
+    private rot_SparksEmitter: number[] = [];
+    private ptr_SparksEmitter = 0;
+    private spawnTimer_SparksEmitter = 0;
+    
+    
+    private life_GlowEmitter: number[] = [];
+    private maxLife_GlowEmitter: number[] = [];
+    private pos_GlowEmitter: THREE.Vector3[] = [];
+    private vel_GlowEmitter: THREE.Vector3[] = [];
+    private sz_GlowEmitter: number[] = [];
+    private rot_GlowEmitter: number[] = [];
+    private ptr_GlowEmitter = 0;
+    private spawnTimer_GlowEmitter = 0;
+    
+    
+    private life_CloudBurstEmitter: number[] = [];
+    private maxLife_CloudBurstEmitter: number[] = [];
+    private pos_CloudBurstEmitter: THREE.Vector3[] = [];
+    private vel_CloudBurstEmitter: THREE.Vector3[] = [];
+    private sz_CloudBurstEmitter: number[] = [];
+    private rot_CloudBurstEmitter: number[] = [];
+    private ptr_CloudBurstEmitter = 0;
+    private spawnTimer_CloudBurstEmitter = 0;
+    
+    
+    private life_TrailEmitter: number[] = [];
+    private maxLife_TrailEmitter: number[] = [];
+    private pos_TrailEmitter: THREE.Vector3[] = [];
+    private vel_TrailEmitter: THREE.Vector3[] = [];
+    private sz_TrailEmitter: number[] = [];
+    private rot_TrailEmitter: number[] = [];
+    private ptr_TrailEmitter = 0;
+    private spawnTimer_TrailEmitter = 0;
+    
+    
+    private life_SmokeTrailEmitter: number[] = [];
+    private maxLife_SmokeTrailEmitter: number[] = [];
+    private pos_SmokeTrailEmitter: THREE.Vector3[] = [];
+    private vel_SmokeTrailEmitter: THREE.Vector3[] = [];
+    private sz_SmokeTrailEmitter: number[] = [];
+    private rot_SmokeTrailEmitter: number[] = [];
+    private ptr_SmokeTrailEmitter = 0;
+    private spawnTimer_SmokeTrailEmitter = 0;
+    private accumulatedDist_SmokeTrailEmitter: number[] = [];
+    
+    private life_GasExplosionBlueEmitter: number[] = [];
+    private maxLife_GasExplosionBlueEmitter: number[] = [];
+    private pos_GasExplosionBlueEmitter: THREE.Vector3[] = [];
+    private vel_GasExplosionBlueEmitter: THREE.Vector3[] = [];
+    private sz_GasExplosionBlueEmitter: number[] = [];
+    private rot_GasExplosionBlueEmitter: number[] = [];
+    private ptr_GasExplosionBlueEmitter = 0;
+    private spawnTimer_GasExplosionBlueEmitter = 0;
+    
+    
+    public isFinished(): boolean {
+        return this.activeFX.length === 0;
+    }
+
     private scene: THREE.Scene;
     private camera: THREE.Camera;
     private activeFX: Array<{ update: (delta: number) => boolean }> = [];
@@ -119,24 +209,37 @@ export class CartoonBlueGasExplosionNativeVFX {
     }
 
     public spawn(x: number, y: number, z: number) {
-        const origin = new THREE.Vector3(x, y, z);
-        const T = new THREE.Object3D();
-        const hideM = new THREE.Matrix4().makeScale(0, 0, 0);
+        this.origin.set(x, y, z);
+        const T = this.T;
+        const hideM = this.hideM;
         const cq = this.camera.quaternion;
         const cfgColor = new THREE.Color(
             CHARACTER_CONFIG.skills.gasExplosion.hudColor,
         );
-        let age = 0;
+        this.age = 0;
         const cleanups: (() => void)[] = [];
 
         // ══════════════════════════════════════════════════════════
         // Emitter: SparksEmitter  (count=23, life=[0.25, 0.35], speed=[12, 28])
         // Texture: tex_0.png  Grid: 1x1
         // ══════════════════════════════════════════════════════════
-        const cnt_SparksEmitter = 23;
-        const geo_SparksEmitter = new THREE.PlaneGeometry(1, 1);
-        const mat_SparksEmitter = new THREE.ShaderMaterial({
-            uniforms: {
+        const cnt_SparksEmitter = 0;
+        let geo_SparksEmitter: THREE.PlaneGeometry;
+        let mesh_SparksEmitter: THREE.InstancedMesh;
+        let frm_SparksEmitter: Float32Array;
+        let opc_SparksEmitter: Float32Array;
+        let clr_SparksEmitter: Float32Array;
+        let vel_buf_SparksEmitter: Float32Array;
+        let off_buf_SparksEmitter: Float32Array;
+        let isFirst_SparksEmitter = false;
+
+        if (!this.mesh_SparksEmitter) {
+            isFirst_SparksEmitter = true;
+            geo_SparksEmitter = new THREE.PlaneGeometry(1, 1);
+            this.geo_SparksEmitter = geo_SparksEmitter;
+            if (!this.mat_SparksEmitter) {
+                this.mat_SparksEmitter = new THREE.ShaderMaterial({
+                    uniforms: {
                 uMap: { value: this.tex0 },
                 speedFactor: { value: 0.01 },
             },
@@ -173,76 +276,80 @@ export class CartoonBlueGasExplosionNativeVFX {
             depthWrite: false,
             side: THREE.DoubleSide,
             blending: THREE.NormalBlending,
-        });
-        const mesh_SparksEmitter = new THREE.InstancedMesh(
-            geo_SparksEmitter,
-            mat_SparksEmitter,
-            cnt_SparksEmitter,
-        );
-        mesh_SparksEmitter.frustumCulled = false;
-        this.scene.add(mesh_SparksEmitter);
-        const frm_SparksEmitter = new Float32Array(cnt_SparksEmitter);
-        const opc_SparksEmitter = new Float32Array(cnt_SparksEmitter);
-        const clr_SparksEmitter = new Float32Array(cnt_SparksEmitter * 3);
-        mesh_SparksEmitter.geometry.setAttribute(
-            "aFrame",
-            new THREE.InstancedBufferAttribute(frm_SparksEmitter, 1),
-        );
-        mesh_SparksEmitter.geometry.setAttribute(
-            "aOpacity",
-            new THREE.InstancedBufferAttribute(opc_SparksEmitter, 1),
-        );
-        mesh_SparksEmitter.geometry.setAttribute(
-            "aColor",
-            new THREE.InstancedBufferAttribute(clr_SparksEmitter, 3),
-        );
-        const vel_buf_SparksEmitter = new Float32Array(cnt_SparksEmitter * 3);
-        const off_buf_SparksEmitter = new Float32Array(cnt_SparksEmitter * 3);
-        mesh_SparksEmitter.geometry.setAttribute(
-            "aVelocity",
-            new THREE.InstancedBufferAttribute(vel_buf_SparksEmitter, 3),
-        );
-        mesh_SparksEmitter.geometry.setAttribute(
-            "aOffset",
-            new THREE.InstancedBufferAttribute(off_buf_SparksEmitter, 3),
-        );
+                });
+            }
+            mesh_SparksEmitter = new THREE.InstancedMesh(
+                geo_SparksEmitter,
+                this.mat_SparksEmitter,
+                cnt_SparksEmitter,
+            );
+            mesh_SparksEmitter.frustumCulled = false;
+            this.scene.add(mesh_SparksEmitter);
+            this.mesh_SparksEmitter = mesh_SparksEmitter;
 
-        const life_SparksEmitter: number[] = [];
-        const maxLife_SparksEmitter: number[] = [];
-        const pos_SparksEmitter: THREE.Vector3[] = [];
-        const vel_SparksEmitter: THREE.Vector3[] = [];
-        const sz_SparksEmitter: number[] = [];
-        const rot_SparksEmitter: number[] = [];
-
-        // Pre-initialize pool items as inactive (life = maxLife)
-        for (let i = 0; i < cnt_SparksEmitter; i++) {
-            life_SparksEmitter.push(1.0);
-            maxLife_SparksEmitter.push(1.0);
-            pos_SparksEmitter.push(new THREE.Vector3(x, y, z));
-            vel_SparksEmitter.push(new THREE.Vector3(0, 0, 0));
-            sz_SparksEmitter.push(0);
-            rot_SparksEmitter.push(0);
+            const frm_arr = new Float32Array(cnt_SparksEmitter);
+            const opc_arr = new Float32Array(cnt_SparksEmitter);
+            const clr_arr = new Float32Array(cnt_SparksEmitter * 3);
+            mesh_SparksEmitter.geometry.setAttribute("aFrame", new THREE.InstancedBufferAttribute(frm_arr, 1));
+            mesh_SparksEmitter.geometry.setAttribute("aOpacity", new THREE.InstancedBufferAttribute(opc_arr, 1));
+            mesh_SparksEmitter.geometry.setAttribute("aColor", new THREE.InstancedBufferAttribute(clr_arr, 3));
+            frm_SparksEmitter = frm_arr;
+            opc_SparksEmitter = opc_arr;
+            clr_SparksEmitter = clr_arr;
+            const vel_arr = new Float32Array(cnt_SparksEmitter * 3);
+            const off_arr = new Float32Array(cnt_SparksEmitter * 3);
+            mesh_SparksEmitter.geometry.setAttribute("aVelocity", new THREE.InstancedBufferAttribute(vel_arr, 3));
+            mesh_SparksEmitter.geometry.setAttribute("aOffset", new THREE.InstancedBufferAttribute(off_arr, 3));
+            vel_buf_SparksEmitter = vel_arr;
+            off_buf_SparksEmitter = off_arr;
+            for (let i = 0; i < cnt_SparksEmitter; i++) {
+                this.life_SparksEmitter.push(1.0);
+                this.maxLife_SparksEmitter.push(1.0);
+                this.pos_SparksEmitter.push(new THREE.Vector3(x, y, z));
+                this.vel_SparksEmitter.push(new THREE.Vector3(0, 0, 0));
+                this.sz_SparksEmitter.push(0);
+                this.rot_SparksEmitter.push(0);
+            }
+        } else {
+            mesh_SparksEmitter = this.mesh_SparksEmitter;
+            mesh_SparksEmitter.visible = true;
+            geo_SparksEmitter = this.geo_SparksEmitter!;
+            frm_SparksEmitter = mesh_SparksEmitter.geometry.getAttribute("aFrame").array as Float32Array;
+            opc_SparksEmitter = mesh_SparksEmitter.geometry.getAttribute("aOpacity").array as Float32Array;
+            clr_SparksEmitter = mesh_SparksEmitter.geometry.getAttribute("aColor").array as Float32Array;
+            vel_buf_SparksEmitter = mesh_SparksEmitter.geometry.getAttribute("aVelocity").array as Float32Array;
+            off_buf_SparksEmitter = mesh_SparksEmitter.geometry.getAttribute("aOffset").array as Float32Array;
         }
 
-        let ptr_SparksEmitter = 0;
-        let spawnTimer_SparksEmitter = 0;
+        // Reset particle arrays in place
+        for (let i = 0; i < cnt_SparksEmitter; i++) {
+            this.life_SparksEmitter[i] = 1.0;
+            this.maxLife_SparksEmitter[i] = 1.0;
+            this.pos_SparksEmitter[i].set(x, y, z);
+            this.vel_SparksEmitter[i].set(0, 0, 0);
+            this.sz_SparksEmitter[i] = 0;
+            this.rot_SparksEmitter[i] = 0;
+        }
+
+        this.ptr_SparksEmitter = 0;
+        this.spawnTimer_SparksEmitter = 0;
 
         const spawnParticle_SparksEmitter = (i: number) => {
-            life_SparksEmitter[i] = 0;
-            maxLife_SparksEmitter[i] = rng(0.25, 0.35);
-            sz_SparksEmitter[i] = rng(0.07, 0.07);
-            rot_SparksEmitter[i] = rng(0, Math.PI * 2);
+            this.life_SparksEmitter[i] = 0;
+            this.maxLife_SparksEmitter[i] = rng(0.25, 0.35);
+            this.sz_SparksEmitter[i] = rng(0.07, 0.07);
+            this.rot_SparksEmitter[i] = rng(0, Math.PI * 2);
 
             const theta = Math.random() * Math.PI * 2;
             const phi = Math.acos(rng(-1, 1));
             const speed = rng(12, 28) * 2.0;
             const srad = 0.25 * 2.0;
-            pos_SparksEmitter[i].set(
+            this.pos_SparksEmitter[i].set(
                 x + Math.sin(phi) * Math.cos(theta) * srad,
                 y + Math.sin(phi) * Math.sin(theta) * srad,
                 z + Math.cos(phi) * srad,
             );
-            vel_SparksEmitter[i].set(
+            this.vel_SparksEmitter[i].set(
                 Math.sin(phi) * Math.cos(theta) * speed,
                 Math.sin(phi) * Math.sin(theta) * speed,
                 Math.cos(phi) * speed,
@@ -250,14 +357,14 @@ export class CartoonBlueGasExplosionNativeVFX {
         };
 
         // Trigger initial bursts
-        const initialBurst_SparksEmitter = 13;
+        const initialBurst_SparksEmitter = 0;
         for (
             let i = 0;
             i < Math.min(cnt_SparksEmitter, initialBurst_SparksEmitter);
             i++
         ) {
-            spawnParticle_SparksEmitter(ptr_SparksEmitter);
-            ptr_SparksEmitter = (ptr_SparksEmitter + 1) % cnt_SparksEmitter;
+            spawnParticle_SparksEmitter(this.ptr_SparksEmitter);
+            this.ptr_SparksEmitter = (this.ptr_SparksEmitter + 1) % cnt_SparksEmitter;
         }
 
         const colorKeys_SparksEmitter: ColorKey[] | null = [
@@ -276,47 +383,47 @@ export class CartoonBlueGasExplosionNativeVFX {
             // Spawn particles continuously over time
             const rate = 0;
             if (rate > 0) {
-                spawnTimer_SparksEmitter += dt;
+                this.spawnTimer_SparksEmitter += dt;
                 const interval = 1.0 / rate;
-                while (spawnTimer_SparksEmitter >= interval) {
-                    spawnParticle_SparksEmitter(ptr_SparksEmitter);
-                    ptr_SparksEmitter =
-                        (ptr_SparksEmitter + 1) % cnt_SparksEmitter;
-                    spawnTimer_SparksEmitter -= interval;
+                while (this.spawnTimer_SparksEmitter >= interval) {
+                    spawnParticle_SparksEmitter(this.ptr_SparksEmitter);
+                    this.ptr_SparksEmitter =
+                        (this.ptr_SparksEmitter + 1) % cnt_SparksEmitter;
+                    this.spawnTimer_SparksEmitter -= interval;
                 }
             }
 
             for (let i = 0; i < cnt_SparksEmitter; i++) {
-                if (life_SparksEmitter[i] >= maxLife_SparksEmitter[i]) {
+                if (this.life_SparksEmitter[i] >= this.maxLife_SparksEmitter[i]) {
                     mesh_SparksEmitter.setMatrixAt(i, hideM);
                     opc_SparksEmitter[i] = 0;
                     continue;
                 }
-                life_SparksEmitter[i] += dt;
+                this.life_SparksEmitter[i] += dt;
                 const pct = Math.min(
                     1,
-                    life_SparksEmitter[i] / maxLife_SparksEmitter[i],
+                    this.life_SparksEmitter[i] / this.maxLife_SparksEmitter[i],
                 );
-                if (life_SparksEmitter[i] >= maxLife_SparksEmitter[i]) {
+                if (this.life_SparksEmitter[i] >= this.maxLife_SparksEmitter[i]) {
                     mesh_SparksEmitter.setMatrixAt(i, hideM);
                     opc_SparksEmitter[i] = 0;
                     continue;
                 }
                 // Physics: gravity + drag
-                vel_SparksEmitter[i].y += -19.6 * dt;
+                this.vel_SparksEmitter[i].y += -19.6 * dt;
 
-                const speed_SparksEmitter = vel_SparksEmitter[i].length();
+                const speed_SparksEmitter = this.vel_SparksEmitter[i].length();
                 const limit_SparksEmitter = 1 * 2.0;
                 if (speed_SparksEmitter > limit_SparksEmitter) {
                     const percent =
                         (speed_SparksEmitter - limit_SparksEmitter) /
                         speed_SparksEmitter;
-                    vel_SparksEmitter[i].multiplyScalar(
+                    this.vel_SparksEmitter[i].multiplyScalar(
                         Math.max(0, 1 - percent * 0.2 * dt * 20),
                     );
                 }
 
-                pos_SparksEmitter[i].addScaledVector(vel_SparksEmitter[i], dt);
+                this.pos_SparksEmitter[i].addScaledVector(this.vel_SparksEmitter[i], dt);
 
                 const sizeBez: PiecewiseCurve[] = [
                     {
@@ -329,7 +436,7 @@ export class CartoonBlueGasExplosionNativeVFX {
                     },
                 ];
                 const scaledSz =
-                    sz_SparksEmitter[i] * 2.0 * evalPiecewise(sizeBez, pct);
+                    this.sz_SparksEmitter[i] * 2.0 * evalPiecewise(sizeBez, pct);
 
                 const alpha = alphaKeys_SparksEmitter
                     ? evalAlpha(alphaKeys_SparksEmitter, pct)
@@ -343,15 +450,15 @@ export class CartoonBlueGasExplosionNativeVFX {
 
                 // StretchedBillboard: shader handles orientation via aVelocity/aOffset
                 T.scale.setScalar(scaledSz);
-                off_buf_SparksEmitter[i * 3 + 0] = pos_SparksEmitter[i].x;
-                off_buf_SparksEmitter[i * 3 + 1] = pos_SparksEmitter[i].y;
-                off_buf_SparksEmitter[i * 3 + 2] = pos_SparksEmitter[i].z;
+                off_buf_SparksEmitter[i * 3 + 0] = this.pos_SparksEmitter[i].x;
+                off_buf_SparksEmitter[i * 3 + 1] = this.pos_SparksEmitter[i].y;
+                off_buf_SparksEmitter[i * 3 + 2] = this.pos_SparksEmitter[i].z;
                 vel_buf_SparksEmitter[i * 3 + 0] =
-                    vel_SparksEmitter[i].x * 0.01;
+                    this.vel_SparksEmitter[i].x * 0.01;
                 vel_buf_SparksEmitter[i * 3 + 1] =
-                    vel_SparksEmitter[i].y * 0.01;
+                    this.vel_SparksEmitter[i].y * 0.01;
                 vel_buf_SparksEmitter[i * 3 + 2] =
-                    vel_SparksEmitter[i].z * 0.01;
+                    this.vel_SparksEmitter[i].z * 0.01;
 
                 T.updateMatrix();
                 mesh_SparksEmitter.setMatrixAt(i, T.matrix);
@@ -385,20 +492,28 @@ export class CartoonBlueGasExplosionNativeVFX {
         };
 
         cleanups.push(() => {
-            this.scene.remove(mesh_SparksEmitter);
-            geo_SparksEmitter.dispose();
-            mat_SparksEmitter.dispose();
-            (mesh_SparksEmitter as THREE.InstancedMesh).dispose();
+            mesh_SparksEmitter.visible = false;
         });
 
         // ══════════════════════════════════════════════════════════
         // Emitter: GlowEmitter  (count=11, life=[0.3, 0.3], speed=[0, 0])
         // Texture: tex_1.png  Grid: 1x1
         // ══════════════════════════════════════════════════════════
-        const cnt_GlowEmitter = 11;
-        const geo_GlowEmitter = new THREE.PlaneGeometry(1, 1);
-        const mat_GlowEmitter = new THREE.ShaderMaterial({
-            uniforms: { uMap: { value: this.tex1 } },
+        const cnt_GlowEmitter = 3;
+        let geo_GlowEmitter: THREE.PlaneGeometry;
+        let mesh_GlowEmitter: THREE.InstancedMesh;
+        let frm_GlowEmitter: Float32Array;
+        let opc_GlowEmitter: Float32Array;
+        let clr_GlowEmitter: Float32Array;
+        let isFirst_GlowEmitter = false;
+
+        if (!this.mesh_GlowEmitter) {
+            isFirst_GlowEmitter = true;
+            geo_GlowEmitter = new THREE.PlaneGeometry(1, 1);
+            this.geo_GlowEmitter = geo_GlowEmitter;
+            if (!this.mat_GlowEmitter) {
+                this.mat_GlowEmitter = new THREE.ShaderMaterial({
+                    uniforms: { uMap: { value: this.tex1 } },
             vertexShader: `
         attribute float aFrame; attribute float aOpacity; attribute vec3 aColor;
         varying vec2 vUv; varying float vOpacity; varying vec3 vColor;
@@ -424,66 +539,72 @@ export class CartoonBlueGasExplosionNativeVFX {
             depthWrite: false,
             side: THREE.DoubleSide,
             blending: THREE.AdditiveBlending,
-        });
-        const mesh_GlowEmitter = new THREE.InstancedMesh(
-            geo_GlowEmitter,
-            mat_GlowEmitter,
-            cnt_GlowEmitter,
-        );
-        mesh_GlowEmitter.frustumCulled = false;
-        this.scene.add(mesh_GlowEmitter);
-        const frm_GlowEmitter = new Float32Array(cnt_GlowEmitter);
-        const opc_GlowEmitter = new Float32Array(cnt_GlowEmitter);
-        const clr_GlowEmitter = new Float32Array(cnt_GlowEmitter * 3);
-        mesh_GlowEmitter.geometry.setAttribute(
-            "aFrame",
-            new THREE.InstancedBufferAttribute(frm_GlowEmitter, 1),
-        );
-        mesh_GlowEmitter.geometry.setAttribute(
-            "aOpacity",
-            new THREE.InstancedBufferAttribute(opc_GlowEmitter, 1),
-        );
-        mesh_GlowEmitter.geometry.setAttribute(
-            "aColor",
-            new THREE.InstancedBufferAttribute(clr_GlowEmitter, 3),
-        );
+                });
+            }
+            mesh_GlowEmitter = new THREE.InstancedMesh(
+                geo_GlowEmitter,
+                this.mat_GlowEmitter,
+                cnt_GlowEmitter,
+            );
+            mesh_GlowEmitter.frustumCulled = false;
+            this.scene.add(mesh_GlowEmitter);
+            this.mesh_GlowEmitter = mesh_GlowEmitter;
 
-        const life_GlowEmitter: number[] = [];
-        const maxLife_GlowEmitter: number[] = [];
-        const pos_GlowEmitter: THREE.Vector3[] = [];
-        const vel_GlowEmitter: THREE.Vector3[] = [];
-        const sz_GlowEmitter: number[] = [];
-        const rot_GlowEmitter: number[] = [];
-
-        // Pre-initialize pool items as inactive (life = maxLife)
-        for (let i = 0; i < cnt_GlowEmitter; i++) {
-            life_GlowEmitter.push(1.0);
-            maxLife_GlowEmitter.push(1.0);
-            pos_GlowEmitter.push(new THREE.Vector3(x, y, z));
-            vel_GlowEmitter.push(new THREE.Vector3(0, 0, 0));
-            sz_GlowEmitter.push(0);
-            rot_GlowEmitter.push(0);
+            const frm_arr = new Float32Array(cnt_GlowEmitter);
+            const opc_arr = new Float32Array(cnt_GlowEmitter);
+            const clr_arr = new Float32Array(cnt_GlowEmitter * 3);
+            mesh_GlowEmitter.geometry.setAttribute("aFrame", new THREE.InstancedBufferAttribute(frm_arr, 1));
+            mesh_GlowEmitter.geometry.setAttribute("aOpacity", new THREE.InstancedBufferAttribute(opc_arr, 1));
+            mesh_GlowEmitter.geometry.setAttribute("aColor", new THREE.InstancedBufferAttribute(clr_arr, 3));
+            frm_GlowEmitter = frm_arr;
+            opc_GlowEmitter = opc_arr;
+            clr_GlowEmitter = clr_arr;
+            for (let i = 0; i < cnt_GlowEmitter; i++) {
+                this.life_GlowEmitter.push(1.0);
+                this.maxLife_GlowEmitter.push(1.0);
+                this.pos_GlowEmitter.push(new THREE.Vector3(x, y, z));
+                this.vel_GlowEmitter.push(new THREE.Vector3(0, 0, 0));
+                this.sz_GlowEmitter.push(0);
+                this.rot_GlowEmitter.push(0);
+            }
+        } else {
+            mesh_GlowEmitter = this.mesh_GlowEmitter;
+            mesh_GlowEmitter.visible = true;
+            geo_GlowEmitter = this.geo_GlowEmitter!;
+            frm_GlowEmitter = mesh_GlowEmitter.geometry.getAttribute("aFrame").array as Float32Array;
+            opc_GlowEmitter = mesh_GlowEmitter.geometry.getAttribute("aOpacity").array as Float32Array;
+            clr_GlowEmitter = mesh_GlowEmitter.geometry.getAttribute("aColor").array as Float32Array;
         }
 
-        let ptr_GlowEmitter = 0;
-        let spawnTimer_GlowEmitter = 0;
+        // Reset particle arrays in place
+        for (let i = 0; i < cnt_GlowEmitter; i++) {
+            this.life_GlowEmitter[i] = 1.0;
+            this.maxLife_GlowEmitter[i] = 1.0;
+            this.pos_GlowEmitter[i].set(x, y, z);
+            this.vel_GlowEmitter[i].set(0, 0, 0);
+            this.sz_GlowEmitter[i] = 0;
+            this.rot_GlowEmitter[i] = 0;
+        }
+
+        this.ptr_GlowEmitter = 0;
+        this.spawnTimer_GlowEmitter = 0;
 
         const spawnParticle_GlowEmitter = (i: number) => {
-            life_GlowEmitter[i] = 0;
-            maxLife_GlowEmitter[i] = rng(0.3, 0.3);
-            sz_GlowEmitter[i] = rng(5.75, 5.75);
-            rot_GlowEmitter[i] = rng(0, Math.PI * 2);
+            this.life_GlowEmitter[i] = 0;
+            this.maxLife_GlowEmitter[i] = rng(0.3, 0.3);
+            this.sz_GlowEmitter[i] = rng(5.75, 5.75);
+            this.rot_GlowEmitter[i] = rng(0, Math.PI * 2);
 
             const theta = Math.random() * Math.PI * 2;
             const phi = Math.acos(rng(-1, 1));
             const speed = rng(0, 0) * 2.0;
             const srad = 0 * 2.0;
-            pos_GlowEmitter[i].set(
+            this.pos_GlowEmitter[i].set(
                 x + Math.sin(phi) * Math.cos(theta) * srad,
                 y + Math.sin(phi) * Math.sin(theta) * srad,
                 z + Math.cos(phi) * srad,
             );
-            vel_GlowEmitter[i].set(
+            this.vel_GlowEmitter[i].set(
                 Math.sin(phi) * Math.cos(theta) * speed,
                 Math.sin(phi) * Math.sin(theta) * speed,
                 Math.cos(phi) * speed,
@@ -497,8 +618,8 @@ export class CartoonBlueGasExplosionNativeVFX {
             i < Math.min(cnt_GlowEmitter, initialBurst_GlowEmitter);
             i++
         ) {
-            spawnParticle_GlowEmitter(ptr_GlowEmitter);
-            ptr_GlowEmitter = (ptr_GlowEmitter + 1) % cnt_GlowEmitter;
+            spawnParticle_GlowEmitter(this.ptr_GlowEmitter);
+            this.ptr_GlowEmitter = (this.ptr_GlowEmitter + 1) % cnt_GlowEmitter;
         }
 
         const colorKeys_GlowEmitter: ColorKey[] | null = [
@@ -515,46 +636,46 @@ export class CartoonBlueGasExplosionNativeVFX {
             // Spawn particles continuously over time
             const rate = 0;
             if (rate > 0) {
-                spawnTimer_GlowEmitter += dt;
+                this.spawnTimer_GlowEmitter += dt;
                 const interval = 1.0 / rate;
-                while (spawnTimer_GlowEmitter >= interval) {
-                    spawnParticle_GlowEmitter(ptr_GlowEmitter);
-                    ptr_GlowEmitter = (ptr_GlowEmitter + 1) % cnt_GlowEmitter;
-                    spawnTimer_GlowEmitter -= interval;
+                while (this.spawnTimer_GlowEmitter >= interval) {
+                    spawnParticle_GlowEmitter(this.ptr_GlowEmitter);
+                    this.ptr_GlowEmitter = (this.ptr_GlowEmitter + 1) % cnt_GlowEmitter;
+                    this.spawnTimer_GlowEmitter -= interval;
                 }
             }
 
             for (let i = 0; i < cnt_GlowEmitter; i++) {
-                if (life_GlowEmitter[i] >= maxLife_GlowEmitter[i]) {
+                if (this.life_GlowEmitter[i] >= this.maxLife_GlowEmitter[i]) {
                     mesh_GlowEmitter.setMatrixAt(i, hideM);
 
                     continue;
                 }
-                life_GlowEmitter[i] += dt;
+                this.life_GlowEmitter[i] += dt;
                 const pct = Math.min(
                     1,
-                    life_GlowEmitter[i] / maxLife_GlowEmitter[i],
+                    this.life_GlowEmitter[i] / this.maxLife_GlowEmitter[i],
                 );
-                if (life_GlowEmitter[i] >= maxLife_GlowEmitter[i]) {
+                if (this.life_GlowEmitter[i] >= this.maxLife_GlowEmitter[i]) {
                     mesh_GlowEmitter.setMatrixAt(i, hideM);
 
                     continue;
                 }
                 // Physics: gravity + drag
-                vel_GlowEmitter[i].y += 0 * dt;
+                this.vel_GlowEmitter[i].y += 0 * dt;
 
-                const speed_GlowEmitter = vel_GlowEmitter[i].length();
+                const speed_GlowEmitter = this.vel_GlowEmitter[i].length();
                 const limit_GlowEmitter = 0.7 * 2.0;
                 if (speed_GlowEmitter > limit_GlowEmitter) {
                     const percent =
                         (speed_GlowEmitter - limit_GlowEmitter) /
                         speed_GlowEmitter;
-                    vel_GlowEmitter[i].multiplyScalar(
+                    this.vel_GlowEmitter[i].multiplyScalar(
                         Math.max(0, 1 - percent * 0.09 * dt * 20),
                     );
                 }
 
-                pos_GlowEmitter[i].addScaledVector(vel_GlowEmitter[i], dt);
+                this.pos_GlowEmitter[i].addScaledVector(this.vel_GlowEmitter[i], dt);
 
                 const sizeBez: PiecewiseCurve[] = [
                     {
@@ -567,7 +688,7 @@ export class CartoonBlueGasExplosionNativeVFX {
                     },
                 ];
                 const scaledSz =
-                    sz_GlowEmitter[i] * 2.0 * evalPiecewise(sizeBez, pct);
+                    this.sz_GlowEmitter[i] * 2.0 * evalPiecewise(sizeBez, pct);
 
                 const alpha = alphaKeys_GlowEmitter
                     ? evalAlpha(alphaKeys_GlowEmitter, pct)
@@ -579,10 +700,10 @@ export class CartoonBlueGasExplosionNativeVFX {
                 T.position.set(0, 0, 0);
                 T.quaternion.set(0, 0, 0, 1);
 
-                T.position.copy(pos_GlowEmitter[i]);
+                T.position.copy(this.pos_GlowEmitter[i]);
 
                 T.quaternion.copy(cq);
-                T.rotateZ(rot_GlowEmitter[i]);
+                T.rotateZ(this.rot_GlowEmitter[i]);
 
                 T.scale.setScalar(scaledSz);
 
@@ -616,20 +737,28 @@ export class CartoonBlueGasExplosionNativeVFX {
         };
 
         cleanups.push(() => {
-            this.scene.remove(mesh_GlowEmitter);
-            geo_GlowEmitter.dispose();
-            mat_GlowEmitter.dispose();
-            (mesh_GlowEmitter as THREE.InstancedMesh).dispose();
+            mesh_GlowEmitter.visible = false;
         });
 
         // ══════════════════════════════════════════════════════════
         // Emitter: CloudBurstEmitter  (count=24, life=[0.6, 0.7], speed=[1, 8])
         // Texture: tex_2.png  Grid: 2x2
         // ══════════════════════════════════════════════════════════
-        const cnt_CloudBurstEmitter = 24;
-        const geo_CloudBurstEmitter = new THREE.PlaneGeometry(1, 1);
-        const mat_CloudBurstEmitter = new THREE.ShaderMaterial({
-            uniforms: { uMap: { value: this.tex2 } },
+        const cnt_CloudBurstEmitter = 0;
+        let geo_CloudBurstEmitter: THREE.PlaneGeometry;
+        let mesh_CloudBurstEmitter: THREE.InstancedMesh;
+        let frm_CloudBurstEmitter: Float32Array;
+        let opc_CloudBurstEmitter: Float32Array;
+        let clr_CloudBurstEmitter: Float32Array;
+        let isFirst_CloudBurstEmitter = false;
+
+        if (!this.mesh_CloudBurstEmitter) {
+            isFirst_CloudBurstEmitter = true;
+            geo_CloudBurstEmitter = new THREE.PlaneGeometry(1, 1);
+            this.geo_CloudBurstEmitter = geo_CloudBurstEmitter;
+            if (!this.mat_CloudBurstEmitter) {
+                this.mat_CloudBurstEmitter = new THREE.ShaderMaterial({
+                    uniforms: { uMap: { value: this.tex2 } },
             vertexShader: `
         attribute float aFrame; attribute float aOpacity; attribute vec3 aColor;
         varying vec2 vUv; varying float vOpacity; varying vec3 vColor;
@@ -656,68 +785,72 @@ export class CartoonBlueGasExplosionNativeVFX {
             depthWrite: false,
             side: THREE.DoubleSide,
             blending: THREE.AdditiveBlending,
-        });
-        const mesh_CloudBurstEmitter = new THREE.InstancedMesh(
-            geo_CloudBurstEmitter,
-            mat_CloudBurstEmitter,
-            cnt_CloudBurstEmitter,
-        );
-        mesh_CloudBurstEmitter.frustumCulled = false;
-        this.scene.add(mesh_CloudBurstEmitter);
-        const frm_CloudBurstEmitter = new Float32Array(cnt_CloudBurstEmitter);
-        const opc_CloudBurstEmitter = new Float32Array(cnt_CloudBurstEmitter);
-        const clr_CloudBurstEmitter = new Float32Array(
-            cnt_CloudBurstEmitter * 3,
-        );
-        mesh_CloudBurstEmitter.geometry.setAttribute(
-            "aFrame",
-            new THREE.InstancedBufferAttribute(frm_CloudBurstEmitter, 1),
-        );
-        mesh_CloudBurstEmitter.geometry.setAttribute(
-            "aOpacity",
-            new THREE.InstancedBufferAttribute(opc_CloudBurstEmitter, 1),
-        );
-        mesh_CloudBurstEmitter.geometry.setAttribute(
-            "aColor",
-            new THREE.InstancedBufferAttribute(clr_CloudBurstEmitter, 3),
-        );
+                });
+            }
+            mesh_CloudBurstEmitter = new THREE.InstancedMesh(
+                geo_CloudBurstEmitter,
+                this.mat_CloudBurstEmitter,
+                cnt_CloudBurstEmitter,
+            );
+            mesh_CloudBurstEmitter.frustumCulled = false;
+            this.scene.add(mesh_CloudBurstEmitter);
+            this.mesh_CloudBurstEmitter = mesh_CloudBurstEmitter;
 
-        const life_CloudBurstEmitter: number[] = [];
-        const maxLife_CloudBurstEmitter: number[] = [];
-        const pos_CloudBurstEmitter: THREE.Vector3[] = [];
-        const vel_CloudBurstEmitter: THREE.Vector3[] = [];
-        const sz_CloudBurstEmitter: number[] = [];
-        const rot_CloudBurstEmitter: number[] = [];
-
-        // Pre-initialize pool items as inactive (life = maxLife)
-        for (let i = 0; i < cnt_CloudBurstEmitter; i++) {
-            life_CloudBurstEmitter.push(1.0);
-            maxLife_CloudBurstEmitter.push(1.0);
-            pos_CloudBurstEmitter.push(new THREE.Vector3(x, y, z));
-            vel_CloudBurstEmitter.push(new THREE.Vector3(0, 0, 0));
-            sz_CloudBurstEmitter.push(0);
-            rot_CloudBurstEmitter.push(0);
+            const frm_arr = new Float32Array(cnt_CloudBurstEmitter);
+            const opc_arr = new Float32Array(cnt_CloudBurstEmitter);
+            const clr_arr = new Float32Array(cnt_CloudBurstEmitter * 3);
+            mesh_CloudBurstEmitter.geometry.setAttribute("aFrame", new THREE.InstancedBufferAttribute(frm_arr, 1));
+            mesh_CloudBurstEmitter.geometry.setAttribute("aOpacity", new THREE.InstancedBufferAttribute(opc_arr, 1));
+            mesh_CloudBurstEmitter.geometry.setAttribute("aColor", new THREE.InstancedBufferAttribute(clr_arr, 3));
+            frm_CloudBurstEmitter = frm_arr;
+            opc_CloudBurstEmitter = opc_arr;
+            clr_CloudBurstEmitter = clr_arr;
+            for (let i = 0; i < cnt_CloudBurstEmitter; i++) {
+                this.life_CloudBurstEmitter.push(1.0);
+                this.maxLife_CloudBurstEmitter.push(1.0);
+                this.pos_CloudBurstEmitter.push(new THREE.Vector3(x, y, z));
+                this.vel_CloudBurstEmitter.push(new THREE.Vector3(0, 0, 0));
+                this.sz_CloudBurstEmitter.push(0);
+                this.rot_CloudBurstEmitter.push(0);
+            }
+        } else {
+            mesh_CloudBurstEmitter = this.mesh_CloudBurstEmitter;
+            mesh_CloudBurstEmitter.visible = true;
+            geo_CloudBurstEmitter = this.geo_CloudBurstEmitter!;
+            frm_CloudBurstEmitter = mesh_CloudBurstEmitter.geometry.getAttribute("aFrame").array as Float32Array;
+            opc_CloudBurstEmitter = mesh_CloudBurstEmitter.geometry.getAttribute("aOpacity").array as Float32Array;
+            clr_CloudBurstEmitter = mesh_CloudBurstEmitter.geometry.getAttribute("aColor").array as Float32Array;
         }
 
-        let ptr_CloudBurstEmitter = 0;
-        let spawnTimer_CloudBurstEmitter = 0;
+        // Reset particle arrays in place
+        for (let i = 0; i < cnt_CloudBurstEmitter; i++) {
+            this.life_CloudBurstEmitter[i] = 1.0;
+            this.maxLife_CloudBurstEmitter[i] = 1.0;
+            this.pos_CloudBurstEmitter[i].set(x, y, z);
+            this.vel_CloudBurstEmitter[i].set(0, 0, 0);
+            this.sz_CloudBurstEmitter[i] = 0;
+            this.rot_CloudBurstEmitter[i] = 0;
+        }
+
+        this.ptr_CloudBurstEmitter = 0;
+        this.spawnTimer_CloudBurstEmitter = 0;
 
         const spawnParticle_CloudBurstEmitter = (i: number) => {
-            life_CloudBurstEmitter[i] = 0;
-            maxLife_CloudBurstEmitter[i] = rng(0.6, 0.7);
-            sz_CloudBurstEmitter[i] = rng(0.9, 1.2);
-            rot_CloudBurstEmitter[i] = rng(0, Math.PI * 2);
+            this.life_CloudBurstEmitter[i] = 0;
+            this.maxLife_CloudBurstEmitter[i] = rng(0.6, 0.7);
+            this.sz_CloudBurstEmitter[i] = rng(0.9, 1.2);
+            this.rot_CloudBurstEmitter[i] = rng(0, Math.PI * 2);
 
             const theta = Math.random() * Math.PI * 2;
             const phi = Math.acos(rng(-1, 1));
             const speed = rng(1, 8) * 2.0;
             const srad = 0.2 * 2.0;
-            pos_CloudBurstEmitter[i].set(
+            this.pos_CloudBurstEmitter[i].set(
                 x + Math.sin(phi) * Math.cos(theta) * srad,
                 y + Math.sin(phi) * Math.sin(theta) * srad,
                 z + Math.cos(phi) * srad,
             );
-            vel_CloudBurstEmitter[i].set(
+            this.vel_CloudBurstEmitter[i].set(
                 Math.sin(phi) * Math.cos(theta) * speed,
                 Math.sin(phi) * Math.sin(theta) * speed,
                 Math.cos(phi) * speed,
@@ -725,15 +858,15 @@ export class CartoonBlueGasExplosionNativeVFX {
         };
 
         // Trigger initial bursts
-        const initialBurst_CloudBurstEmitter = 14;
+        const initialBurst_CloudBurstEmitter = 0;
         for (
             let i = 0;
             i < Math.min(cnt_CloudBurstEmitter, initialBurst_CloudBurstEmitter);
             i++
         ) {
-            spawnParticle_CloudBurstEmitter(ptr_CloudBurstEmitter);
-            ptr_CloudBurstEmitter =
-                (ptr_CloudBurstEmitter + 1) % cnt_CloudBurstEmitter;
+            spawnParticle_CloudBurstEmitter(this.ptr_CloudBurstEmitter);
+            this.ptr_CloudBurstEmitter =
+                (this.ptr_CloudBurstEmitter + 1) % cnt_CloudBurstEmitter;
         }
 
         const colorKeys_CloudBurstEmitter: ColorKey[] | null = [
@@ -751,56 +884,56 @@ export class CartoonBlueGasExplosionNativeVFX {
             // Spawn particles continuously over time
             const rate = 0;
             if (rate > 0) {
-                spawnTimer_CloudBurstEmitter += dt;
+                this.spawnTimer_CloudBurstEmitter += dt;
                 const interval = 1.0 / rate;
-                while (spawnTimer_CloudBurstEmitter >= interval) {
-                    spawnParticle_CloudBurstEmitter(ptr_CloudBurstEmitter);
-                    ptr_CloudBurstEmitter =
-                        (ptr_CloudBurstEmitter + 1) % cnt_CloudBurstEmitter;
-                    spawnTimer_CloudBurstEmitter -= interval;
+                while (this.spawnTimer_CloudBurstEmitter >= interval) {
+                    spawnParticle_CloudBurstEmitter(this.ptr_CloudBurstEmitter);
+                    this.ptr_CloudBurstEmitter =
+                        (this.ptr_CloudBurstEmitter + 1) % cnt_CloudBurstEmitter;
+                    this.spawnTimer_CloudBurstEmitter -= interval;
                 }
             }
 
             for (let i = 0; i < cnt_CloudBurstEmitter; i++) {
-                if (life_CloudBurstEmitter[i] >= maxLife_CloudBurstEmitter[i]) {
+                if (this.life_CloudBurstEmitter[i] >= this.maxLife_CloudBurstEmitter[i]) {
                     mesh_CloudBurstEmitter.setMatrixAt(i, hideM);
                     opc_CloudBurstEmitter[i] = 0;
                     continue;
                 }
-                life_CloudBurstEmitter[i] += dt;
+                this.life_CloudBurstEmitter[i] += dt;
                 const pct = Math.min(
                     1,
-                    life_CloudBurstEmitter[i] / maxLife_CloudBurstEmitter[i],
+                    this.life_CloudBurstEmitter[i] / this.maxLife_CloudBurstEmitter[i],
                 );
-                if (life_CloudBurstEmitter[i] >= maxLife_CloudBurstEmitter[i]) {
+                if (this.life_CloudBurstEmitter[i] >= this.maxLife_CloudBurstEmitter[i]) {
                     mesh_CloudBurstEmitter.setMatrixAt(i, hideM);
                     opc_CloudBurstEmitter[i] = 0;
                     continue;
                 }
                 // Physics: gravity + drag
-                vel_CloudBurstEmitter[i].y += 0 * dt;
+                this.vel_CloudBurstEmitter[i].y += 0 * dt;
 
                 const speed_CloudBurstEmitter =
-                    vel_CloudBurstEmitter[i].length();
+                    this.vel_CloudBurstEmitter[i].length();
                 const limit_CloudBurstEmitter = 0.5 * 2.0;
                 if (speed_CloudBurstEmitter > limit_CloudBurstEmitter) {
                     const percent =
                         (speed_CloudBurstEmitter - limit_CloudBurstEmitter) /
                         speed_CloudBurstEmitter;
-                    vel_CloudBurstEmitter[i].multiplyScalar(
+                    this.vel_CloudBurstEmitter[i].multiplyScalar(
                         Math.max(0, 1 - percent * 0.2 * dt * 20),
                     );
                 }
 
-                pos_CloudBurstEmitter[i].addScaledVector(
-                    vel_CloudBurstEmitter[i],
+                this.pos_CloudBurstEmitter[i].addScaledVector(
+                    this.vel_CloudBurstEmitter[i],
                     dt,
                 );
 
                 const rotSpeedBez_CloudBurstEmitter: PiecewiseCurve[] = [
                     { start: 0, end: 1, p0: 1, p1: 1, p2: 0, p3: 0 },
                 ];
-                rot_CloudBurstEmitter[i] +=
+                this.rot_CloudBurstEmitter[i] +=
                     evalPiecewise(rotSpeedBez_CloudBurstEmitter, pct) * dt;
 
                 const sizeBez: PiecewiseCurve[] = [
@@ -814,7 +947,7 @@ export class CartoonBlueGasExplosionNativeVFX {
                     },
                 ];
                 const scaledSz =
-                    sz_CloudBurstEmitter[i] * 2.0 * evalPiecewise(sizeBez, pct);
+                    this.sz_CloudBurstEmitter[i] * 2.0 * evalPiecewise(sizeBez, pct);
 
                 const alpha = alphaKeys_CloudBurstEmitter
                     ? evalAlpha(alphaKeys_CloudBurstEmitter, pct)
@@ -826,10 +959,10 @@ export class CartoonBlueGasExplosionNativeVFX {
                 T.position.set(0, 0, 0);
                 T.quaternion.set(0, 0, 0, 1);
 
-                T.position.copy(pos_CloudBurstEmitter[i]);
+                T.position.copy(this.pos_CloudBurstEmitter[i]);
 
                 T.quaternion.copy(cq);
-                T.rotateZ(rot_CloudBurstEmitter[i]);
+                T.rotateZ(this.rot_CloudBurstEmitter[i]);
 
                 T.scale.setScalar(scaledSz);
 
@@ -872,20 +1005,28 @@ export class CartoonBlueGasExplosionNativeVFX {
         };
 
         cleanups.push(() => {
-            this.scene.remove(mesh_CloudBurstEmitter);
-            geo_CloudBurstEmitter.dispose();
-            mat_CloudBurstEmitter.dispose();
-            (mesh_CloudBurstEmitter as THREE.InstancedMesh).dispose();
+            mesh_CloudBurstEmitter.visible = false;
         });
 
         // ══════════════════════════════════════════════════════════
         // Emitter: TrailEmitter  (count=300, life=[0.25, 0.6], speed=[0, 0])
         // Texture: tex_2.png  Grid: 2x2
         // ══════════════════════════════════════════════════════════
-        const cnt_TrailEmitter = 300;
-        const geo_TrailEmitter = new THREE.PlaneGeometry(1, 1);
-        const mat_TrailEmitter = new THREE.ShaderMaterial({
-            uniforms: { uMap: { value: this.tex2 } },
+        const cnt_TrailEmitter = 0;
+        let geo_TrailEmitter: THREE.PlaneGeometry;
+        let mesh_TrailEmitter: THREE.InstancedMesh;
+        let frm_TrailEmitter: Float32Array;
+        let opc_TrailEmitter: Float32Array;
+        let clr_TrailEmitter: Float32Array;
+        let isFirst_TrailEmitter = false;
+
+        if (!this.mesh_TrailEmitter) {
+            isFirst_TrailEmitter = true;
+            geo_TrailEmitter = new THREE.PlaneGeometry(1, 1);
+            this.geo_TrailEmitter = geo_TrailEmitter;
+            if (!this.mat_TrailEmitter) {
+                this.mat_TrailEmitter = new THREE.ShaderMaterial({
+                    uniforms: { uMap: { value: this.tex2 } },
             vertexShader: `
         attribute float aFrame; attribute float aOpacity; attribute vec3 aColor;
         varying vec2 vUv; varying float vOpacity; varying vec3 vColor;
@@ -912,66 +1053,72 @@ export class CartoonBlueGasExplosionNativeVFX {
             depthWrite: false,
             side: THREE.DoubleSide,
             blending: THREE.AdditiveBlending,
-        });
-        const mesh_TrailEmitter = new THREE.InstancedMesh(
-            geo_TrailEmitter,
-            mat_TrailEmitter,
-            cnt_TrailEmitter,
-        );
-        mesh_TrailEmitter.frustumCulled = false;
-        this.scene.add(mesh_TrailEmitter);
-        const frm_TrailEmitter = new Float32Array(cnt_TrailEmitter);
-        const opc_TrailEmitter = new Float32Array(cnt_TrailEmitter);
-        const clr_TrailEmitter = new Float32Array(cnt_TrailEmitter * 3);
-        mesh_TrailEmitter.geometry.setAttribute(
-            "aFrame",
-            new THREE.InstancedBufferAttribute(frm_TrailEmitter, 1),
-        );
-        mesh_TrailEmitter.geometry.setAttribute(
-            "aOpacity",
-            new THREE.InstancedBufferAttribute(opc_TrailEmitter, 1),
-        );
-        mesh_TrailEmitter.geometry.setAttribute(
-            "aColor",
-            new THREE.InstancedBufferAttribute(clr_TrailEmitter, 3),
-        );
+                });
+            }
+            mesh_TrailEmitter = new THREE.InstancedMesh(
+                geo_TrailEmitter,
+                this.mat_TrailEmitter,
+                cnt_TrailEmitter,
+            );
+            mesh_TrailEmitter.frustumCulled = false;
+            this.scene.add(mesh_TrailEmitter);
+            this.mesh_TrailEmitter = mesh_TrailEmitter;
 
-        const life_TrailEmitter: number[] = [];
-        const maxLife_TrailEmitter: number[] = [];
-        const pos_TrailEmitter: THREE.Vector3[] = [];
-        const vel_TrailEmitter: THREE.Vector3[] = [];
-        const sz_TrailEmitter: number[] = [];
-        const rot_TrailEmitter: number[] = [];
-
-        // Pre-initialize pool items as inactive (life = maxLife)
-        for (let i = 0; i < cnt_TrailEmitter; i++) {
-            life_TrailEmitter.push(1.0);
-            maxLife_TrailEmitter.push(1.0);
-            pos_TrailEmitter.push(new THREE.Vector3(x, y, z));
-            vel_TrailEmitter.push(new THREE.Vector3(0, 0, 0));
-            sz_TrailEmitter.push(0);
-            rot_TrailEmitter.push(0);
+            const frm_arr = new Float32Array(cnt_TrailEmitter);
+            const opc_arr = new Float32Array(cnt_TrailEmitter);
+            const clr_arr = new Float32Array(cnt_TrailEmitter * 3);
+            mesh_TrailEmitter.geometry.setAttribute("aFrame", new THREE.InstancedBufferAttribute(frm_arr, 1));
+            mesh_TrailEmitter.geometry.setAttribute("aOpacity", new THREE.InstancedBufferAttribute(opc_arr, 1));
+            mesh_TrailEmitter.geometry.setAttribute("aColor", new THREE.InstancedBufferAttribute(clr_arr, 3));
+            frm_TrailEmitter = frm_arr;
+            opc_TrailEmitter = opc_arr;
+            clr_TrailEmitter = clr_arr;
+            for (let i = 0; i < cnt_TrailEmitter; i++) {
+                this.life_TrailEmitter.push(1.0);
+                this.maxLife_TrailEmitter.push(1.0);
+                this.pos_TrailEmitter.push(new THREE.Vector3(x, y, z));
+                this.vel_TrailEmitter.push(new THREE.Vector3(0, 0, 0));
+                this.sz_TrailEmitter.push(0);
+                this.rot_TrailEmitter.push(0);
+            }
+        } else {
+            mesh_TrailEmitter = this.mesh_TrailEmitter;
+            mesh_TrailEmitter.visible = true;
+            geo_TrailEmitter = this.geo_TrailEmitter!;
+            frm_TrailEmitter = mesh_TrailEmitter.geometry.getAttribute("aFrame").array as Float32Array;
+            opc_TrailEmitter = mesh_TrailEmitter.geometry.getAttribute("aOpacity").array as Float32Array;
+            clr_TrailEmitter = mesh_TrailEmitter.geometry.getAttribute("aColor").array as Float32Array;
         }
 
-        let ptr_TrailEmitter = 0;
-        let spawnTimer_TrailEmitter = 0;
+        // Reset particle arrays in place
+        for (let i = 0; i < cnt_TrailEmitter; i++) {
+            this.life_TrailEmitter[i] = 1.0;
+            this.maxLife_TrailEmitter[i] = 1.0;
+            this.pos_TrailEmitter[i].set(x, y, z);
+            this.vel_TrailEmitter[i].set(0, 0, 0);
+            this.sz_TrailEmitter[i] = 0;
+            this.rot_TrailEmitter[i] = 0;
+        }
+
+        this.ptr_TrailEmitter = 0;
+        this.spawnTimer_TrailEmitter = 0;
 
         const spawnParticle_TrailEmitter = (i: number) => {
-            life_TrailEmitter[i] = 0;
-            maxLife_TrailEmitter[i] = rng(0.25, 0.6);
-            sz_TrailEmitter[i] = rng(1, 0.56875);
-            rot_TrailEmitter[i] = rng(0, Math.PI * 2);
+            this.life_TrailEmitter[i] = 0;
+            this.maxLife_TrailEmitter[i] = rng(0.25, 0.6);
+            this.sz_TrailEmitter[i] = rng(1, 0.56875);
+            this.rot_TrailEmitter[i] = rng(0, Math.PI * 2);
 
             const theta = Math.random() * Math.PI * 2;
             const phi = Math.acos(rng(-1, 1));
             const speed = rng(0, 0) * 2.0;
             const srad = 0 * 2.0;
-            pos_TrailEmitter[i].set(
+            this.pos_TrailEmitter[i].set(
                 x + Math.sin(phi) * Math.cos(theta) * srad,
                 y + Math.sin(phi) * Math.sin(theta) * srad,
                 z + Math.cos(phi) * srad,
             );
-            vel_TrailEmitter[i].set(
+            this.vel_TrailEmitter[i].set(
                 Math.sin(phi) * Math.cos(theta) * speed,
                 Math.sin(phi) * Math.sin(theta) * speed,
                 Math.cos(phi) * speed,
@@ -985,8 +1132,8 @@ export class CartoonBlueGasExplosionNativeVFX {
             i < Math.min(cnt_TrailEmitter, initialBurst_TrailEmitter);
             i++
         ) {
-            spawnParticle_TrailEmitter(ptr_TrailEmitter);
-            ptr_TrailEmitter = (ptr_TrailEmitter + 1) % cnt_TrailEmitter;
+            spawnParticle_TrailEmitter(this.ptr_TrailEmitter);
+            this.ptr_TrailEmitter = (this.ptr_TrailEmitter + 1) % cnt_TrailEmitter;
         }
 
         const colorKeys_TrailEmitter: ColorKey[] | null = [
@@ -1004,47 +1151,47 @@ export class CartoonBlueGasExplosionNativeVFX {
             // Spawn particles continuously over time
             const rate = 0;
             if (rate > 0) {
-                spawnTimer_TrailEmitter += dt;
+                this.spawnTimer_TrailEmitter += dt;
                 const interval = 1.0 / rate;
-                while (spawnTimer_TrailEmitter >= interval) {
-                    spawnParticle_TrailEmitter(ptr_TrailEmitter);
-                    ptr_TrailEmitter =
-                        (ptr_TrailEmitter + 1) % cnt_TrailEmitter;
-                    spawnTimer_TrailEmitter -= interval;
+                while (this.spawnTimer_TrailEmitter >= interval) {
+                    spawnParticle_TrailEmitter(this.ptr_TrailEmitter);
+                    this.ptr_TrailEmitter =
+                        (this.ptr_TrailEmitter + 1) % cnt_TrailEmitter;
+                    this.spawnTimer_TrailEmitter -= interval;
                 }
             }
 
             for (let i = 0; i < cnt_TrailEmitter; i++) {
-                if (life_TrailEmitter[i] >= maxLife_TrailEmitter[i]) {
+                if (this.life_TrailEmitter[i] >= this.maxLife_TrailEmitter[i]) {
                     mesh_TrailEmitter.setMatrixAt(i, hideM);
                     opc_TrailEmitter[i] = 0;
                     continue;
                 }
-                life_TrailEmitter[i] += dt;
+                this.life_TrailEmitter[i] += dt;
                 const pct = Math.min(
                     1,
-                    life_TrailEmitter[i] / maxLife_TrailEmitter[i],
+                    this.life_TrailEmitter[i] / this.maxLife_TrailEmitter[i],
                 );
-                if (life_TrailEmitter[i] >= maxLife_TrailEmitter[i]) {
+                if (this.life_TrailEmitter[i] >= this.maxLife_TrailEmitter[i]) {
                     mesh_TrailEmitter.setMatrixAt(i, hideM);
                     opc_TrailEmitter[i] = 0;
                     continue;
                 }
                 // Physics: gravity + drag
-                vel_TrailEmitter[i].y += 1.9600000000000002 * dt;
+                this.vel_TrailEmitter[i].y += 1.9600000000000002 * dt;
 
-                const speed_TrailEmitter = vel_TrailEmitter[i].length();
+                const speed_TrailEmitter = this.vel_TrailEmitter[i].length();
                 const limit_TrailEmitter = 0 * 2.0;
                 if (speed_TrailEmitter > limit_TrailEmitter) {
                     const percent =
                         (speed_TrailEmitter - limit_TrailEmitter) /
                         speed_TrailEmitter;
-                    vel_TrailEmitter[i].multiplyScalar(
+                    this.vel_TrailEmitter[i].multiplyScalar(
                         Math.max(0, 1 - percent * 0.05 * dt * 20),
                     );
                 }
 
-                pos_TrailEmitter[i].addScaledVector(vel_TrailEmitter[i], dt);
+                this.pos_TrailEmitter[i].addScaledVector(this.vel_TrailEmitter[i], dt);
 
                 const rotSpeedBez_TrailEmitter: PiecewiseCurve[] = [
                     {
@@ -1056,7 +1203,7 @@ export class CartoonBlueGasExplosionNativeVFX {
                         p3: 0.4065934,
                     },
                 ];
-                rot_TrailEmitter[i] +=
+                this.rot_TrailEmitter[i] +=
                     evalPiecewise(rotSpeedBez_TrailEmitter, pct) * dt;
 
                 const sizeBez: PiecewiseCurve[] = [
@@ -1078,7 +1225,7 @@ export class CartoonBlueGasExplosionNativeVFX {
                     },
                 ];
                 const scaledSz =
-                    sz_TrailEmitter[i] * 2.0 * evalPiecewise(sizeBez, pct);
+                    this.sz_TrailEmitter[i] * 2.0 * evalPiecewise(sizeBez, pct);
 
                 const alpha = alphaKeys_TrailEmitter
                     ? evalAlpha(alphaKeys_TrailEmitter, pct)
@@ -1090,10 +1237,10 @@ export class CartoonBlueGasExplosionNativeVFX {
                 T.position.set(0, 0, 0);
                 T.quaternion.set(0, 0, 0, 1);
 
-                T.position.copy(pos_TrailEmitter[i]);
+                T.position.copy(this.pos_TrailEmitter[i]);
 
                 T.quaternion.copy(cq);
-                T.rotateZ(rot_TrailEmitter[i]);
+                T.rotateZ(this.rot_TrailEmitter[i]);
 
                 T.scale.setScalar(scaledSz);
 
@@ -1136,20 +1283,28 @@ export class CartoonBlueGasExplosionNativeVFX {
         };
 
         cleanups.push(() => {
-            this.scene.remove(mesh_TrailEmitter);
-            geo_TrailEmitter.dispose();
-            mat_TrailEmitter.dispose();
-            (mesh_TrailEmitter as THREE.InstancedMesh).dispose();
+            mesh_TrailEmitter.visible = false;
         });
 
         // ══════════════════════════════════════════════════════════
         // Emitter: SmokeTrailEmitter  (count=17, life=[0.3, 0.55], speed=[25, 40])
         // Texture: tex_0.png  Grid: 1x1
         // ══════════════════════════════════════════════════════════
-        const cnt_SmokeTrailEmitter = 17;
-        const geo_SmokeTrailEmitter = new THREE.PlaneGeometry(1, 1);
-        const mat_SmokeTrailEmitter = new THREE.ShaderMaterial({
-            uniforms: { uMap: { value: this.tex0 } },
+        const cnt_SmokeTrailEmitter = 0;
+        let geo_SmokeTrailEmitter: THREE.PlaneGeometry;
+        let mesh_SmokeTrailEmitter: THREE.InstancedMesh;
+        let frm_SmokeTrailEmitter: Float32Array;
+        let opc_SmokeTrailEmitter: Float32Array;
+        let clr_SmokeTrailEmitter: Float32Array;
+        let isFirst_SmokeTrailEmitter = false;
+
+        if (!this.mesh_SmokeTrailEmitter) {
+            isFirst_SmokeTrailEmitter = true;
+            geo_SmokeTrailEmitter = new THREE.PlaneGeometry(1, 1);
+            this.geo_SmokeTrailEmitter = geo_SmokeTrailEmitter;
+            if (!this.mat_SmokeTrailEmitter) {
+                this.mat_SmokeTrailEmitter = new THREE.ShaderMaterial({
+                    uniforms: { uMap: { value: this.tex0 } },
             vertexShader: `
         attribute float aFrame; attribute float aOpacity; attribute vec3 aColor;
         varying vec2 vUv; varying float vOpacity; varying vec3 vColor;
@@ -1175,70 +1330,74 @@ export class CartoonBlueGasExplosionNativeVFX {
             depthWrite: false,
             side: THREE.DoubleSide,
             blending: THREE.AdditiveBlending,
-        });
-        const mesh_SmokeTrailEmitter = new THREE.InstancedMesh(
-            geo_SmokeTrailEmitter,
-            mat_SmokeTrailEmitter,
-            cnt_SmokeTrailEmitter,
-        );
-        mesh_SmokeTrailEmitter.frustumCulled = false;
-        this.scene.add(mesh_SmokeTrailEmitter);
-        const frm_SmokeTrailEmitter = new Float32Array(cnt_SmokeTrailEmitter);
-        const opc_SmokeTrailEmitter = new Float32Array(cnt_SmokeTrailEmitter);
-        const clr_SmokeTrailEmitter = new Float32Array(
-            cnt_SmokeTrailEmitter * 3,
-        );
-        mesh_SmokeTrailEmitter.geometry.setAttribute(
-            "aFrame",
-            new THREE.InstancedBufferAttribute(frm_SmokeTrailEmitter, 1),
-        );
-        mesh_SmokeTrailEmitter.geometry.setAttribute(
-            "aOpacity",
-            new THREE.InstancedBufferAttribute(opc_SmokeTrailEmitter, 1),
-        );
-        mesh_SmokeTrailEmitter.geometry.setAttribute(
-            "aColor",
-            new THREE.InstancedBufferAttribute(clr_SmokeTrailEmitter, 3),
-        );
+                });
+            }
+            mesh_SmokeTrailEmitter = new THREE.InstancedMesh(
+                geo_SmokeTrailEmitter,
+                this.mat_SmokeTrailEmitter,
+                cnt_SmokeTrailEmitter,
+            );
+            mesh_SmokeTrailEmitter.frustumCulled = false;
+            this.scene.add(mesh_SmokeTrailEmitter);
+            this.mesh_SmokeTrailEmitter = mesh_SmokeTrailEmitter;
 
-        const life_SmokeTrailEmitter: number[] = [];
-        const maxLife_SmokeTrailEmitter: number[] = [];
-        const pos_SmokeTrailEmitter: THREE.Vector3[] = [];
-        const vel_SmokeTrailEmitter: THREE.Vector3[] = [];
-        const sz_SmokeTrailEmitter: number[] = [];
-        const rot_SmokeTrailEmitter: number[] = [];
-        const accumulatedDist_SmokeTrailEmitter: number[] = [];
-
-        // Pre-initialize pool items as inactive (life = maxLife)
-        for (let i = 0; i < cnt_SmokeTrailEmitter; i++) {
-            life_SmokeTrailEmitter.push(1.0);
-            maxLife_SmokeTrailEmitter.push(1.0);
-            pos_SmokeTrailEmitter.push(new THREE.Vector3(x, y, z));
-            vel_SmokeTrailEmitter.push(new THREE.Vector3(0, 0, 0));
-            sz_SmokeTrailEmitter.push(0);
-            rot_SmokeTrailEmitter.push(0);
-            accumulatedDist_SmokeTrailEmitter.push(0);
+            const frm_arr = new Float32Array(cnt_SmokeTrailEmitter);
+            const opc_arr = new Float32Array(cnt_SmokeTrailEmitter);
+            const clr_arr = new Float32Array(cnt_SmokeTrailEmitter * 3);
+            mesh_SmokeTrailEmitter.geometry.setAttribute("aFrame", new THREE.InstancedBufferAttribute(frm_arr, 1));
+            mesh_SmokeTrailEmitter.geometry.setAttribute("aOpacity", new THREE.InstancedBufferAttribute(opc_arr, 1));
+            mesh_SmokeTrailEmitter.geometry.setAttribute("aColor", new THREE.InstancedBufferAttribute(clr_arr, 3));
+            frm_SmokeTrailEmitter = frm_arr;
+            opc_SmokeTrailEmitter = opc_arr;
+            clr_SmokeTrailEmitter = clr_arr;
+            for (let i = 0; i < cnt_SmokeTrailEmitter; i++) {
+                this.life_SmokeTrailEmitter.push(1.0);
+                this.maxLife_SmokeTrailEmitter.push(1.0);
+                this.pos_SmokeTrailEmitter.push(new THREE.Vector3(x, y, z));
+                this.vel_SmokeTrailEmitter.push(new THREE.Vector3(0, 0, 0));
+                this.sz_SmokeTrailEmitter.push(0);
+                this.rot_SmokeTrailEmitter.push(0);
+                this.accumulatedDist_SmokeTrailEmitter.push(0);
+            }
+        } else {
+            mesh_SmokeTrailEmitter = this.mesh_SmokeTrailEmitter;
+            mesh_SmokeTrailEmitter.visible = true;
+            geo_SmokeTrailEmitter = this.geo_SmokeTrailEmitter!;
+            frm_SmokeTrailEmitter = mesh_SmokeTrailEmitter.geometry.getAttribute("aFrame").array as Float32Array;
+            opc_SmokeTrailEmitter = mesh_SmokeTrailEmitter.geometry.getAttribute("aOpacity").array as Float32Array;
+            clr_SmokeTrailEmitter = mesh_SmokeTrailEmitter.geometry.getAttribute("aColor").array as Float32Array;
         }
 
-        let ptr_SmokeTrailEmitter = 0;
-        let spawnTimer_SmokeTrailEmitter = 0;
+        // Reset particle arrays in place
+        for (let i = 0; i < cnt_SmokeTrailEmitter; i++) {
+            this.life_SmokeTrailEmitter[i] = 1.0;
+            this.maxLife_SmokeTrailEmitter[i] = 1.0;
+            this.pos_SmokeTrailEmitter[i].set(x, y, z);
+            this.vel_SmokeTrailEmitter[i].set(0, 0, 0);
+            this.sz_SmokeTrailEmitter[i] = 0;
+            this.rot_SmokeTrailEmitter[i] = 0;
+            this.accumulatedDist_SmokeTrailEmitter[i] = 0;
+        }
+
+        this.ptr_SmokeTrailEmitter = 0;
+        this.spawnTimer_SmokeTrailEmitter = 0;
 
         const spawnParticle_SmokeTrailEmitter = (i: number) => {
-            life_SmokeTrailEmitter[i] = 0;
-            maxLife_SmokeTrailEmitter[i] = rng(0.3, 0.55);
-            sz_SmokeTrailEmitter[i] = rng(0.24, 0.27);
-            rot_SmokeTrailEmitter[i] = rng(0, Math.PI * 2);
-            accumulatedDist_SmokeTrailEmitter[i] = 0;
+            this.life_SmokeTrailEmitter[i] = 0;
+            this.maxLife_SmokeTrailEmitter[i] = rng(0.3, 0.55);
+            this.sz_SmokeTrailEmitter[i] = rng(0.24, 0.27);
+            this.rot_SmokeTrailEmitter[i] = rng(0, Math.PI * 2);
+            this.accumulatedDist_SmokeTrailEmitter[i] = 0;
             const theta = Math.random() * Math.PI * 2;
             const phi = Math.acos(rng(-1, 1));
             const speed = rng(25, 40) * 2.0;
             const srad = 0.01 * 2.0;
-            pos_SmokeTrailEmitter[i].set(
+            this.pos_SmokeTrailEmitter[i].set(
                 x + Math.sin(phi) * Math.cos(theta) * srad,
                 y + Math.sin(phi) * Math.sin(theta) * srad,
                 z + Math.cos(phi) * srad,
             );
-            vel_SmokeTrailEmitter[i].set(
+            this.vel_SmokeTrailEmitter[i].set(
                 Math.sin(phi) * Math.cos(theta) * speed,
                 Math.sin(phi) * Math.sin(theta) * speed,
                 Math.cos(phi) * speed,
@@ -1246,15 +1405,15 @@ export class CartoonBlueGasExplosionNativeVFX {
         };
 
         // Trigger initial bursts
-        const initialBurst_SmokeTrailEmitter = 7;
+        const initialBurst_SmokeTrailEmitter = 0;
         for (
             let i = 0;
             i < Math.min(cnt_SmokeTrailEmitter, initialBurst_SmokeTrailEmitter);
             i++
         ) {
-            spawnParticle_SmokeTrailEmitter(ptr_SmokeTrailEmitter);
-            ptr_SmokeTrailEmitter =
-                (ptr_SmokeTrailEmitter + 1) % cnt_SmokeTrailEmitter;
+            spawnParticle_SmokeTrailEmitter(this.ptr_SmokeTrailEmitter);
+            this.ptr_SmokeTrailEmitter =
+                (this.ptr_SmokeTrailEmitter + 1) % cnt_SmokeTrailEmitter;
         }
 
         const colorKeys_SmokeTrailEmitter: ColorKey[] | null = [
@@ -1272,49 +1431,49 @@ export class CartoonBlueGasExplosionNativeVFX {
             // Spawn particles continuously over time
             const rate = 0;
             if (rate > 0) {
-                spawnTimer_SmokeTrailEmitter += dt;
+                this.spawnTimer_SmokeTrailEmitter += dt;
                 const interval = 1.0 / rate;
-                while (spawnTimer_SmokeTrailEmitter >= interval) {
-                    spawnParticle_SmokeTrailEmitter(ptr_SmokeTrailEmitter);
-                    ptr_SmokeTrailEmitter =
-                        (ptr_SmokeTrailEmitter + 1) % cnt_SmokeTrailEmitter;
-                    spawnTimer_SmokeTrailEmitter -= interval;
+                while (this.spawnTimer_SmokeTrailEmitter >= interval) {
+                    spawnParticle_SmokeTrailEmitter(this.ptr_SmokeTrailEmitter);
+                    this.ptr_SmokeTrailEmitter =
+                        (this.ptr_SmokeTrailEmitter + 1) % cnt_SmokeTrailEmitter;
+                    this.spawnTimer_SmokeTrailEmitter -= interval;
                 }
             }
 
             for (let i = 0; i < cnt_SmokeTrailEmitter; i++) {
-                if (life_SmokeTrailEmitter[i] >= maxLife_SmokeTrailEmitter[i]) {
+                if (this.life_SmokeTrailEmitter[i] >= this.maxLife_SmokeTrailEmitter[i]) {
                     mesh_SmokeTrailEmitter.setMatrixAt(i, hideM);
 
                     continue;
                 }
-                life_SmokeTrailEmitter[i] += dt;
+                this.life_SmokeTrailEmitter[i] += dt;
                 const pct = Math.min(
                     1,
-                    life_SmokeTrailEmitter[i] / maxLife_SmokeTrailEmitter[i],
+                    this.life_SmokeTrailEmitter[i] / this.maxLife_SmokeTrailEmitter[i],
                 );
-                if (life_SmokeTrailEmitter[i] >= maxLife_SmokeTrailEmitter[i]) {
+                if (this.life_SmokeTrailEmitter[i] >= this.maxLife_SmokeTrailEmitter[i]) {
                     mesh_SmokeTrailEmitter.setMatrixAt(i, hideM);
 
                     continue;
                 }
                 // Physics: gravity + drag
-                vel_SmokeTrailEmitter[i].y += -19.6 * dt;
+                this.vel_SmokeTrailEmitter[i].y += -19.6 * dt;
 
                 const speed_SmokeTrailEmitter =
-                    vel_SmokeTrailEmitter[i].length();
+                    this.vel_SmokeTrailEmitter[i].length();
                 const limit_SmokeTrailEmitter = 2 * 2.0;
                 if (speed_SmokeTrailEmitter > limit_SmokeTrailEmitter) {
                     const percent =
                         (speed_SmokeTrailEmitter - limit_SmokeTrailEmitter) /
                         speed_SmokeTrailEmitter;
-                    vel_SmokeTrailEmitter[i].multiplyScalar(
+                    this.vel_SmokeTrailEmitter[i].multiplyScalar(
                         Math.max(0, 1 - percent * 0.25 * dt * 20),
                     );
                 }
 
-                pos_SmokeTrailEmitter[i].addScaledVector(
-                    vel_SmokeTrailEmitter[i],
+                this.pos_SmokeTrailEmitter[i].addScaledVector(
+                    this.vel_SmokeTrailEmitter[i],
                     dt,
                 );
 
@@ -1328,26 +1487,26 @@ export class CartoonBlueGasExplosionNativeVFX {
                         p3: 0.4065934,
                     },
                 ];
-                rot_SmokeTrailEmitter[i] +=
+                this.rot_SmokeTrailEmitter[i] +=
                     evalPiecewise(rotSpeedBez_SmokeTrailEmitter, pct) * dt;
 
                 const distMoved_SmokeTrailEmitter =
-                    vel_SmokeTrailEmitter[i].length() * dt;
-                accumulatedDist_SmokeTrailEmitter[i] +=
+                    this.vel_SmokeTrailEmitter[i].length() * dt;
+                this.accumulatedDist_SmokeTrailEmitter[i] +=
                     distMoved_SmokeTrailEmitter;
                 const subDist_SmokeTrailEmitter = 5 > 0 ? (1.0 / 5) * 2.0 : 0;
                 if (subDist_SmokeTrailEmitter > 0) {
                     while (
-                        accumulatedDist_SmokeTrailEmitter[i] >=
+                        this.accumulatedDist_SmokeTrailEmitter[i] >=
                         subDist_SmokeTrailEmitter
                     ) {
-                        spawnParticle_TrailEmitter(ptr_TrailEmitter);
-                        pos_TrailEmitter[ptr_TrailEmitter].copy(
-                            pos_SmokeTrailEmitter[i],
+                        spawnParticle_TrailEmitter(this.ptr_TrailEmitter);
+                        this.pos_TrailEmitter[this.ptr_TrailEmitter].copy(
+                            this.pos_SmokeTrailEmitter[i],
                         );
-                        ptr_TrailEmitter =
-                            (ptr_TrailEmitter + 1) % cnt_TrailEmitter;
-                        accumulatedDist_SmokeTrailEmitter[i] -=
+                        this.ptr_TrailEmitter =
+                            (this.ptr_TrailEmitter + 1) % cnt_TrailEmitter;
+                        this.accumulatedDist_SmokeTrailEmitter[i] -=
                             subDist_SmokeTrailEmitter;
                     }
                 }
@@ -1363,7 +1522,7 @@ export class CartoonBlueGasExplosionNativeVFX {
                     },
                 ];
                 const scaledSz =
-                    sz_SmokeTrailEmitter[i] * 2.0 * evalPiecewise(sizeBez, pct);
+                    this.sz_SmokeTrailEmitter[i] * 2.0 * evalPiecewise(sizeBez, pct);
 
                 const alpha = alphaKeys_SmokeTrailEmitter
                     ? evalAlpha(alphaKeys_SmokeTrailEmitter, pct)
@@ -1375,10 +1534,10 @@ export class CartoonBlueGasExplosionNativeVFX {
                 T.position.set(0, 0, 0);
                 T.quaternion.set(0, 0, 0, 1);
 
-                T.position.copy(pos_SmokeTrailEmitter[i]);
+                T.position.copy(this.pos_SmokeTrailEmitter[i]);
 
                 T.quaternion.copy(cq);
-                T.rotateZ(rot_SmokeTrailEmitter[i]);
+                T.rotateZ(this.rot_SmokeTrailEmitter[i]);
 
                 T.scale.setScalar(scaledSz);
 
@@ -1412,20 +1571,30 @@ export class CartoonBlueGasExplosionNativeVFX {
         };
 
         cleanups.push(() => {
-            this.scene.remove(mesh_SmokeTrailEmitter);
-            geo_SmokeTrailEmitter.dispose();
-            mat_SmokeTrailEmitter.dispose();
-            (mesh_SmokeTrailEmitter as THREE.InstancedMesh).dispose();
+            mesh_SmokeTrailEmitter.visible = false;
         });
 
         // ══════════════════════════════════════════════════════════
         // Emitter: GasExplosionBlueEmitter  (count=14, life=[0.17, 0.3], speed=[0.1, 0.1])
         // Texture: tex_3.png  Grid: 3x3
         // ══════════════════════════════════════════════════════════
-        const cnt_GasExplosionBlueEmitter = 14;
-        const geo_GasExplosionBlueEmitter = new THREE.PlaneGeometry(1, 1);
-        const mat_GasExplosionBlueEmitter = new THREE.ShaderMaterial({
-            uniforms: {
+        const cnt_GasExplosionBlueEmitter = 4;
+        let geo_GasExplosionBlueEmitter: THREE.PlaneGeometry;
+        let mesh_GasExplosionBlueEmitter: THREE.InstancedMesh;
+        let frm_GasExplosionBlueEmitter: Float32Array;
+        let opc_GasExplosionBlueEmitter: Float32Array;
+        let clr_GasExplosionBlueEmitter: Float32Array;
+        let vel_buf_GasExplosionBlueEmitter: Float32Array;
+        let off_buf_GasExplosionBlueEmitter: Float32Array;
+        let isFirst_GasExplosionBlueEmitter = false;
+
+        if (!this.mesh_GasExplosionBlueEmitter) {
+            isFirst_GasExplosionBlueEmitter = true;
+            geo_GasExplosionBlueEmitter = new THREE.PlaneGeometry(1, 1);
+            this.geo_GasExplosionBlueEmitter = geo_GasExplosionBlueEmitter;
+            if (!this.mat_GasExplosionBlueEmitter) {
+                this.mat_GasExplosionBlueEmitter = new THREE.ShaderMaterial({
+                    uniforms: {
                 uMap: { value: this.tex3 },
                 speedFactor: { value: 1.0 },
             },
@@ -1462,92 +1631,80 @@ export class CartoonBlueGasExplosionNativeVFX {
             depthWrite: false,
             side: THREE.DoubleSide,
             blending: THREE.NormalBlending,
-        });
-        const mesh_GasExplosionBlueEmitter = new THREE.InstancedMesh(
-            geo_GasExplosionBlueEmitter,
-            mat_GasExplosionBlueEmitter,
-            cnt_GasExplosionBlueEmitter,
-        );
-        mesh_GasExplosionBlueEmitter.frustumCulled = false;
-        this.scene.add(mesh_GasExplosionBlueEmitter);
-        const frm_GasExplosionBlueEmitter = new Float32Array(
-            cnt_GasExplosionBlueEmitter,
-        );
-        const opc_GasExplosionBlueEmitter = new Float32Array(
-            cnt_GasExplosionBlueEmitter,
-        );
-        const clr_GasExplosionBlueEmitter = new Float32Array(
-            cnt_GasExplosionBlueEmitter * 3,
-        );
-        mesh_GasExplosionBlueEmitter.geometry.setAttribute(
-            "aFrame",
-            new THREE.InstancedBufferAttribute(frm_GasExplosionBlueEmitter, 1),
-        );
-        mesh_GasExplosionBlueEmitter.geometry.setAttribute(
-            "aOpacity",
-            new THREE.InstancedBufferAttribute(opc_GasExplosionBlueEmitter, 1),
-        );
-        mesh_GasExplosionBlueEmitter.geometry.setAttribute(
-            "aColor",
-            new THREE.InstancedBufferAttribute(clr_GasExplosionBlueEmitter, 3),
-        );
-        const vel_buf_GasExplosionBlueEmitter = new Float32Array(
-            cnt_GasExplosionBlueEmitter * 3,
-        );
-        const off_buf_GasExplosionBlueEmitter = new Float32Array(
-            cnt_GasExplosionBlueEmitter * 3,
-        );
-        mesh_GasExplosionBlueEmitter.geometry.setAttribute(
-            "aVelocity",
-            new THREE.InstancedBufferAttribute(
-                vel_buf_GasExplosionBlueEmitter,
-                3,
-            ),
-        );
-        mesh_GasExplosionBlueEmitter.geometry.setAttribute(
-            "aOffset",
-            new THREE.InstancedBufferAttribute(
-                off_buf_GasExplosionBlueEmitter,
-                3,
-            ),
-        );
+                });
+            }
+            mesh_GasExplosionBlueEmitter = new THREE.InstancedMesh(
+                geo_GasExplosionBlueEmitter,
+                this.mat_GasExplosionBlueEmitter,
+                cnt_GasExplosionBlueEmitter,
+            );
+            mesh_GasExplosionBlueEmitter.frustumCulled = false;
+            this.scene.add(mesh_GasExplosionBlueEmitter);
+            this.mesh_GasExplosionBlueEmitter = mesh_GasExplosionBlueEmitter;
 
-        const life_GasExplosionBlueEmitter: number[] = [];
-        const maxLife_GasExplosionBlueEmitter: number[] = [];
-        const pos_GasExplosionBlueEmitter: THREE.Vector3[] = [];
-        const vel_GasExplosionBlueEmitter: THREE.Vector3[] = [];
-        const sz_GasExplosionBlueEmitter: number[] = [];
-        const rot_GasExplosionBlueEmitter: number[] = [];
-
-        // Pre-initialize pool items as inactive (life = maxLife)
-        for (let i = 0; i < cnt_GasExplosionBlueEmitter; i++) {
-            life_GasExplosionBlueEmitter.push(1.0);
-            maxLife_GasExplosionBlueEmitter.push(1.0);
-            pos_GasExplosionBlueEmitter.push(new THREE.Vector3(x, y, z));
-            vel_GasExplosionBlueEmitter.push(new THREE.Vector3(0, 0, 0));
-            sz_GasExplosionBlueEmitter.push(0);
-            rot_GasExplosionBlueEmitter.push(0);
+            const frm_arr = new Float32Array(cnt_GasExplosionBlueEmitter);
+            const opc_arr = new Float32Array(cnt_GasExplosionBlueEmitter);
+            const clr_arr = new Float32Array(cnt_GasExplosionBlueEmitter * 3);
+            mesh_GasExplosionBlueEmitter.geometry.setAttribute("aFrame", new THREE.InstancedBufferAttribute(frm_arr, 1));
+            mesh_GasExplosionBlueEmitter.geometry.setAttribute("aOpacity", new THREE.InstancedBufferAttribute(opc_arr, 1));
+            mesh_GasExplosionBlueEmitter.geometry.setAttribute("aColor", new THREE.InstancedBufferAttribute(clr_arr, 3));
+            frm_GasExplosionBlueEmitter = frm_arr;
+            opc_GasExplosionBlueEmitter = opc_arr;
+            clr_GasExplosionBlueEmitter = clr_arr;
+            const vel_arr = new Float32Array(cnt_GasExplosionBlueEmitter * 3);
+            const off_arr = new Float32Array(cnt_GasExplosionBlueEmitter * 3);
+            mesh_GasExplosionBlueEmitter.geometry.setAttribute("aVelocity", new THREE.InstancedBufferAttribute(vel_arr, 3));
+            mesh_GasExplosionBlueEmitter.geometry.setAttribute("aOffset", new THREE.InstancedBufferAttribute(off_arr, 3));
+            vel_buf_GasExplosionBlueEmitter = vel_arr;
+            off_buf_GasExplosionBlueEmitter = off_arr;
+            for (let i = 0; i < cnt_GasExplosionBlueEmitter; i++) {
+                this.life_GasExplosionBlueEmitter.push(1.0);
+                this.maxLife_GasExplosionBlueEmitter.push(1.0);
+                this.pos_GasExplosionBlueEmitter.push(new THREE.Vector3(x, y, z));
+                this.vel_GasExplosionBlueEmitter.push(new THREE.Vector3(0, 0, 0));
+                this.sz_GasExplosionBlueEmitter.push(0);
+                this.rot_GasExplosionBlueEmitter.push(0);
+            }
+        } else {
+            mesh_GasExplosionBlueEmitter = this.mesh_GasExplosionBlueEmitter;
+            mesh_GasExplosionBlueEmitter.visible = true;
+            geo_GasExplosionBlueEmitter = this.geo_GasExplosionBlueEmitter!;
+            frm_GasExplosionBlueEmitter = mesh_GasExplosionBlueEmitter.geometry.getAttribute("aFrame").array as Float32Array;
+            opc_GasExplosionBlueEmitter = mesh_GasExplosionBlueEmitter.geometry.getAttribute("aOpacity").array as Float32Array;
+            clr_GasExplosionBlueEmitter = mesh_GasExplosionBlueEmitter.geometry.getAttribute("aColor").array as Float32Array;
+            vel_buf_GasExplosionBlueEmitter = mesh_GasExplosionBlueEmitter.geometry.getAttribute("aVelocity").array as Float32Array;
+            off_buf_GasExplosionBlueEmitter = mesh_GasExplosionBlueEmitter.geometry.getAttribute("aOffset").array as Float32Array;
         }
 
-        let ptr_GasExplosionBlueEmitter = 0;
-        let spawnTimer_GasExplosionBlueEmitter = 0;
+        // Reset particle arrays in place
+        for (let i = 0; i < cnt_GasExplosionBlueEmitter; i++) {
+            this.life_GasExplosionBlueEmitter[i] = 1.0;
+            this.maxLife_GasExplosionBlueEmitter[i] = 1.0;
+            this.pos_GasExplosionBlueEmitter[i].set(x, y, z);
+            this.vel_GasExplosionBlueEmitter[i].set(0, 0, 0);
+            this.sz_GasExplosionBlueEmitter[i] = 0;
+            this.rot_GasExplosionBlueEmitter[i] = 0;
+        }
+
+        this.ptr_GasExplosionBlueEmitter = 0;
+        this.spawnTimer_GasExplosionBlueEmitter = 0;
 
         const spawnParticle_GasExplosionBlueEmitter = (i: number) => {
-            life_GasExplosionBlueEmitter[i] = 0;
-            maxLife_GasExplosionBlueEmitter[i] = rng(0.17, 0.3);
-            sz_GasExplosionBlueEmitter[i] = rng(2.2, 2.3);
-            rot_GasExplosionBlueEmitter[i] = rng(0, Math.PI * 2);
+            this.life_GasExplosionBlueEmitter[i] = 0;
+            this.maxLife_GasExplosionBlueEmitter[i] = rng(0.17, 0.3);
+            this.sz_GasExplosionBlueEmitter[i] = rng(2.2, 2.3);
+            this.rot_GasExplosionBlueEmitter[i] = rng(0, Math.PI * 2);
 
             const theta = Math.random() * Math.PI * 2;
             const phi = Math.acos(rng(-1, 1));
             const speed = rng(0.1, 0.1) * 2.0;
             const srad = 0.01 * 2.0;
-            pos_GasExplosionBlueEmitter[i].set(
+            this.pos_GasExplosionBlueEmitter[i].set(
                 x + Math.sin(phi) * Math.cos(theta) * srad,
                 y + Math.sin(phi) * Math.sin(theta) * srad,
                 z + Math.cos(phi) * srad,
             );
-            vel_GasExplosionBlueEmitter[i].set(
+            this.vel_GasExplosionBlueEmitter[i].set(
                 Math.sin(phi) * Math.cos(theta) * speed,
                 Math.sin(phi) * Math.sin(theta) * speed,
                 Math.cos(phi) * speed,
@@ -1555,7 +1712,7 @@ export class CartoonBlueGasExplosionNativeVFX {
         };
 
         // Trigger initial bursts
-        const initialBurst_GasExplosionBlueEmitter = 4;
+        const initialBurst_GasExplosionBlueEmitter = 2;
         for (
             let i = 0;
             i <
@@ -1565,9 +1722,9 @@ export class CartoonBlueGasExplosionNativeVFX {
             );
             i++
         ) {
-            spawnParticle_GasExplosionBlueEmitter(ptr_GasExplosionBlueEmitter);
-            ptr_GasExplosionBlueEmitter =
-                (ptr_GasExplosionBlueEmitter + 1) % cnt_GasExplosionBlueEmitter;
+            spawnParticle_GasExplosionBlueEmitter(this.ptr_GasExplosionBlueEmitter);
+            this.ptr_GasExplosionBlueEmitter =
+                (this.ptr_GasExplosionBlueEmitter + 1) % cnt_GasExplosionBlueEmitter;
         }
 
         const colorKeys_GasExplosionBlueEmitter: ColorKey[] | null = [
@@ -1584,47 +1741,47 @@ export class CartoonBlueGasExplosionNativeVFX {
             // Spawn particles continuously over time
             const rate = 0;
             if (rate > 0) {
-                spawnTimer_GasExplosionBlueEmitter += dt;
+                this.spawnTimer_GasExplosionBlueEmitter += dt;
                 const interval = 1.0 / rate;
-                while (spawnTimer_GasExplosionBlueEmitter >= interval) {
+                while (this.spawnTimer_GasExplosionBlueEmitter >= interval) {
                     spawnParticle_GasExplosionBlueEmitter(
-                        ptr_GasExplosionBlueEmitter,
+                        this.ptr_GasExplosionBlueEmitter,
                     );
-                    ptr_GasExplosionBlueEmitter =
-                        (ptr_GasExplosionBlueEmitter + 1) %
+                    this.ptr_GasExplosionBlueEmitter =
+                        (this.ptr_GasExplosionBlueEmitter + 1) %
                         cnt_GasExplosionBlueEmitter;
-                    spawnTimer_GasExplosionBlueEmitter -= interval;
+                    this.spawnTimer_GasExplosionBlueEmitter -= interval;
                 }
             }
 
             for (let i = 0; i < cnt_GasExplosionBlueEmitter; i++) {
                 if (
-                    life_GasExplosionBlueEmitter[i] >=
-                    maxLife_GasExplosionBlueEmitter[i]
+                    this.life_GasExplosionBlueEmitter[i] >=
+                    this.maxLife_GasExplosionBlueEmitter[i]
                 ) {
                     mesh_GasExplosionBlueEmitter.setMatrixAt(i, hideM);
                     opc_GasExplosionBlueEmitter[i] = 0;
                     continue;
                 }
-                life_GasExplosionBlueEmitter[i] += dt;
+                this.life_GasExplosionBlueEmitter[i] += dt;
                 const pct = Math.min(
                     1,
-                    life_GasExplosionBlueEmitter[i] /
-                        maxLife_GasExplosionBlueEmitter[i],
+                    this.life_GasExplosionBlueEmitter[i] /
+                        this.maxLife_GasExplosionBlueEmitter[i],
                 );
                 if (
-                    life_GasExplosionBlueEmitter[i] >=
-                    maxLife_GasExplosionBlueEmitter[i]
+                    this.life_GasExplosionBlueEmitter[i] >=
+                    this.maxLife_GasExplosionBlueEmitter[i]
                 ) {
                     mesh_GasExplosionBlueEmitter.setMatrixAt(i, hideM);
                     opc_GasExplosionBlueEmitter[i] = 0;
                     continue;
                 }
                 // Physics: gravity + drag
-                vel_GasExplosionBlueEmitter[i].y += 0 * dt;
+                this.vel_GasExplosionBlueEmitter[i].y += 0 * dt;
 
                 const speed_GasExplosionBlueEmitter =
-                    vel_GasExplosionBlueEmitter[i].length();
+                    this.vel_GasExplosionBlueEmitter[i].length();
                 const limit_GasExplosionBlueEmitter = 0 * 2.0;
                 if (
                     speed_GasExplosionBlueEmitter >
@@ -1634,13 +1791,13 @@ export class CartoonBlueGasExplosionNativeVFX {
                         (speed_GasExplosionBlueEmitter -
                             limit_GasExplosionBlueEmitter) /
                         speed_GasExplosionBlueEmitter;
-                    vel_GasExplosionBlueEmitter[i].multiplyScalar(
+                    this.vel_GasExplosionBlueEmitter[i].multiplyScalar(
                         Math.max(0, 1 - percent * 0.09 * dt * 20),
                     );
                 }
 
-                pos_GasExplosionBlueEmitter[i].addScaledVector(
-                    vel_GasExplosionBlueEmitter[i],
+                this.pos_GasExplosionBlueEmitter[i].addScaledVector(
+                    this.vel_GasExplosionBlueEmitter[i],
                     dt,
                 );
 
@@ -1655,7 +1812,7 @@ export class CartoonBlueGasExplosionNativeVFX {
                     },
                 ];
                 const scaledSz =
-                    sz_GasExplosionBlueEmitter[i] *
+                    this.sz_GasExplosionBlueEmitter[i] *
                     2.0 *
                     evalPiecewise(sizeBez, pct);
 
@@ -1672,17 +1829,17 @@ export class CartoonBlueGasExplosionNativeVFX {
                 // StretchedBillboard: shader handles orientation via aVelocity/aOffset
                 T.scale.setScalar(scaledSz);
                 off_buf_GasExplosionBlueEmitter[i * 3 + 0] =
-                    pos_GasExplosionBlueEmitter[i].x;
+                    this.pos_GasExplosionBlueEmitter[i].x;
                 off_buf_GasExplosionBlueEmitter[i * 3 + 1] =
-                    pos_GasExplosionBlueEmitter[i].y;
+                    this.pos_GasExplosionBlueEmitter[i].y;
                 off_buf_GasExplosionBlueEmitter[i * 3 + 2] =
-                    pos_GasExplosionBlueEmitter[i].z;
+                    this.pos_GasExplosionBlueEmitter[i].z;
                 vel_buf_GasExplosionBlueEmitter[i * 3 + 0] =
-                    vel_GasExplosionBlueEmitter[i].x * 1.0;
+                    this.vel_GasExplosionBlueEmitter[i].x * 1.0;
                 vel_buf_GasExplosionBlueEmitter[i * 3 + 1] =
-                    vel_GasExplosionBlueEmitter[i].y * 1.0;
+                    this.vel_GasExplosionBlueEmitter[i].y * 1.0;
                 vel_buf_GasExplosionBlueEmitter[i * 3 + 2] =
-                    vel_GasExplosionBlueEmitter[i].z * 1.0;
+                    this.vel_GasExplosionBlueEmitter[i].z * 1.0;
 
                 T.updateMatrix();
                 mesh_GasExplosionBlueEmitter.setMatrixAt(i, T.matrix);
@@ -1728,17 +1885,14 @@ export class CartoonBlueGasExplosionNativeVFX {
         };
 
         cleanups.push(() => {
-            this.scene.remove(mesh_GasExplosionBlueEmitter);
-            geo_GasExplosionBlueEmitter.dispose();
-            mat_GasExplosionBlueEmitter.dispose();
-            (mesh_GasExplosionBlueEmitter as THREE.InstancedMesh).dispose();
+            mesh_GasExplosionBlueEmitter.visible = false;
         });
 
         // ── Main animation tick ───────────────────────────────────────
         this.activeFX.push({
             update: (dt: number) => {
-                age += dt;
-                if (age > 2) {
+                this.age += dt;
+                if (this.age > 2) {
                     cleanups.forEach((fn) => fn());
                     return false;
                 }
@@ -1758,6 +1912,121 @@ export class CartoonBlueGasExplosionNativeVFX {
     public update(delta: number) {
         for (let i = this.activeFX.length - 1; i >= 0; i--) {
             if (!this.activeFX[i].update(delta)) this.activeFX.splice(i, 1);
+        }
+    }
+}
+
+export class CartoonBlueGasExplosionNativeVFX {
+    private scene: THREE.Scene;
+    private camera: THREE.Camera;
+    private mesh: THREE.InstancedMesh;
+    private maxParticles = 250;
+    
+    private pPos: Float32Array; // [x,y,z]
+    private pVel: Float32Array; // [vx,vy,vz]
+    private pAge: Float32Array; // [age]
+    private pMaxLife: Float32Array; // [maxLife]
+    private pActive: Uint8Array; // [active_flag]
+    private nextPtr = 0;
+
+    constructor(scene: THREE.Scene, camera: THREE.Camera) {
+        this.scene = scene;
+        this.camera = camera;
+
+        // Create a single simple geometry and flat material with additive blending (super lightweight)
+        const geo = new THREE.PlaneGeometry(0.35, 0.35);
+        const mat = new THREE.MeshBasicMaterial({
+            color: 0x00dfff,
+            transparent: true,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false,
+            side: THREE.DoubleSide
+        });
+
+        this.mesh = new THREE.InstancedMesh(geo, mat, this.maxParticles);
+        this.mesh.frustumCulled = false;
+        
+        // Hide all initially
+        const hideM = new THREE.Matrix4().makeScale(0, 0, 0);
+        for (let i = 0; i < this.maxParticles; i++) {
+            this.mesh.setMatrixAt(i, hideM);
+        }
+        this.mesh.instanceMatrix.needsUpdate = true;
+        this.scene.add(this.mesh);
+
+        // Pre-allocated arrays
+        this.pPos = new Float32Array(this.maxParticles * 3);
+        this.pVel = new Float32Array(this.maxParticles * 3);
+        this.pAge = new Float32Array(this.maxParticles);
+        this.pMaxLife = new Float32Array(this.maxParticles);
+        this.pActive = new Uint8Array(this.maxParticles);
+    }
+
+    public spawn(x: number, y: number, z: number) {
+        // Spawn 4 tiny quick spark particles per hit (minimal GPU fillrate / overdraw)
+        for (let k = 0; k < 4; k++) {
+            const idx = this.nextPtr;
+            this.nextPtr = (this.nextPtr + 1) % this.maxParticles;
+
+            this.pActive[idx] = 1;
+            this.pAge[idx] = 0;
+            this.pMaxLife[idx] = 0.15 + Math.random() * 0.15; // very fast fade out
+
+            const pIdx = idx * 3;
+            this.pPos[pIdx] = x;
+            this.pPos[pIdx+1] = y + 0.5; // shift to torso height
+            this.pPos[pIdx+2] = z;
+
+            // Explode outwards in random directions
+            const theta = Math.random() * Math.PI * 2;
+            const phi = Math.acos((Math.random() * 2) - 1);
+            const speed = 2.0 + Math.random() * 3.0;
+
+            this.pVel[pIdx] = Math.sin(phi) * Math.cos(theta) * speed;
+            this.pVel[pIdx+1] = Math.sin(phi) * Math.sin(theta) * speed + 1.0; // slight upward drift
+            this.pVel[pIdx+2] = Math.cos(phi) * speed;
+        }
+    }
+
+    public update(delta: number) {
+        const camQ = this.camera.quaternion;
+        const dummy = new THREE.Object3D();
+        const hideM = new THREE.Matrix4().makeScale(0, 0, 0);
+        let needsUpdate = false;
+
+        for (let i = 0; i < this.maxParticles; i++) {
+            if (this.pActive[i] === 0) continue;
+
+            this.pAge[i] += delta;
+            if (this.pAge[i] >= this.pMaxLife[i]) {
+                this.pActive[i] = 0;
+                this.mesh.setMatrixAt(i, hideM);
+                needsUpdate = true;
+                continue;
+            }
+
+            needsUpdate = true;
+            const pIdx = i * 3;
+            
+            // Move particle
+            this.pPos[pIdx] += this.pVel[pIdx] * delta;
+            this.pPos[pIdx+1] += this.pVel[pIdx+1] * delta;
+            this.pPos[pIdx+2] += this.pVel[pIdx+2] * delta;
+
+            // Render billboarding toward camera
+            dummy.position.set(this.pPos[pIdx], this.pPos[pIdx+1], this.pPos[pIdx+2]);
+            dummy.quaternion.copy(camQ);
+            
+            // Shrink over time
+            const lifeRatio = 1.0 - (this.pAge[i] / this.pMaxLife[i]);
+            dummy.scale.setScalar(lifeRatio * 0.8);
+            dummy.updateMatrix();
+
+            this.mesh.setMatrixAt(i, dummy.matrix);
+        }
+
+        if (needsUpdate) {
+            this.mesh.instanceMatrix.needsUpdate = true;
         }
     }
 }

@@ -49,7 +49,7 @@ export class SkillsSystem {
         const target = character ? character.getNearestTarget() : null;
         if (target) {
           const targetPos = new THREE.Vector3();
-          target.getWorldPosition(targetPos);
+          targetPos.copy(target.position);
           // Clamp Y to terrain surface so explosion never spawns underground
           const floorY = getTerrainHeight(targetPos.x, targetPos.z);
           gasVFX.spawn(targetPos.x, Math.max(targetPos.y, floorY) + 0.1, targetPos.z);
@@ -98,7 +98,7 @@ export class SkillsSystem {
         const target = character ? character.getNearestTarget() : null;
         if (target) {
           const targetPos = new THREE.Vector3();
-          target.getWorldPosition(targetPos);
+          targetPos.copy(target.position);
           // Clamp Y to terrain surface
           const floorY = getTerrainHeight(targetPos.x, targetPos.z);
           tornadoVFX.spawn(targetPos.x, Math.max(targetPos.y, floorY) + 0.1, targetPos.z, target);
@@ -356,7 +356,7 @@ export class SkillsSystem {
     }
   }
 
-  public handleInput(code: string, playerPos: THREE.Vector3, forward: THREE.Vector3, character?: any) {
+  public handleInput(code: string, playerPos: THREE.Vector3, forward: THREE.Vector3, character?: any): boolean {
     const skill = this.skills[code];
     if (skill && skill.currentCD <= 0) {
       // Auto-Aim: Force character to face target dummy before casting any skill
@@ -370,7 +370,9 @@ export class SkillsSystem {
       skill.trigger(playerPos, forward, character);
       skill.currentCD = skill.cooldown;
       this.updateUI();
+      return true;
     }
+    return false;
   }
 
   public update(delta: number, character?: any) {
