@@ -1217,6 +1217,7 @@ async function initMultiplayer() {
             if (!isLocalPlayerHost) {
                 soundFX.init();
                 disableControls();
+                resetWorkers(); // Reset local workers before starting local simulation
                 isRunning = true;
                 pendingTick = false;
                 lastTime = performance.now();
@@ -1314,45 +1315,40 @@ async function initMultiplayer() {
 }
 initMultiplayer();
 
-// ── Unit state replication: runs at ~6Hz (160ms) to avoid CPU GC pauses under network lag ──
-let lastSyncSnapshot: Float32Array | null = null;
-window.setInterval(() => {
-    if (!colyseusRoom || !colyseusRoom.connection.isOpen) return;
-    if (isLocalPlayerHost && isRunning) {
-        _heroX = heroCtrl.position.x;
-        _heroZ = heroCtrl.position.z;
-        buildCompactSnapshot();
+// ── Unit state replication: disabled in favor of Local Simulation (100% lag-free) ──
+// window.setInterval(() => {
+//     if (!colyseusRoom || !colyseusRoom.connection.isOpen) return;
+//     if (isLocalPlayerHost && isRunning) {
+//         _heroX = heroCtrl.position.x;
+//         _heroZ = heroCtrl.position.z;
+//         buildCompactSnapshot();
+//         let isDirty = !lastSyncSnapshot;
+//         if (lastSyncSnapshot) {
+//             for (let k = 0; k < compactSnapshot.length; k++) {
+//                 if (Math.abs(compactSnapshot[k] - lastSyncSnapshot[k]) > 0.01) {
+//                     isDirty = true;
+//                     break;
+//                 }
+//             }
+//         }
+//         if (isDirty) {
+//             if (!lastSyncSnapshot) {
+//                 lastSyncSnapshot = new Float32Array(compactSnapshot.length);
+//             }
+//             lastSyncSnapshot.set(compactSnapshot);
+//             colyseusRoom.send("syncUnits", compactSnapshot.buffer);
+//         }
+//     }
+// }, 160);
 
-        // ponytail: skip network send if state has not changed (saves server bandwidth and client deserialization cpu)
-        let isDirty = !lastSyncSnapshot;
-        if (lastSyncSnapshot) {
-            for (let k = 0; k < compactSnapshot.length; k++) {
-                // Ignore tiny float variations below 0.01 to prevent jitter-induced updates
-                if (Math.abs(compactSnapshot[k] - lastSyncSnapshot[k]) > 0.01) {
-                    isDirty = true;
-                    break;
-                }
-            }
-        }
-
-        if (isDirty) {
-            if (!lastSyncSnapshot) {
-                lastSyncSnapshot = new Float32Array(compactSnapshot.length);
-            }
-            lastSyncSnapshot.set(compactSnapshot);
-            colyseusRoom.send("syncUnits", compactSnapshot.buffer);
-        }
-    }
-}, 160); // 6Hz (perfectly smoothed by client lerp)
-
-// ── FX replication: batch send visual/sound events at 10Hz to prevent network overload ──
-window.setInterval(() => {
-    if (!colyseusRoom || !colyseusRoom.connection.isOpen) return;
-    if (isLocalPlayerHost && pendingUnitFXEvents.length > 0) {
-        colyseusRoom.send("syncUnitFX", { type: "batch", events: pendingUnitFXEvents });
-        pendingUnitFXEvents = [];
-    }
-}, 100); // 10Hz
+// ── FX replication: disabled in favor of Local Simulation (100% lag-free) ──
+// window.setInterval(() => {
+//     if (!colyseusRoom || !colyseusRoom.connection.isOpen) return;
+//     if (isLocalPlayerHost && pendingUnitFXEvents.length > 0) {
+//         colyseusRoom.send("syncUnitFX", { type: "batch", events: pendingUnitFXEvents });
+//         pendingUnitFXEvents = [];
+//     }
+// }, 100);
 
 // Inject worker tick dispatch into render loop (eliminates separate rAF)
 let targetUpdateFrameCount = 0;
@@ -1455,39 +1451,38 @@ setBeforeRenderCb((_timestamp: number, delta: number) => {
 
     // ONLY the Host ticks their workers to run the AI simulation.
     // Guests receive unit state updates over the network directly.
-    if (isLocalPlayerHost) {
-        const now = performance.now();
-        const deltaTime = now - lastTime;
-        if (deltaTime >= 15 && !pendingTick) {
-            pendingTick = true;
-            globalTickId++;
+    // BOTH Host and Guest tick their local workers independently for 100% lag-free simulation
+    const now = performance.now();
+    const deltaTime = now - lastTime;
+    if (deltaTime >= 15 && !pendingTick) {
+        pendingTick = true;
+        globalTickId++;
 
-            // Reset worker states for this tick (mark all as pending)
-            for (let i = 0; i < NUM_WORKERS; i++) {
-                if (!workerTickStates.has(i)) {
-                    workerTickStates.set(i, {
-                        workerId: i,
-                        currentTickId: globalTickId - 1,
-                        aliveA: 0,
-                        aliveB: 0,
-                        aliveOrUnspawnedA: 0,
-                        aliveOrUnspawnedB: 0,
-                    });
-                }
+        // Reset worker states for this tick (mark all as pending)
+        for (let i = 0; i < NUM_WORKERS; i++) {
+            if (!workerTickStates.has(i)) {
+                workerTickStates.set(i, {
+                    workerId: i,
+                    currentTickId: globalTickId - 1,
+                    aliveA: 0,
+                    aliveB: 0,
+                    aliveOrUnspawnedA: 0,
+                    aliveOrUnspawnedB: 0,
+                });
             }
-
-            // Dispatch tick to all workers using pre-allocated object to avoid per-frame allocations
-            const tStartWorker = performance.now();
-            t0 = frameSpy.mark();
-            _tickMsg.tickId = globalTickId;
-            for (let i = 0; i < NUM_WORKERS; i++) {
-                workers[i].postMessage(_tickMsg);
-            }
-            const tDurationWorker = performance.now() - tStartWorker;
-            perfProfiler.trackSystemTime("workerComm", tDurationWorker);
-            frameSpy.end('workerTick.dispatch', t0);
-            lastTime = now - (deltaTime % 15);
         }
+
+        // Dispatch tick to all workers using pre-allocated object to avoid per-frame allocations
+        const tStartWorker = performance.now();
+        t0 = frameSpy.mark();
+        _tickMsg.tickId = globalTickId;
+        for (let i = 0; i < NUM_WORKERS; i++) {
+            workers[i].postMessage(_tickMsg);
+        }
+        const tDurationWorker = performance.now() - tStartWorker;
+        perfProfiler.trackSystemTime("workerComm", tDurationWorker);
+        frameSpy.end('workerTick.dispatch', t0);
+        lastTime = now - (deltaTime % 15);
     }
 
     frameSpy.endFrame();
