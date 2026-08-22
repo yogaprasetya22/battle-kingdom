@@ -23,9 +23,6 @@ import { WorkerDiagnostics } from "./simulation/WorkerDiagnostics";
 import { perfProfiler } from "./graphics/core/PerformanceProfiler";
 import { createHero, syncHeroToBuffer } from "./graphics/units/Hero/HeroController";
 import { scene, camera } from "./graphics/core/scene";
-import * as Colyseus from "colyseus.js";
-import { NetworkPlayer } from "./graphics/units/Hero/NetworkPlayer";
-import { GameState } from "./net/schema";
 import { CartoonBlueGasExplosionNativeVFX } from "./vfx/cartoon-blue-gas-explosion/Native";
 import { ProjectileSystem } from "./character/projectile-system";
 import { CHARACTER_CONFIG } from "./character/character-config";
@@ -1071,11 +1068,7 @@ setBeforeRenderCb((_timestamp: number, delta: number) => {
     }
     frameSpy.end('fxRingDrain', t0);
 
-    // Update network players and network projectiles
-    t0 = frameSpy.mark();
-    networkPlayers.forEach((np) => np.update(delta));
-    frameSpy.end('networkPlayers.update', t0);
-
+    // Update network projectiles (remains local for visual projectile simulations)
     t0 = frameSpy.mark();
     networkHitVFX.update(delta);
     frameSpy.end('networkHitVFX.update', t0);
@@ -1085,27 +1078,6 @@ setBeforeRenderCb((_timestamp: number, delta: number) => {
         networkHitVFX.spawn(pos.x, pos.y, pos.z);
     });
     frameSpy.end('networkProjectiles.update', t0);
-
-    // Send local player state to Colyseus server (rate-limited to 20Hz / 50ms)
-    t0 = frameSpy.mark();
-    const tStartNet = performance.now();
-    const nowMs = performance.now();
-    if (nowMs - lastNetworkSendTime >= 50) {
-        if (colyseusRoom && colyseusRoom.connection.isOpen) {
-            colyseusRoom.send("updateState", {
-                x: heroCtrl.position.x,
-                y: heroCtrl.position.y,
-                z: heroCtrl.position.z,
-                rotY: heroCtrl.playerMesh ? heroCtrl.playerMesh.rotation.y : heroCtrl.playerGroup.rotation.y,
-                anim: heroCtrl.currentActionName || "idle"
-            });
-
-        }
-        lastNetworkSendTime = nowMs;
-    }
-    const tDurationNet = performance.now() - tStartNet;
-    perfProfiler.trackSystemTime("netSync", tDurationNet);
-    frameSpy.end('netSync', t0);
 
     // ── Worker-Bypass: update hero tiap frame (zero input lag) ──
     const heroTeam = isLocalPlayerHost ? TEAM_A : TEAM_B;
