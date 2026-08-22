@@ -721,6 +721,33 @@ function getCustomClasses(): number[] {
     return activeTypes.length > 0 ? activeTypes : [0, 1, 2, 3, 4, 5];
 }
 
+// Ring buffer for incoming FX events from host — avoids O(n) array.shift() and unbounded growth
+const FX_RING_SIZE = 128;
+const fxRingBuf: (any | null)[] = new Array(FX_RING_SIZE).fill(null);
+let fxRingHead = 0; // read pointer
+let fxRingTail = 0; // write pointer
+
+function fxRingPush(ev: any) {
+    fxRingBuf[fxRingTail] = ev;
+    fxRingTail = (fxRingTail + 1) % FX_RING_SIZE;
+    // If full, advance head (drop oldest)
+    if (fxRingTail === fxRingHead) {
+        fxRingHead = (fxRingHead + 1) % FX_RING_SIZE;
+    }
+}
+
+function fxRingShift(): any | null {
+    if (fxRingHead === fxRingTail) return null;
+    const ev = fxRingBuf[fxRingHead];
+    fxRingBuf[fxRingHead] = null;
+    fxRingHead = (fxRingHead + 1) % FX_RING_SIZE;
+    return ev;
+}
+
+function fxRingLength(): number {
+    return (fxRingTail - fxRingHead + FX_RING_SIZE) % FX_RING_SIZE;
+}
+
 function resetWorkers() {
     isRunning = false;
     pendingTick = false;
@@ -734,7 +761,7 @@ function resetWorkers() {
     resetUnitsVisual();
     world.turrets.reset();
 
-    const customClasses = isLocalPlayerHost ? getCustomClasses() : guestCustomClasses;
+    const customClasses = getCustomClasses();
     for (let i = 0; i < NUM_WORKERS; i++) {
         workers[i].postMessage({
             type: "reset",
@@ -966,352 +993,19 @@ window.addEventListener('projectile_hit', (e: any) => {
 scoreA.textContent = TEAM_SIZE.toString();
 scoreB.textContent = TEAM_SIZE.toString();
 
-// ---- Colyseus Connection ----
-const SERVER_URL = (import.meta.env.VITE_SERVER_URL && !import.meta.env.VITE_SERVER_URL.includes("localhost"))
-  ? import.meta.env.VITE_SERVER_URL
-  : `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.hostname}:2567`;
-
-const colyseusClient = new Colyseus.Client(SERVER_URL);
-let colyseusRoom: Colyseus.Room | null = null;
+// ---- Colyseus Connection Disabled ----
+const roomHostId = "local_host";
+const isLocalPlayerHost = true;
+let colyseusRoom: any = null;
 const networkPlayers = new Map<string, NetworkPlayer>();
 const networkProjectiles = new ProjectileSystem(scene);
 const networkHitVFX = new CartoonBlueGasExplosionNativeVFX(scene, camera);
 let lastNetworkSendTime = 0;
 let pendingUnitFXEvents: any[] = [];
-// Ring buffer for incoming FX events from host — avoids O(n) array.shift() and unbounded growth
-const FX_RING_SIZE = 128;
-const fxRingBuf: (any | null)[] = new Array(FX_RING_SIZE).fill(null);
-let fxRingHead = 0; // read pointer
-let fxRingTail = 0; // write pointer
-
-function fxRingPush(ev: any) {
-    fxRingBuf[fxRingTail] = ev;
-    fxRingTail = (fxRingTail + 1) % FX_RING_SIZE;
-    // If full, advance head (drop oldest)
-    if (fxRingTail === fxRingHead) {
-        fxRingHead = (fxRingHead + 1) % FX_RING_SIZE;
-    }
-}
-
-function fxRingShift(): any | null {
-    if (fxRingHead === fxRingTail) return null;
-    const ev = fxRingBuf[fxRingHead];
-    fxRingBuf[fxRingHead] = null;
-    fxRingHead = (fxRingHead + 1) % FX_RING_SIZE;
-    return ev;
-}
-
-function fxRingLength(): number {
-    return (fxRingTail - fxRingHead + FX_RING_SIZE) % FX_RING_SIZE;
-}
-
-let guestCustomClasses: number[] = [0, 1, 2, 3, 4, 5];
-
-let roomHostId = "";
-let isLocalPlayerHost = false;
-
-const onlineCountEl = document.getElementById("online-count");
-const onlineListEl = document.getElementById("online-players-list");
-
-function updateOnlinePlayersUI() {
-    if (!onlineCountEl || !onlineListEl || !colyseusRoom) return;
-
-    const count = 1 + networkPlayers.size;
-    onlineCountEl.textContent = `${count} Online`;
-
-    const isMeHost = colyseusRoom.sessionId === roomHostId;
-    let html = `
-      <li class="flex items-center justify-between bg-slate-900/50 px-2.5 py-1.5 rounded-lg border border-slate-800">
-        <span class="truncate font-medium text-slate-200 font-mono">Anda (${colyseusRoom.sessionId.slice(0, 5)}...)</span>
-        <span class="text-[9px] ${isMeHost ? 'text-emerald-500 bg-emerald-500/10' : 'text-blue-400 bg-blue-500/10'} font-bold px-1.5 py-0.5 rounded">
-          ${isMeHost ? 'Host' : 'Guest'}
-        </span>
-      </li>
-    `;
-
-    networkPlayers.forEach((_, sessionId) => {
-        const isThisHost = sessionId === roomHostId;
-        html += `
-          <li class="flex items-center justify-between bg-slate-900/50 px-2.5 py-1.5 rounded-lg border border-slate-800">
-            <span class="truncate font-medium text-slate-300 font-mono">${sessionId.slice(0, 5)}...</span>
-            <span class="text-[9px] ${isThisHost ? 'text-emerald-500 bg-emerald-500/10' : 'text-blue-400 bg-blue-500/10'} font-bold px-1.5 py-0.5 rounded">
-              ${isThisHost ? 'Host' : 'Guest'}
-            </span>
-          </li>
-        `;
-    });
-
-    onlineListEl.innerHTML = html;
-}
 
 async function initMultiplayer() {
-    try {
-        colyseusRoom = await colyseusClient.joinOrCreate("game_room");
-        console.log("Connected to game room:", colyseusRoom.id);
-        updateOnlinePlayersUI();
-
-        // Receive lobby host updates
-        colyseusRoom.onMessage("lobbyInfo", (data: { hostId: string }) => {
-            roomHostId = data.hostId;
-            const wasHost = isLocalPlayerHost;
-            isLocalPlayerHost = colyseusRoom?.sessionId === roomHostId;
-            updateOnlinePlayersUI();
-
-            // Set spawn position and team based on host/guest role
-            if (isLocalPlayerHost) {
-                heroCtrl.position.set(SPAWN_A_X, 2, 0);
-            } else {
-                heroCtrl.position.set(SPAWN_B_X, 2, 0);
-            }
-            heroCtrl.playerGroup.position.copy(heroCtrl.position);
-
-            // Send config to server when becoming host so it can be cached for new joiners
-            if (isLocalPlayerHost && !wasHost && colyseusRoom) {
-                colyseusRoom.send("updateConfig", {
-                    teamAConfig,
-                    teamBConfig,
-                    customClasses: getCustomClasses()
-                });
-            }
-        });
-
-        // 1. Receive initial list of players already online
-        colyseusRoom.onMessage("initialPlayers", (players: any[]) => {
-            players.forEach((p) => {
-                if (p.id === colyseusRoom?.sessionId) return;
-                if (networkPlayers.has(p.id)) return;
-                console.log("Adding initial player:", p.id);
-                const np = new NetworkPlayer(scene, p.id);
-                np.targetPosition.set(p.x, p.y, p.z);
-                np.targetRotationY = p.rotY;
-                np.playAnimationState(p.anim);
-                networkPlayers.set(p.id, np);
-            });
-            updateOnlinePlayersUI();
-        });
-
-        // 2. New player joined the room
-        colyseusRoom.onMessage("playerJoined", (p: any) => {
-            if (p.id === colyseusRoom?.sessionId) return;
-            if (networkPlayers.has(p.id)) {
-                console.log("Player already registered, updating position:", p.id);
-                const existingNp = networkPlayers.get(p.id);
-                if (existingNp) {
-                    existingNp.targetPosition.set(p.x, p.y, p.z);
-                    existingNp.targetRotationY = p.rotY;
-                    existingNp.playAnimationState(p.anim);
-                }
-                return;
-            }
-            console.log("New network player joined:", p.id);
-            const np = new NetworkPlayer(scene, p.id);
-            np.targetPosition.set(p.x, p.y, p.z);
-            np.targetRotationY = p.rotY;
-            np.playAnimationState(p.anim);
-            networkPlayers.set(p.id, np);
-            updateOnlinePlayersUI();
-        });
-
-        // 3. Another player moved
-        colyseusRoom.onMessage("playerMoved", (p: any) => {
-            if (p.id === colyseusRoom?.sessionId) return;
-            const np = networkPlayers.get(p.id);
-            if (np) {
-                np.targetPosition.set(p.x, p.y, p.z);
-                np.targetRotationY = p.rotY;
-                np.playAnimationState(p.anim);
-            }
-        });
-
-        // 4. A player disconnected
-        colyseusRoom.onMessage("playerLeft", (p: any) => {
-            console.log("Network player left:", p.id);
-            const np = networkPlayers.get(p.id);
-            if (np) {
-                np.destroy();
-                networkPlayers.delete(p.id);
-            }
-            updateOnlinePlayersUI();
-        });
-
-        // 5. Receive skill casting event from another player
-        colyseusRoom.onMessage("playerCastSkill", (p: { id: string, skillId: string, originX: number, originZ: number }) => {
-            if (p.id === colyseusRoom?.sessionId) return;
-            const np = networkPlayers.get(p.id);
-            skills.triggerNetworkVFX(p.skillId, p.originX, p.originZ, np?.playerMesh || undefined);
-
-            // ponytail: Host must apply Guest's skill casts to the physics simulation so they deal damage
-            if (isLocalPlayerHost) {
-                let skillConf: { damage: number; radius: number; activeDuration?: number } | null = null;
-                if (p.skillId === CHARACTER_CONFIG.skills.gasExplosion.key || p.skillId === 'Digit1') {
-                    skillConf = CHARACTER_CONFIG.skills.gasExplosion;
-                } else if (p.skillId === CHARACTER_CONFIG.skills.flamethrower.key || p.skillId === 'Digit2') {
-                    skillConf = CHARACTER_CONFIG.skills.flamethrower;
-                } else if (p.skillId === CHARACTER_CONFIG.skills.tornado.key || p.skillId === 'Digit3') {
-                    skillConf = CHARACTER_CONFIG.skills.tornado;
-                }
-
-                if (skillConf) {
-                    // Caster is Guest (TEAM_B), target team is TEAM_A (0)
-                    const targetTeam = 0; 
-                    for (const w of workers) {
-                        w.postMessage({
-                            type: 'PLAYER_SKILL_CAST',
-                            skillId: p.skillId,
-                            originX: p.originX,
-                            originZ: p.originZ,
-                            radius: skillConf.radius,
-                            damage: skillConf.damage,
-                            targetTeam: targetTeam,
-                            activeDuration: skillConf.activeDuration
-                        });
-                    }
-                }
-            }
-        });
-
-        // 6. Listen to local skill casts and forward to Colyseus server
-        window.addEventListener('network_skill_cast', (e: any) => {
-            if (colyseusRoom && colyseusRoom.connection.isOpen) {
-                colyseusRoom.send("castSkill", e.detail);
-            }
-        });
-
-        // 7. Receive attack casting event from another player (basic attack arrow)
-        colyseusRoom.onMessage("playerCastAttack", (p: { id: string, x: number, y: number, z: number, dx: number, dy: number, dz: number }) => {
-            if (p.id === colyseusRoom?.sessionId) return;
-            const startPos = new THREE.Vector3(p.x, p.y, p.z);
-            const dir = new THREE.Vector3(p.dx, p.dy, p.dz);
-            const casterTeam = (p.id === roomHostId) ? TEAM_A : TEAM_B;
-
-            // Find closest opposing unit to direct the homing projectile toward
-            const opponentTeam = casterTeam === TEAM_A ? TEAM_B : TEAM_A;
-            const units = getUnits();
-            let homingTarget: THREE.Object3D | null = null;
-            let minAngle = 0.85; // Allow homing if within ~30 degrees cone of the shot direction
-
-            for (let i = 0; i < units.length; i++) {
-                const u = units[i];
-                if (u && u.root && u.team === opponentTeam) {
-                    const toUnit = new THREE.Vector3().copy(u.root.position).sub(startPos).normalize();
-                    const dot = toUnit.dot(dir);
-                    if (dot > minAngle) {
-                        minAngle = dot;
-                        homingTarget = u.root;
-                    }
-                }
-            }
-
-            networkProjectiles.spawn(startPos, dir, CHARACTER_CONFIG.projectiles.speed, homingTarget, casterTeam);
-        });
-
-        // 8. Listen to local attacks and forward to Colyseus server
-        window.addEventListener('network_attack_cast', (e: any) => {
-            if (colyseusRoom && colyseusRoom.connection.isOpen) {
-                colyseusRoom.send("castAttack", e.detail);
-            }
-        });
-
-        // 9. Host-controlled action replication for guests
-        colyseusRoom.onMessage("simulationStarted", () => {
-            if (!isLocalPlayerHost) {
-                soundFX.init();
-                disableControls();
-                resetWorkers(); // Reset local workers before starting local simulation
-                isRunning = true;
-                pendingTick = false;
-                lastTime = performance.now();
-                perfProfiler.startLogging();
-            }
-        });
-
-        colyseusRoom.onMessage("simulationReset", () => {
-            if (!isLocalPlayerHost) {
-                disableControls();
-                overlay.style.display = "none";
-                resetWorkers();
-            }
-        });
-
-        colyseusRoom.onMessage("configUpdated", (config: any) => {
-            if (!isLocalPlayerHost) {
-                Object.assign(teamAConfig, config.teamAConfig);
-                Object.assign(teamBConfig, config.teamBConfig);
-                if (config.customClasses) {
-                    guestCustomClasses = config.customClasses;
-                    document.querySelectorAll(".class-badge").forEach((badge: any) => {
-                        const type = parseInt(badge.dataset.type || "0");
-                        if (config.customClasses.includes(type)) {
-                            badge.classList.add("active");
-                        } else {
-                            badge.classList.remove("active");
-                        }
-                    });
-                }
-                localStorage.setItem("teamAConfig", JSON.stringify(teamAConfig));
-                localStorage.setItem("teamBConfig", JSON.stringify(teamBConfig));
-                
-                disableControls();
-                overlay.style.display = "none";
-                resetWorkers();
-                loadConfigToUI();
-
-                // Re-create visual unit models to match the synced configuration
-                loadModel(selectModel.value, selectMatchup.value, () => {
-                    enableControls();
-                });
-            }
-        });
-
-        // Guest listens for Host unit state compact sync (5 fields per unit)
-        colyseusRoom.onMessage("unitsSynced", (data: ArrayBuffer) => {
-            if (!isLocalPlayerHost) {
-                const receivedArray = new Float32Array(data);
-                // Compact format: UNIT_COUNT * COMPACT_FIELDS (5) floats
-                if (receivedArray.length === UNIT_COUNT * COMPACT_FIELDS) {
-                    applyCompactSnapshot(receivedArray);
-                }
-            }
-        });
-
-        // Host listens for damage events forwarded from guests
-        colyseusRoom.onMessage("unitTakeDamage", (data: { targetIdx: number, damage: number }) => {
-            if (isLocalPlayerHost) {
-                const { targetIdx, damage } = data;
-                const targetWorkerIdx = Math.floor(targetIdx / Math.ceil(UNIT_COUNT / NUM_WORKERS));
-                const targetWorker = workers[targetWorkerIdx];
-                if (targetWorker) {
-                    const base = targetIdx * STRIDE;
-                    const unitX = sharedData[base + IDX_X];
-                    const unitZ = sharedData[base + IDX_Z];
-                    targetWorker.postMessage({
-                        type: 'PLAYER_SKILL_CAST',
-                        skillId: 'basic_attack',
-                        // targetIdx enables O(1) direct-damage path in worker (no AoE loop)
-                        targetIdx,
-                        originX: unitX,
-                        originZ: unitZ,
-                        radius: 0.01,
-                        damage: damage,
-                        targetTeam: targetIdx < TEAM_SIZE ? 0 : 1
-                    });
-                }
-            }
-        });
-
-        // Guest listens for visual and sound effects of all units broadcasted by Host
-        colyseusRoom.onMessage("unitFXSynced", (data: { type: "single" | "batch", event?: any, events?: any[] }) => {
-            if (!isLocalPlayerHost) {
-                if (data.type === "single" && data.event) {
-                    fxRingPush(data.event);
-                } else if (data.type === "batch" && data.events) {
-                    for (let _i = 0; _i < data.events.length; _i++) fxRingPush(data.events[_i]);
-                }
-            }
-        });
-    } catch (e) {
-        console.warn("Failed to connect to multiplayer server (offline fallback active):", e);
-    }
+    // Multiplayer completely disabled per request
+    console.log("Multiplayer offline: Running pure local mode.");
 }
 initMultiplayer();
 
