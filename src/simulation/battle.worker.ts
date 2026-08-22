@@ -583,10 +583,10 @@ function tick(d: Float32Array) {
                 }
             }
 
-            // ponytail: ranged units search every 16 frames, healers every 30, melee every 6.
-            // Reduksi spikes komputasi secara signifikan.
+            // ponytail: ranged units search every 32 frames, healers every 60, melee every 12.
+            // Reduksi spikes komputasi secara signifikan agar deploy server di VPS berharga murah tetap ringan.
             const isRanged = uType === TYPE_ARCHER || uType === TYPE_MAGE || uType === TYPE_GUNSLINGER;
-            const searchInterval = uType === TYPE_HEALER ? 30 : (isRanged ? 16 : 6);
+            const searchInterval = uType === TYPE_HEALER ? 60 : (isRanged ? 32 : 12);
             const shouldSearch = (battleTicks + i) % searchInterval === 0;
 
             if (isTargetInvalid || shouldSearch) {
