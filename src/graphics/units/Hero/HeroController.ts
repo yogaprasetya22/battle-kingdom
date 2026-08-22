@@ -188,11 +188,6 @@ export function createHero(
                         : undefined
                 });
             }
-
-            // Notify main.ts to broadcast this cast to the multiplayer server
-            window.dispatchEvent(new CustomEvent('network_skill_cast', {
-                detail: { skillId: e.code, originX, originZ }
-            }));
         }
     });
 

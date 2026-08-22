@@ -857,10 +857,6 @@ export class CharacterController {
         dx = _scratchDir.x; dy = _scratchDir.y; dz = _scratchDir.z;
       }
       this.projectileSystem.spawn(spawnPos, _scratchDir, CHARACTER_CONFIG.projectiles.speed, target ?? null, this.teamId);
-
-      window.dispatchEvent(new CustomEvent('network_attack_cast', {
-        detail: { x: spawnPos.x, y: spawnPos.y, z: spawnPos.z, dx, dy, dz }
-      }));
     }
     return true;
   }
