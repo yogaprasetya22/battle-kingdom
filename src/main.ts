@@ -666,9 +666,6 @@ for (let i = 0; i < NUM_WORKERS; i++) {
             } else {
                 spawnSkillFX(e.data);
             }
-            if (isLocalPlayerHost && colyseusRoom && colyseusRoom.connection.isOpen) {
-                pendingUnitFXEvents.push(e.data);
-            }
         }
 
         if (type === "skillFXBatch") {
@@ -695,9 +692,6 @@ for (let i = 0; i < NUM_WORKERS; i++) {
                         }
                         // Push all visual FX events into ring buffer — rate-limited to 8/frame
                         fxRingPush(ev);
-                        if (isLocalPlayerHost && colyseusRoom && colyseusRoom.connection.isOpen) {
-                            pendingUnitFXEvents.push(ev);
-                        }
                     }
                 }
             }
@@ -783,32 +777,7 @@ btnStart.addEventListener("click", () => {
     // Mulai record performance profiling
     perfProfiler.startLogging();
 
-    // Broadcast to guests
-    if (colyseusRoom && colyseusRoom.connection.isOpen && isLocalPlayerHost) {
-        colyseusRoom.send("startSimulation");
-    }
-});
-
-btnReset.addEventListener("click", () => {
-    disableControls();
-    overlay.style.display = "none";
-    resetWorkers();
-
-    // Broadcast to guests
-    if (colyseusRoom && colyseusRoom.connection.isOpen && isLocalPlayerHost) {
-        colyseusRoom.send("resetSimulation");
-    }
-});
-
-overlayBtn.addEventListener("click", () => {
-    disableControls();
-    overlay.style.display = "none";
-    resetWorkers();
-
-    // Broadcast to guests
-    if (colyseusRoom && colyseusRoom.connection.isOpen && isLocalPlayerHost) {
-        colyseusRoom.send("resetSimulation");
-    }
+    // Broadcast to guests removed (offline mode)
 });
 
 // ── Model Viewer ──
@@ -953,36 +922,25 @@ function throttleSpawnHitVFX(x: number, y: number, z: number, vfxSystem: { spawn
 window.addEventListener('projectile_hit', (e: any) => {
     const { targetIdx, damage } = e.detail;
 
-    // ponytail: we let the authoritative host/server broadcast hits via unitFXSynced
-    // to prevent double spawning and GC memory pressure on clients.
-    // Client-side visual hit VFX (sparks/flashes) is still handled instantly by the projectile system itself.
-
-    if (isLocalPlayerHost) {
-        // Tentukan worker mana yang mengurus unit target ini
-        const targetWorkerIdx = Math.floor(targetIdx / Math.ceil(UNIT_COUNT / NUM_WORKERS));
-        const targetWorker = workers[targetWorkerIdx];
-        if (targetWorker) {
-            // Baca posisi unit target dari SAB
-            const base = targetIdx * STRIDE;
-            const unitX = sharedData[base + IDX_X];
-            const unitZ = sharedData[base + IDX_Z];
-            targetWorker.postMessage({
-                type: 'PLAYER_SKILL_CAST',
-                skillId: 'basic_attack',
-                // targetIdx enables O(1) direct-damage path in worker (no AoE loop)
-                targetIdx,
-                originX: unitX,
-                originZ: unitZ,
-                radius: 0.01,
-                damage: damage,
-                targetTeam: targetIdx < TEAM_SIZE ? 0 : 1
-            });
-        }
-    } else {
-        // Guest mengirim info hit ke server untuk diteruskan ke Host
-        if (colyseusRoom && colyseusRoom.connection.isOpen) {
-            colyseusRoom.send("projectileHitUnit", { targetIdx, damage });
-        }
+    // Tentukan worker mana yang mengurus unit target ini
+    const targetWorkerIdx = Math.floor(targetIdx / Math.ceil(UNIT_COUNT / NUM_WORKERS));
+    const targetWorker = workers[targetWorkerIdx];
+    if (targetWorker) {
+        // Baca posisi unit target dari SAB
+        const base = targetIdx * STRIDE;
+        const unitX = sharedData[base + IDX_X];
+        const unitZ = sharedData[base + IDX_Z];
+        targetWorker.postMessage({
+            type: 'PLAYER_SKILL_CAST',
+            skillId: 'basic_attack',
+            // targetIdx enables O(1) direct-damage path in worker (no AoE loop)
+            targetIdx,
+            originX: unitX,
+            originZ: unitZ,
+            radius: 0.01,
+            damage: damage,
+            targetTeam: targetIdx < TEAM_SIZE ? 0 : 1
+        });
     }
 });
 
@@ -993,52 +951,10 @@ scoreB.textContent = TEAM_SIZE.toString();
 // ---- Connection Disabled ----
 const roomHostId = "local_host";
 const isLocalPlayerHost = true;
-let colyseusRoom: any = null;
 const networkProjectiles = new ProjectileSystem(scene);
 const networkHitVFX = new CartoonBlueGasExplosionNativeVFX(scene, camera);
-let lastNetworkSendTime = 0;
-let pendingUnitFXEvents: any[] = [];
 
-async function initMultiplayer() {
-    // Multiplayer completely disabled per request
-    console.log("Multiplayer offline: Running pure local mode.");
-}
-initMultiplayer();
-
-// ── Unit state replication: disabled in favor of Local Simulation (100% lag-free) ──
-// window.setInterval(() => {
-//     if (!colyseusRoom || !colyseusRoom.connection.isOpen) return;
-//     if (isLocalPlayerHost && isRunning) {
-//         _heroX = heroCtrl.position.x;
-//         _heroZ = heroCtrl.position.z;
-//         buildCompactSnapshot();
-//         let isDirty = !lastSyncSnapshot;
-//         if (lastSyncSnapshot) {
-//             for (let k = 0; k < compactSnapshot.length; k++) {
-//                 if (Math.abs(compactSnapshot[k] - lastSyncSnapshot[k]) > 0.01) {
-//                     isDirty = true;
-//                     break;
-//                 }
-//             }
-//         }
-//         if (isDirty) {
-//             if (!lastSyncSnapshot) {
-//                 lastSyncSnapshot = new Float32Array(compactSnapshot.length);
-//             }
-//             lastSyncSnapshot.set(compactSnapshot);
-//             colyseusRoom.send("syncUnits", compactSnapshot.buffer);
-//         }
-//     }
-// }, 160);
-
-// ── FX replication: disabled in favor of Local Simulation (100% lag-free) ──
-// window.setInterval(() => {
-//     if (!colyseusRoom || !colyseusRoom.connection.isOpen) return;
-//     if (isLocalPlayerHost && pendingUnitFXEvents.length > 0) {
-//         colyseusRoom.send("syncUnitFX", { type: "batch", events: pendingUnitFXEvents });
-//         pendingUnitFXEvents = [];
-//     }
-// }, 100);
+// Multiplayer completely disabled (offline fallback mode active)
 
 // Inject worker tick dispatch into render loop (eliminates separate rAF)
 let targetUpdateFrameCount = 0;
@@ -1423,14 +1339,7 @@ btnSettingsSave.addEventListener("click", () => {
     overlay.style.display = "none";
     resetWorkers();
     
-    // Broadcast config update to server if Host
-    if (colyseusRoom && colyseusRoom.connection.isOpen && isLocalPlayerHost) {
-        colyseusRoom.send("updateConfig", {
-            teamAConfig,
-            teamBConfig,
-            customClasses: getCustomClasses()
-        });
-    }
+    // Config broadcast removed (offline mode)
 
     loadModel(selectModel.value, selectMatchup.value, () => {
         enableControls();
